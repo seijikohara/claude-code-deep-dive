@@ -1,0 +1,285 @@
+---
+title: "キーボードと入力"
+description: "対話セッションのプロンプトで使うキーと入力の仕組みです。この章では、制御キー、readline 編集、入力プレフィックスと複数行、シェルモード、キューイングと履歴、貼り付け、Vim モード、/btw・トランスクリプト・/diff を扱います。キーの割り当て変更は Ch14 です。"
+sidebar:
+  order: 13
+---
+
+対話セッションのプロンプトで使うキーと入力の仕組みです。この章では、制御キー、readline 編集、入力プレフィックスと複数行、シェルモード、キューイングと履歴、貼り付け、Vim モード、`/btw`・トランスクリプト・`/diff` を扱います。キーの割り当て変更は [Ch14](/claude-code-deep-dive/ja/operation/keybindings/) です。
+
+<span id="ch13-control" />
+
+## 制御キー: 中断・終了・モード切り替え
+
+| キー                                                                  | アクション                                                     | 動作                                                                                                                                                                                                                                                   |
+| --------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| <kbd>Ctrl</kbd>+<kbd>C</kbd>                                          | `app:interrupt`（予約）                                        | 実行中なら中断。何も動いていなければ 1 回目で入力を消し、2 回目で終了。多くのダイアログでは 2 回で閉じる                                                                                                                                               |
+| <kbd>Ctrl</kbd>+<kbd>D</kbd>                                          | `app:exit`（予約）                                             | 1 回目でヒント、800ms 以内の 2 回目で終了。入力があるときはカーソル後の 1 文字を削除                                                                                                                                                                   |
+| <kbd>Esc</kbd>                                                        | `chat:cancel`                                                  | 応答やツール呼び出しを止める（作業は残り、キュー済みメッセージを次に送る）。ダイアログを閉じ、フッター項目の選択を外す。権限プロンプトではコメントなしの No                                                                                            |
+| <kbd>Esc</kbd> <kbd>Esc</kbd>                                         | —                                                              | 入力があれば消して履歴に保存。空なら rewind メニュー（[Ch8](/claude-code-deep-dive/ja/fundamentals/checkpoints/)）                                                                                                                                     |
+| <kbd>Shift</kbd>+<kbd>Tab</kbd>                                       | `chat:cycleMode`                                               | `default`（表示は Manual）→ `acceptEdits` → `plan` →（使えるとき）`bypassPermissions` → `auto`。`auto` の次は `default`。VT 入力のない Windows では <kbd>Alt</kbd>+<kbd>M</kbd>。モードは [Ch23](/claude-code-deep-dive/ja/settings/permission-modes/) |
+| <kbd>Tab</kbd>                                                        | `autocomplete:accept`                                          | 補完候補を確定。権限プロンプトで Yes/No にフォーカスがあるときはコメント欄を開閉                                                                                                                                                                       |
+| <kbd>↑</kbd> <kbd>↓</kbd> / <kbd>Ctrl</kbd>+<kbd>P</kbd> <kbd>N</kbd> | `history:previous` `history:next`（<kbd>↑</kbd> <kbd>↓</kbd>） | 複数行の入力ではまず行内を移動し、先頭・末尾の行で履歴へ。キューがあれば <kbd>↑</kbd> で取り戻す                                                                                                                                                       |
+| <kbd>←</kbd> <kbd>→</kbd>                                             | `tabs:previous` `tabs:next`                                    | ダイアログやメニューのタブを切り替え                                                                                                                                                                                                                   |
+| <kbd>?</kbd>（空の入力）                                              | —                                                              | ショートカット一覧の表示を切り替え。入力がある場合は文字として入る                                                                                                                                                                                     |
+| <kbd>Ctrl</kbd>+<kbd>Z</kbd>                                          | —                                                              | Unix でサスペンド。`fg` で再開                                                                                                                                                                                                                         |
+| <kbd>Ctrl</kbd>+<kbd>L</kbd> / <kbd>Cmd</kbd>+<kbd>K</kbd>            | `chat:clearInput` `chat:clearScreen`                           | 入力と会話を保ったまま全体を再描画。v2.1.238 より前は 2 回押しで `/clear`                                                                                                                                                                              |
+
+<div class="src">
+  出典: [interactive-mode#general-controls](https://code.claude.com/docs/en/interactive-mode#general-controls) · [keybindings#available-actions](https://code.claude.com/docs/en/keybindings#available-actions) · [fullscreen#clear-the-conversation](https://code.claude.com/docs/en/fullscreen#clear-the-conversation)
+</div>
+
+<span id="ch13-ctrl-option" />
+
+## Ctrl・Option キー
+
+| キー                                                                                                    | アクション                               | 動作                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| <kbd>Ctrl</kbd>+<kbd>B</kbd> / <kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Ctrl</kbd>+<kbd>B</kbd>                | `task:background`                        | 実行中の Bash とエージェントをバックグラウンドへ。tmux では 2 回押す                                                                                                                                                     |
+| <kbd>Ctrl</kbd>+<kbd>O</kbd>                                                                            | `app:toggleTranscript`                   | トランスクリプト表示の切り替え（後述）                                                                                                                                                                                   |
+| <kbd>Ctrl</kbd>+<kbd>T</kbd>                                                                            | `app:toggleTodos`                        | Claude の ToDo チェックリスト（最大 5 件、`/tasks` とは別）。既定で埋まるのは Opus 4.7・Sonnet 4.6・Haiku 4.5 以前で、他は `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` が要る（[Ch21](/claude-code-deep-dive/ja/settings/tools/)） |
+| <kbd>Ctrl</kbd>+<kbd>G</kbd> / <kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Ctrl</kbd>+<kbd>E</kbd>                | `chat:externalEditor`                    | プロンプトを外部エディタで編集。`/config` の Show last response in external editor で直前の返答を `#` コメントで添える                                                                                                   |
+| <kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd>                                               | `chat:killAgents`                        | バックグラウンドのサブエージェントを全停止し、artifact の自動返信を切る。3 秒以内に 2 回                                                                                                                                 |
+| <kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Tab</kbd> | `abovePrompt:toggle` `abovePrompt:focus` | Mods が描くプロンプト上の帯を畳む / 帯とペインへフォーカスを移す                                                                                                                                                         |
+| <kbd>Option</kbd>+<kbd>P</kbd>（他 OS は <kbd>Alt</kbd>）                                               | `chat:modelPicker`                       | 入力を消さずにモデルを切り替え                                                                                                                                                                                           |
+| <kbd>Option</kbd>+<kbd>T</kbd>                                                                          | `chat:thinkingToggle`                    | 拡張思考の切り替え。Opus 5.5・Sonnet 5.5・Haiku 5.5・Fable は常に思考するため効果なし                                                                                                                                    |
+| <kbd>Option</kbd>+<kbd>O</kbd>                                                                          | `chat:fastMode`                          | fast mode の切り替え（[Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）                                                                                                                                         |
+
+- macOS の <kbd>Option</kbd>/<kbd>Alt</kbd> ショートカットは、端末で Option as Meta を有効にしないと届きません（[Ch17](/claude-code-deep-dive/ja/operation/display/)）。<kbd>Option</kbd>+<kbd>T</kbd> は設定なしでも動きます。
+- ほかのキーは各節で扱います: <kbd>Ctrl</kbd>+<kbd>R</kbd>・<kbd>Ctrl</kbd>+<kbd>S</kbd>（履歴）、<kbd>Ctrl</kbd>+<kbd>V</kbd>（貼り付け）、<kbd>Ctrl</kbd>+<kbd>Enter</kbd>・<kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Enter</kbd>（キューイング）、<kbd>Ctrl</kbd>+<kbd>J</kbd>（複数行）、<kbd>Space</kbd>（音声入力、[Ch17](/claude-code-deep-dive/ja/operation/display/)）。
+
+<div class="src">
+  出典: [interactive-mode#general-controls](https://code.claude.com/docs/en/interactive-mode#general-controls) · [keybindings#chat-actions](https://code.claude.com/docs/en/keybindings#chat-actions) · [#above-prompt-actions](https://code.claude.com/docs/en/keybindings#above-prompt-actions) · [interactive-mode#task-list](https://code.claude.com/docs/en/interactive-mode#task-list)
+</div>
+
+<span id="ch13-readline" />
+
+## readline 編集と単語の区切り
+
+| キー                                                                          | 動作                                         |
+| ----------------------------------------------------------------------------- | -------------------------------------------- |
+| <kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>Ctrl</kbd>+<kbd>E</kbd>                   | 論理行の先頭 / 末尾へ                        |
+| <kbd>Ctrl</kbd>+<kbd>K</kbd>                                                  | 行末まで削除（削除文字列を保存）             |
+| <kbd>Ctrl</kbd>+<kbd>U</kbd>                                                  | 行頭まで削除。繰り返すと複数行にわたって消す |
+| <kbd>Ctrl</kbd>+<kbd>W</kbd>                                                  | 直前の空白まで削除                           |
+| <kbd>Ctrl</kbd>+<kbd>Y</kbd>                                                  | 最後に削除した文字列を貼り付け               |
+| <kbd>Alt</kbd>+<kbd>Y</kbd>（<kbd>Ctrl</kbd>+<kbd>Y</kbd> の後）              | 削除履歴を順に切り替え                       |
+| <kbd>Alt</kbd>+<kbd>B</kbd> / <kbd>Alt</kbd>+<kbd>F</kbd>                     | 1 単語戻る / 進む（単語末へ）                |
+| <kbd>Alt</kbd>+<kbd>D</kbd>                                                   | 単語末まで削除                               |
+| <kbd>Ctrl</kbd>+<kbd>\_</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>-</kbd> | 入力の編集を 1 つ取り消す（`chat:undo`）     |
+
+- 単語系のキー（<kbd>Alt</kbd>+<kbd>B</kbd>/<kbd>F</kbd>/<kbd>D</kbd>、macOS の <kbd>Option</kbd>+<kbd>Delete</kbd>、Windows の <kbd>Ctrl</kbd>+<kbd>Backspace</kbd>）は英数字の連続を 1 単語とみなします。`src/utils/foo.ts` で <kbd>Alt</kbd>+<kbd>B</kbd> を繰り返すと `ts`、`foo`、`utils`、`src` の先頭で止まります。
+- <kbd>Ctrl</kbd>+<kbd>W</kbd> は記号を無視して空白まで消すので、パスや `--flag=value` を 1 回で消せます。
+- 空白なしで書く日本語や中国語でも、単語単位で動きます。
+- この readline 準拠の動作は v2.1.261 以降です。切り替え用だった `keybindingFlavor` は非推奨で効果がありません。
+- 単語系のキーと <kbd>Ctrl</kbd>+<kbd>W</kbd> にはアクションが無く、`keybindings.json` では変えられません。
+- 削除範囲が `[Pasted text #N]` にかかると、プレースホルダーごと消えます。<kbd>Ctrl</kbd>+<kbd>Y</kbd> で戻せます。
+
+<div class="src">
+  出典: [interactive-mode#text-editing](https://code.claude.com/docs/en/interactive-mode#text-editing) · [#word-boundaries-in-editing-shortcuts](https://code.claude.com/docs/en/interactive-mode#word-boundaries-in-editing-shortcuts) · [settings-reference#keybindingflavor](https://code.claude.com/docs/en/settings-reference#keybindingflavor) · [terminal-config#delete-and-restore-a-collapsed-paste](https://code.claude.com/docs/en/terminal-config#delete-and-restore-a-collapsed-paste)
+</div>
+
+<span id="ch13-prefix" />
+
+## 入力プレフィックスと複数行入力
+
+| 入力            | 意味                                                                                                                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`（先頭）     | コマンドか Skill。途中での補完は [Ch12](/claude-code-deep-dive/ja/operation/commands/)                                                          |
+| `!`（先頭）     | シェルモード（次の節）                                                                                                                          |
+| `@`             | ファイルパスの補完。セッション間メッセージングが有効なら、1 文字以上で他の稼働中セッションも候補に出る（v2.1.232 以降）                         |
+| `:`             | 絵文字ショートコード。`:heart:` は閉じた時点で置換し、`:`＋2 文字で候補を出す。入力の先頭か空白の後だけ。`emojiCompletionEnabled: false` で無効 |
+| `?`（空の入力） | ショートカット一覧                                                                                                                              |
+| `#`             | メモリへの追記は 2.0.70 で削除（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/)）                                                         |
+
+| 改行の入れ方                                   | 使える場面                                                                                                                                                                  |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `\` の後に <kbd>Enter</kbd>                    | すべての端末                                                                                                                                                                |
+| <kbd>Ctrl</kbd>+<kbd>J</kbd>（`chat:newline`） | すべての端末、設定不要                                                                                                                                                      |
+| <kbd>Shift</kbd>+<kbd>Enter</kbd>              | Ghostty・Kitty・iTerm2・WezTerm・Warp・Apple Terminal・Windows Terminal はそのまま。foot や Alacritty 0.16 以降など Kitty プロトコル対応端末は v2.1.269 以降                |
+| <kbd>Shift</kbd>+<kbd>Enter</kbd>（要設定）    | VS Code・Cursor・Devin Desktop・Alacritty 0.16 未満・Zed は `/terminal-setup` を 1 回。tmux は extended-keys の設定（[Ch17](/claude-code-deep-dive/ja/operation/display/)） |
+| 使えない                                       | gnome-terminal、PyCharm などの JetBrains IDE                                                                                                                                |
+| <kbd>Option</kbd>+<kbd>Enter</kbd>             | macOS で Option as Meta を有効にした端末                                                                                                                                    |
+
+<kbd>Enter</kbd> で改行し <kbd>Shift</kbd>+<kbd>Enter</kbd> で送信したい場合は、`chat:newline` と `chat:submit` を割り当て直します。
+
+<div class="src">
+  出典: [interactive-mode#quick-commands](https://code.claude.com/docs/en/interactive-mode#quick-commands) · [#emoji-shortcodes](https://code.claude.com/docs/en/interactive-mode#emoji-shortcodes) · [terminal-config#enter-multiline-prompts](https://code.claude.com/docs/en/terminal-config#enter-multiline-prompts) · changelog 2.0.70
+</div>
+
+<span id="ch13-shell" />
+
+## シェルモード（`!`）とバックグラウンド実行
+
+- `! npm test` のように先頭に `!` を付けると、Claude を通さずにコマンドを実行します。承認は不要です。
+- コマンドと出力は会話のコンテキストに入り、Claude は続けて自動で応答します。費用は通常のプロンプトと同じです。応答させずに足すだけなら `respondToBashCommands: false` にします。
+- <kbd>Tab</kbd> で、このプロジェクトの過去の `!` コマンドから補完します。`/` を含むトークンではパス補完が出ます（Windows でも `/`）。
+- 空の入力で <kbd>Esc</kbd>・<kbd>Backspace</kbd>・<kbd>Ctrl</kbd>+<kbd>U</kbd> を押すと抜けます。`!` で始まる文を空の入力に貼り付けても、シェルモードに入ります。
+- strict sandbox mode の対象セッションを除き、サンドボックスの外で動きます。サンドボックスは Claude が実行するコマンドに掛かるためです（[Ch25](/claude-code-deep-dive/ja/settings/sandbox/)）。
+- Claude の作業中に送った `!` コマンドはターン終了まで待ち、順に 1 つずつ実行します。
+
+### <kbd>Ctrl</kbd>+<kbd>B</kbd> とバックグラウンドのコマンド
+
+- 実行中の Bash をバックグラウンドへ移すとタスク ID が返り、出力はファイルに書かれます。Claude は Read ツールで読みます。
+- タイムアウトしたコマンドは、`sleep` で始まるものを除き、止めずにバックグラウンドへ移ります。
+- 出力が 5GB を超えると打ち切ります。macOS・Linux では、30 分以上アイドルでメモリ逼迫が報告されると止めます（`CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1` で無効）。
+- 終了時に後片付けします。セッションをバックグラウンドに回した場合は、そのセッションで動き続けます（Preview、[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)）。
+- `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` か `--bare` で、バックグラウンド化と <kbd>Ctrl</kbd>+<kbd>B</kbd> が無効になります。
+
+<div class="src">
+  出典: [interactive-mode#shell-mode-with-prefix](https://code.claude.com/docs/en/interactive-mode#shell-mode-with-prefix) · [#background-bash-commands](https://code.claude.com/docs/en/interactive-mode#background-bash-commands) · [settings-reference#respondtobashcommands](https://code.claude.com/docs/en/settings-reference#respondtobashcommands)
+</div>
+
+<span id="ch13-queue" />
+
+## キューイング: 作業中に送ったメッセージの扱い
+
+- Claude の作業中に <kbd>Enter</kbd> を押すと、割り込まずにキューへ入れます。Claude が着手するまで灰色で表示します。IDE の選択範囲は <kbd>Enter</kbd> 時点のものを保ちます。
+- **メッセージ**: 実行中のツール呼び出しが終わった時点で、同じターンのうちに渡します。ターン終了時に残っていれば、入力順に自動で送ります。
+- **コマンドと `!`**: ターン終了まで保留し、順に 1 つずつ実行します。`/status`・`/model` などすぐ動くコマンドは [Ch12](/claude-code-deep-dive/ja/operation/commands/) にあります。
+- <kbd>Esc</kbd> は下書きを送らずにターンを止め、キューの中身はすぐ送ります。
+- **取り戻し**: 1 行目で <kbd>↑</kbd> を押すと、キューのメッセージとコマンドを 1 件 1 行で入力欄の先頭に戻します。`!` コマンドは、入力欄が空で他にキューが無いときだけ戻り、シェルモードに切り替わります。
+- <kbd>←</kbd> でセッションをバックグラウンドに回すと（Preview、[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)）、メッセージは一緒に移ります。コマンド・`!`・IDE 選択付きメッセージが残っていると `Cannot open agents` で止まります。
+
+| キー                                                                                                        | 動作                                                                                                                |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> / <kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Ctrl</kbd>+<kbd>S</kbd> `chat:sendNow` | キューと下書きを今すぐ送る（v2.1.275 以降）。何も動いていなければ下書きを送信し、シェルモードではキューに入れるだけ |
+| 同上・`!` が先頭にあるとき                                                                                  | ターンを中断する                                                                                                    |
+| 同上・Claude がバックグラウンド化できる処理中                                                               | その処理をバックグラウンドに回し、同じターンでメッセージを読ませる                                                  |
+| 同上・文章の生成だけか、バックグラウンド化できない処理中                                                    | ターンを中断して次に送る。v2.1.281 より前は常に中断                                                                 |
+| <kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Enter</kbd> `chat:queueSubmit`                                            | 順番待ちとして送り、決して割り込まない。補完候補の選択中でも下書きを送る（v2.1.247 以降）                           |
+
+拡張キーを報告しない端末では <kbd>Ctrl</kbd>+<kbd>Enter</kbd> が <kbd>Enter</kbd> として届くので、<kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Ctrl</kbd>+<kbd>S</kbd> を使います。
+
+<div class="src">
+  出典: [interactive-mode#queue-messages-while-claude-works](https://code.claude.com/docs/en/interactive-mode#queue-messages-while-claude-works) · [#take-back-what-you-queued](https://code.claude.com/docs/en/interactive-mode#take-back-what-you-queued) · [keybindings#chat-actions](https://code.claude.com/docs/en/keybindings#chat-actions)
+</div>
+
+<span id="ch13-history" />
+
+## 履歴・逆順検索・退避と下書きの復元
+
+- 入力履歴は作業ディレクトリごとに保存され、<kbd>↑</kbd> で同じプロジェクトの過去セッションまで遡れます。`/clear` の後は新しいセッションの入力が先に並びます。
+- 同じ入力を続けて送ると 1 件として記録します。`!` による履歴展開は既定で無効です。
+- 貼り付けを含む入力を呼び戻して送ると、貼り付けた全文を再送します（次の節）。
+- <kbd>Ctrl</kbd>+<kbd>C</kbd> で消した下書きは、直後に空の入力で <kbd>↑</kbd> を押すと戻ります（v2.1.288 以降）。送信後でも、セッション内で直近 10 件を貼り付けや画像ごと <kbd>↑</kbd> で辿れ、終了時に破棄されます（v2.1.292 以降）。
+- <kbd>Ctrl</kbd>+<kbd>S</kbd>（`chat:stash`）は入力を退避して空にし、空の入力で押すと文字・カーソル位置・貼り付け・入力モードごと戻します。
+
+| <kbd>Ctrl</kbd>+<kbd>R</kbd> | クラシック描画                                                    | フルスクリーン描画（Preview）                                   |
+| ---------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| 形式                         | 入力欄でのインライン検索                                          | プレビュー付きダイアログ                                        |
+| 範囲                         | 常に全プロジェクト                                                | <kbd>Ctrl</kbd>+<kbd>S</kbd> でセッション → プロジェクト → 全体 |
+| 次の候補                     | <kbd>Ctrl</kbd>+<kbd>R</kbd>                                      | <kbd>↑</kbd> <kbd>↓</kbd>                                       |
+| 確定                         | <kbd>Tab</kbd>/<kbd>Esc</kbd> で編集へ、<kbd>Enter</kbd> で即実行 | <kbd>Enter</kbd>/<kbd>Tab</kbd> で入力欄へ置く                  |
+| 取り消し                     | <kbd>Ctrl</kbd>+<kbd>C</kbd>、空の検索で <kbd>Backspace</kbd>     | <kbd>Esc</kbd>                                                  |
+| 割り当て変更                 | `historySearch:*` で可能                                          | `historySearch:cycleScope` 以外は固定                           |
+
+Vim の NORMAL モードでは <kbd>/</kbd> が <kbd>Ctrl</kbd>+<kbd>R</kbd> と同じ検索を開きます。フルスクリーン描画は [Ch17](/claude-code-deep-dive/ja/operation/display/)。
+
+<div class="src">
+  出典: [interactive-mode#command-history](https://code.claude.com/docs/en/interactive-mode#command-history) · [#bring-back-a-cleared-draft](https://code.claude.com/docs/en/interactive-mode#bring-back-a-cleared-draft) · [keybindings#history-search-actions](https://code.claude.com/docs/en/keybindings#history-search-actions)
+</div>
+
+<span id="ch13-paste" />
+
+## 貼り付け: 画像・長文・不可視文字
+
+- 画像は <kbd>Ctrl</kbd>+<kbd>V</kbd>（iTerm2 は <kbd>Cmd</kbd>+<kbd>V</kbd>、Windows と WSL は <kbd>Alt</kbd>+<kbd>V</kbd>。WSL は両方）で、カーソル位置に `[Image #N]` チップとして入ります。選択ダイアログでは `Attachments` コンテキストで移動・削除します。
+- 800 文字超か 3 行超の貼り付けは `[Pasted text #1 +120 lines]` のように畳まれ、送信時は全文を送ります。ファイル丸ごとや長いログは、ファイルに書いて Claude に読ませるほうが会話を読みやすく保てます。
+- 送信時、Claude には貼り付け部分が「入力ではなく貼り付けた文」として示されます。中の指示には、入力した文が求めた場合だけ従うよう伝えます。feature flag を取得しないセッションでは示しません。
+- VS Code の統合ターミナルは、非常に大きな貼り付けで文字を落とすことがあります。
+
+* 貼り付けた中身は `~/.claude/paste-cache/` に残り、履歴から呼び戻すと後のセッションでも全文を再送します。`cleanupPeriodDays` を過ぎたキャッシュは消えます。
+* キャッシュが消えていた場合、`[Pasted text #N]` の文字列はそのまま送りません。通常の入力ではプレースホルダーを外して残りを送ります。`!` や `/` のコマンド、または空になる入力では、送信を取りやめて入力を残します。
+* <kbd>Enter</kbd> 時に、タグ文字・双方向制御文字・ゼロ幅スペースなど表示されない文字を取り除きます（ペルシア文字やインド系文字の結合子、絵文字の異体字セレクタは残す）。
+* 何か取り除いた場合、その <kbd>Enter</kbd> では送らず、`Removed 3 invisible characters · review and press Enter to send` のような通知とともに入力欄へ戻します。
+* `claude "fix the login bug"` のようにコマンドラインで渡した入力は、通知を出して除去後に送ります。除去後に `/` で始まる場合だけ入力欄に置きます。
+
+<div class="src">
+  出典: [terminal-config#paste-large-content](https://code.claude.com/docs/en/terminal-config#paste-large-content) · [interactive-mode#invisible-characters-in-prompts](https://code.claude.com/docs/en/interactive-mode#invisible-characters-in-prompts) · [#general-controls](https://code.claude.com/docs/en/interactive-mode#general-controls) · [keybindings#attachments-actions](https://code.claude.com/docs/en/keybindings#attachments-actions)
+</div>
+
+<span id="ch13-vim" />
+
+## Vim モード
+
+| 種類                 | 対応するキー                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| モード               | <kbd>i</kbd> <kbd>I</kbd> <kbd>a</kbd> <kbd>A</kbd> <kbd>o</kbd> <kbd>O</kbd> <kbd>v</kbd> <kbd>V</kbd>、<kbd>Esc</kbd>/<kbd>Ctrl</kbd>+<kbd>\[</kbd> で NORMAL へ |
+| 移動                 | `h j k l` `Space` `w e b` `0 $ ^` `gg G` `f F t T ; ,` `%`（v2.1.301）                                                                                             |
+| 編集                 | `x r dd D cc C s S yy Y p P >> << J u .`、`d`/`c`/`y` と `w e b`、`df dt dj dk dgg dG`、`d0 c0 y0`（v2.1.281）、`d% c% y%`（v2.1.301）                             |
+| テキストオブジェクト | `iw aw iW aW i" a" i' a' i( a( i[ a[ i{ a{`                                                                                                                        |
+| ビジュアル           | `d x y c s p r ~ u U > < J o`、テキストオブジェクト選択。<kbd>Ctrl</kbd>+<kbd>V</kbd> の矩形選択は非対応                                                           |
+
+```json
+{
+  "editorMode": "vim",
+  "vimInsertModeRemaps": { "jj": "<Esc>" }
+}
+```
+
+`vimInsertModeRemaps`（v2.1.208）のキーは 2 文字ちょうど、値は `"<Esc>"` だけで、2 文字目を 1 秒以内に打つと NORMAL へ移ります。プロジェクトの設定からは読みません。
+
+- 有効化は `/config` の Editor mode、または `editorMode`（既定 `"normal"`）です。`/vim` コマンドは 2.1.92 で削除されました（[Ch66](/claude-code-deep-dive/ja/summary/renames/)）。
+- INSERT でも <kbd>Enter</kbd> は送信です（改行は `o`・`O`・<kbd>Ctrl</kbd>+<kbd>J</kbd>）。<kbd>Esc</kbd> は NORMAL への切り替えで、`chat:cancel` にはなりません。
+- NORMAL の <kbd>/</kbd> は履歴検索です（コマンドメニューは <kbd>Esc</kbd> <kbd>i</kbd> <kbd>/</kbd>）。<kbd>?</kbd> はヘルプを開きます。
+- 入力の先頭・末尾で動けないとき、<kbd>j</kbd>/<kbd>k</kbd> と <kbd>↑</kbd>/<kbd>↓</kbd> は履歴を辿ります。空の入力で <kbd>←</kbd> を押すと agent view（Preview）が開きます。
+- vim のキーは `keybindings.json` で変えられません。質問の `Other` 欄は <kbd>Esc</kbd> 2 回で取り消すか、`select:cancel` を割り当てます（[Ch14](/claude-code-deep-dive/ja/operation/keybindings/)）。
+- ステータスラインは `vim.mode` を受け取り、`hideVimModeIndicator` で組み込み表示を消せます（[Ch15](/claude-code-deep-dive/ja/operation/statusline/)）。
+
+<div class="src">
+  出典: [interactive-mode#vim-editor-mode](https://code.claude.com/docs/en/interactive-mode#vim-editor-mode) · [#remap-insert-mode-key-sequences](https://code.claude.com/docs/en/interactive-mode#remap-insert-mode-key-sequences) · [keybindings#vim-mode-interaction](https://code.claude.com/docs/en/keybindings#vim-mode-interaction) · [terminal-config#edit-prompts-with-vim-keybindings](https://code.claude.com/docs/en/terminal-config#edit-prompts-with-vim-keybindings) · [settings-reference#viminsertmoderemaps](https://code.claude.com/docs/en/settings-reference#viminsertmoderemaps) · [#editormode](https://code.claude.com/docs/en/settings-reference#editormode) · changelog 2.1.92・2.1.208
+</div>
+
+<span id="ch13-btw" />
+
+## サイドクエスチョン: `/btw`
+
+- `/btw what was the name of that config file again?` のように、会話履歴に残さずに今のセッションについて尋ねます。
+- 答えは会話に既にあるもの（メッセージ、返答、ツール結果）だけから作ります。ツールは使えません。ツール呼び出しを文字で書いた場合は、何も実行していない旨の注記が付きます。
+- 作業中も割り込まずに使え、書きかけの返答以外はすべて見えます。毎回、直近 20 件の過去のやり取りも渡します。スレッドはメモリ上だけにあり、終了で消えます。
+- 返答は 1 回きりです。ツール付きで続けるには <kbd>f</kbd> でフォークし、バックグラウンドのサブエージェントにします（ローカルのみ）。
+- 引数なしの `/btw` は直近のやり取りでオーバーレイを開き直します。
+- サブエージェントのトランスクリプトを開いているとそちらから答えます（v2.1.314 以降）。VS Code 拡張では追加の質問ができるパネルになります（v2.1.227 以降）。
+
+| オーバーレイのキー                                                                     | 動作                                                                                |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| <kbd>Space</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd>                                       | 閉じてプロンプトへ戻る                                                              |
+| <kbd>↑</kbd> <kbd>↓</kbd>                                                              | 答えをスクロール                                                                    |
+| <kbd>Shift</kbd>+<kbd>←</kbd> <kbd>→</kbd>、<kbd>\[</kbd> <kbd>]</kbd>、<kbd>Tab</kbd> | 過去の答えを行き来（v2.1.257 以降。v2.1.187〜2.1.256 は <kbd>←</kbd> <kbd>→</kbd>） |
+| <kbd>c</kbd>                                                                           | 答えを Markdown のままコピー                                                        |
+| <kbd>f</kbd>                                                                           | 質問と答えを含めてフォーク                                                          |
+| <kbd>x</kbd>                                                                           | 過去のやり取りの一覧を消す                                                          |
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "/btw what is 2+2"
+/btw isn't available in this environment.
+```
+
+:::danger[食い違い]
+changelog 2.1.299 は「non-interactive sessions」の `/btw` に触れています（11 分で未回答ならタイムアウト、終了時の取り消し）。`-p` では上のとおり使えず、どの面を指すかは書かれていません。
+:::
+
+<div class="src">
+  出典: [interactive-mode#side-questions-with-/btw](https://code.claude.com/docs/en/interactive-mode#side-questions-with-%2Fbtw) · [commands](https://code.claude.com/docs/en/commands) · changelog 2.1.299 · 実機確認 2.1.321
+</div>
+
+<span id="ch13-transcript" />
+
+## トランスクリプト・フォーカス表示・`/diff`
+
+- <kbd>Ctrl</kbd>+<kbd>O</kbd> はツールの詳細と、各返答の時刻・モデルを表示します。`Called slack 3 times` のような MCP 呼び出しや、`Message from @<sender>` も展開します。
+- <kbd>q</kbd>・<kbd>Ctrl</kbd>+<kbd>C</kbd>・<kbd>Esc</kbd> で閉じます（`transcript:exit`）。クラシック描画では <kbd>Ctrl</kbd>+<kbd>E</kbd> で全表示を切り替えます。
+- フルスクリーン描画（Preview）では、<kbd>?</kbd>・<kbd>\{</kbd> <kbd>}</kbd>・<kbd>/</kbd> 検索・<kbd>\[</kbd>・<kbd>v</kbd> が加わります（[Ch17](/claude-code-deep-dive/ja/operation/display/)）。
+- `/focus`（フルスクリーン専用、Preview）は、最後のプロンプト、diffstat 付きのツール要約 1 行、最終応答だけを表示します。要約はサブエージェント数も数えます。選択はセッションをまたいで残ります。
+- 設定 `viewMode`（`default`/`verbose`/`focus`）は `/focus` の選択と `verbose` より優先します。`/focus` は 2.1.110 で <kbd>Ctrl</kbd>+<kbd>O</kbd> から分かれました。
+
+* `/diff` はフルスクリーン描画（Preview）では会話の横に diff パネルを開き、クラシック描画ではプロンプトの上に diff ダイアログを開きます。どちらも組み込み mod `cc-plugin-diff` が描き、`/plugin` で無効にすると旧ビューアになります。
+* パネルの要件は git リポジトリ、幅 110 桁以上、v2.1.287 以降です。144 桁以上なら Claude の編集開始で自動で開き、閉じると次に `/diff` を実行するまで閉じたままです。
+* 編集のたびに更新し、ターンごとの `T1` `T2` … を選べます。ターン表示は Claude のファイル編集から作るので、シェル経由の変更は `Current` にだけ出ます。
+* `ask` はそのファイルの diff を次のプロンプトに添付します。<kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>B</kbd>（`app:cycleDiffBase`）で比較対象をセッション → 未コミット → ブランチ分岐点と切り替え、リポジトリごとに記憶します。
+* テストと生成ファイルは一覧から外れ、セッション前の変更は 1 行に畳まれます。サブモジュールは指すコミットが変わったときだけ 1 項目で出ます。
+
+<div class="src">
+  出典: [interactive-mode#transcript-viewer](https://code.claude.com/docs/en/interactive-mode#transcript-viewer) · [#review-changes-with-/diff](https://code.claude.com/docs/en/interactive-mode#review-changes-with-%2Fdiff) · [commands](https://code.claude.com/docs/en/commands) · [settings-reference#viewmode](https://code.claude.com/docs/en/settings-reference#viewmode) · [keybindings#diff-panel-actions](https://code.claude.com/docs/en/keybindings#diff-panel-actions) · [fullscreen#search-and-review-the-conversation](https://code.claude.com/docs/en/fullscreen#search-and-review-the-conversation) · changelog 2.1.110
+</div>

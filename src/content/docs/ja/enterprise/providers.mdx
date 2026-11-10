@@ -1,0 +1,164 @@
+---
+title: "クラウドプロバイダ"
+description: "Amazon Bedrock（Mantle を含む）、Claude Platform on AWS、Google Cloud's Agent Platform（旧 Vertex AI）、Microsoft Foundry で Claude Code を動かす設定を扱います。導入形態の比較、複数指定時の選択順、各プロバイダの資格情報・リージョン・既定モデル・IAM、機能差を説明します。エイリアスの解決とピン留めの一般則は Ch2 で扱います。"
+sidebar:
+  order: 59
+---
+
+Amazon Bedrock（Mantle を含む）、Claude Platform on AWS、Google Cloud's Agent Platform（旧 Vertex AI）、Microsoft Foundry で Claude Code を動かす設定を扱います。導入形態の比較、複数指定時の選択順、各プロバイダの資格情報・リージョン・既定モデル・IAM、機能差を説明します。エイリアスの解決とピン留めの一般則は [Ch2](/claude-code-deep-dive/ja/fundamentals/models/#ch02-providers) で扱います。
+
+<span id="ch59-compare" />
+
+## 導入形態の比較と機能差
+
+|               | Teams・Enterprise                                 | Console                      | Amazon Bedrock          | Claude Platform on AWS                   | Agent Platform               | Microsoft Foundry   |
+| ------------- | ------------------------------------------------- | ---------------------------- | ----------------------- | ---------------------------------------- | ---------------------------- | ------------------- |
+| 向く用途      | 大半の組織（推奨）                                | 個人開発者                   | AWS ネイティブ          | AWS Marketplace 課金で Claude API の機能 | GCP ネイティブ               | Azure ネイティブ    |
+| 課金          | Teams はシート制（従量も可）、Enterprise は要相談 | 従量                         | AWS 経由の従量          | AWS Marketplace の従量                   | GCP 経由の従量               | Azure 経由の従量    |
+| 認証          | claude.ai の SSO かメール                         | API キーかキーなしサインイン | API キーか AWS 資格情報 | API キーか AWS 資格情報                  | GCP 資格情報                 | API キーか Entra ID |
+| 監査など      | チーム管理、SSO、利用監視                         | なし                         | IAM、CloudTrail         | IAM、CloudTrail                          | IAM ロール、Cloud Audit Logs | RBAC、Azure Monitor |
+| Web 版 Claude | 含む                                              | 含まない                     | 含まない                | 含まない                                 | 含まない                     | 含まない            |
+
+| 機能                                                             | 4 プロバイダ（Bedrock・Platform on AWS・Agent Platform・Foundry）での扱い                                                           |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| fast mode・Advisor・Channels・analytics・server-managed settings | すべてで使えない（Advisor の Platform on AWS は [Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/#ch05-cost) の食い違いを参照） |
+| WebSearch                                                        | Bedrock は不可。Agent Platform は Opus 4・Sonnet 4・Haiku 4.5 以降のみ。Platform on AWS・Foundry は可                               |
+| GitHub Actions・GitLab CI/CD                                     | Platform on AWS は GitHub Actions 不可、Foundry は GitLab CI/CD 不可                                                                |
+| auto mode                                                        | Bedrock・Agent Platform・Foundry は Sonnet 5 以降・Opus 4.7 以降・Haiku 5.5・Fable のみ                                             |
+| `/import`・`/design-sync`、サブスクリプション機能                | すべてで使えない（クラウドセッション、Remote Control、`/schedule` など）                                                            |
+
+<div class="src">
+  出典: [third-party-integrations#compare-deployment-options](https://code.claude.com/docs/en/third-party-integrations#compare-deployment-options) · [feature-availability#availability-by-model-provider](https://code.claude.com/docs/en/feature-availability#availability-by-model-provider)
+</div>
+
+<span id="ch59-selection" />
+
+## 有効化の変数と、複数指定したときの選択順（実測）
+
+| 同時に設定したプロバイダ                                                            | `apiProvider` の表示 |
+| ----------------------------------------------------------------------------------- | -------------------- |
+| Bedrock ＋ Agent Platform・Foundry・Platform on AWS・Mantle のどれか                | `bedrock`            |
+| Foundry ＋ Agent Platform・Platform on AWS・Mantle のどれか                         | `foundry`            |
+| Platform on AWS ＋ Agent Platform・Mantle のどれか                                  | `anthropicAws`       |
+| Mantle ＋ Agent Platform                                                            | `mantle`             |
+| `CLAUDE_CODE_USE_BEDROCK=0`、`CLAUDE_CODE_USE_VERTEX=""`、`ANTHROPIC_BASE_URL` だけ | `firstParty`         |
+| `CLAUDE_CODE_USE_BEDROCK=true`                                                      | `bedrock`            |
+
+各プロバイダの `CLAUDE_CODE_USE_*` を同時に設定し、`claude auth status --json` の `apiProvider` を見た結果で、リクエストは送っていません。表示上の選択順は **Bedrock > Foundry > Claude Platform on AWS > Mantle > Agent Platform** です。
+
+- 有効化の変数は `CLAUDE_CODE_USE_BEDROCK`、`_MANTLE`、`_VERTEX`、`_FOUNDRY`、`_ANTHROPIC_AWS` の 5 つです。
+- docs が書く順序は部分的です。Claude Platform on AWS のページは「Bedrock と Foundry が優先」、self-hosted 環境のページは「Bedrock と Vertex が両方あれば Bedrock」です。
+- Bedrock と Mantle の併用は特別で、両方のエンドポイントを使います。Mantle 形式の ID は Mantle、それ以外は Invoke API に送ります。`/status` は `Amazon Bedrock + Amazon Bedrock (Mantle)` です。
+- シェルに残った変数は、設定の `env` で `"CLAUDE_CODE_USE_VERTEX": ""` と空にすると、プロバイダ選択では未設定として扱われます。
+- ウィザード: ログイン画面の **3rd-party platform** から Amazon Bedrock か **Google Vertex AI**（表示名は旧称のまま）。結果は user 設定の `env` に書きます。再実行は `/setup-bedrock`・`/setup-vertex` で、変数が無いとメニューに出ないので全部入力します。Foundry にウィザードはありません。
+- Bedrock・Agent Platform・Foundry では `/logout` が使えません。
+
+<div class="src">
+  出典: [env-vars](https://code.claude.com/docs/en/env-vars) · [claude-platform-on-aws#2-configure-claude-code](https://code.claude.com/docs/en/claude-platform-on-aws#2-configure-claude-code) · [self-hosted-environments-configuration](https://code.claude.com/docs/en/self-hosted-environments-configuration) · [amazon-bedrock#run-mantle-alongside-the-invoke-api](https://code.claude.com/docs/en/amazon-bedrock#run-mantle-alongside-the-invoke-api) · [commands](https://code.claude.com/docs/en/commands) · 実機確認 2.1.321
+</div>
+
+<span id="ch59-bedrock" />
+
+## Amazon Bedrock: 資格情報・リージョン・既定モデル・IAM
+
+```bash
+export CLAUDE_CODE_USE_BEDROCK=1
+export AWS_REGION=us-east-1
+export ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION=us-west-2
+```
+
+- 資格情報は AWS SDK の既定チェーンです（`aws configure`、アクセスキー、SSO の `AWS_PROFILE`、`aws login`、インスタンスプロファイル）。`AWS_BEARER_TOKEN_BEDROCK`（Bedrock API キー）があればチェーンを使いません。
+- 資格情報は失効 5 分前まで（期限なしは 1 時間）再利用します。解決の上限 60 秒は `CLAUDE_CODE_AWS_CHAIN_RESOLVE_TIMEOUT_MS` で延ばします。
+- リージョン: `AWS_REGION` → `AWS_DEFAULT_REGION` → プロファイルの `region` → `us-east-1`。形の不正な値は未設定扱いです。エンドポイントは `ANTHROPIC_BEDROCK_BASE_URL` で上書きします。
+- `awsAuthRefresh`（例 `"aws sso login --profile myprofile"`）は STS `GetCallerIdentity` で失効を確かめてから実行し、出力を見せます。`awsCredentialExport` は起動時と再読み込みのたびに実行し、`Credentials` JSON を黙って読みます。
+
+| 未ピン留め時         | Bedrock での既定                                                                             |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| 主モデル・`opus`     | Opus 5.5（`us.anthropic.claude-opus-5-5`）。v2.1.280 より前は Opus 5                         |
+| `sonnet`・small/fast | Sonnet 4.5（`us.anthropic.claude-sonnet-4-5-20250929-v1:0`）。Haiku が未有効のことがあるため |
+
+- 主モデルを固定しないと Opus 単価で課金されます。`ANTHROPIC_MODEL` にはアプリケーション推論プロファイルの ARN も書けます。同じ系列の複数版を別 ARN に向けるには `modelOverrides` を使います。
+- IAM: `bedrock:InvokeModel`、`bedrock:InvokeModelWithResponseStream`、`bedrock:ListInferenceProfiles`、`bedrock:GetInferenceProfile`（推論プロファイル・アプリ推論プロファイル・基盤モデルの ARN）と、`aws:CalledViaLast` が `bedrock.amazonaws.com` の `aws-marketplace:ViewSubscriptions`・`Subscribe`。`GetInferenceProfile` が無いと再試行の往復が 1 回増えます。
+- WebSearch は使えません。
+
+<div class="src">
+  出典: [amazon-bedrock#2-configure-aws-credentials](https://code.claude.com/docs/en/amazon-bedrock#2-configure-aws-credentials) · [#advanced-credential-configuration](https://code.claude.com/docs/en/amazon-bedrock#advanced-credential-configuration) · [#3-configure-claude-code](https://code.claude.com/docs/en/amazon-bedrock#3-configure-claude-code) · [#4-pin-model-versions](https://code.claude.com/docs/en/amazon-bedrock#4-pin-model-versions) · [#iam-configuration](https://code.claude.com/docs/en/amazon-bedrock#iam-configuration)
+</div>
+
+<span id="ch59-bedrock-2" />
+
+## Amazon Bedrock: 推論プロファイル・起動時の確認・Mantle
+
+| AWS リージョン         | 優先する接頭辞        |
+| ---------------------- | --------------------- |
+| `us-gov-*`（GovCloud） | `us-gov.`（常にこれ） |
+| `us-*`・`eu-*`・`ap-*` | `us.`・`eu.`・`apac.` |
+| その他                 | `global.`             |
+
+- `ANTHROPIC_BEDROCK_REGION_PREFIX`（`us`・`eu`・`apac`・`jp`・`au`・`global`、v2.1.224 以降）で優先する接頭辞を変えます。プロファイル一覧を取れれば、無い接頭辞は他の一致に落ちます。取れないとそのまま送り、未有効なら 400 です。
+- **起動時の確認**: 固定した版より新しい既定が使えると、ピンの更新を提案します（user 設定に書いて再起動）。managed の `env` のピンと ARN のピンは対象外です。未固定で既定が使えないと、そのセッションだけ旧版か Sonnet に落とします。
+- 拒否は最大 1 日記憶します（`CLAUDE_CODE_SKIP_MODEL_ACCESS_MEMORY=1` で無効）。途中で無効化されたモデルは、未固定の層なら別モデルへ切り替えます。
+
+* **1M コンテキスト**: Fable、Sonnet 5 以降、Opus 4.7 以降は既定で 1M（v2.1.287 以降）。Opus・Sonnet 4.6 は `[1m]` 付きの版を選びます。200K に保つには `CLAUDE_CODE_DISABLE_1M_CONTEXT=1`。
+* **サービス階層**: `ANTHROPIC_BEDROCK_SERVICE_TIER`（`default`・`flex`・`priority`）を Invoke API に `X-Amzn-Bedrock-Service-Tier` で送ります。Mantle と gateway では効きません。
+* **Guardrails**: `ANTHROPIC_CUSTOM_HEADERS` に `X-Amzn-Bedrock-GuardrailIdentifier` と `X-Amzn-Bedrock-GuardrailVersion` を入れます。
+* **Mantle** は Anthropic API 形式の Bedrock エンドポイントです。`CLAUDE_CODE_USE_MANTLE=1` とリージョンで有効にし、URL は `ANTHROPIC_BEDROCK_MANTLE_BASE_URL` で上書きします。IAM は別で `bedrock-mantle:CreateInference`・`bedrock-mantle:CountTokens` です。
+* Mantle のモデル ID は `anthropic.claude-sonnet-5` のように版の接尾辞がありません。gateway が署名するなら `CLAUDE_CODE_SKIP_MANTLE_AUTH=1` です。
+
+<div class="src">
+  出典: [amazon-bedrock#cross-region-inference-profile-prefixes](https://code.claude.com/docs/en/amazon-bedrock#cross-region-inference-profile-prefixes) · [#startup-model-checks](https://code.claude.com/docs/en/amazon-bedrock#startup-model-checks) · [#1m-token-context-window](https://code.claude.com/docs/en/amazon-bedrock#1m-token-context-window) · [#service-tiers](https://code.claude.com/docs/en/amazon-bedrock#service-tiers) · [#aws-guardrails](https://code.claude.com/docs/en/amazon-bedrock#aws-guardrails) · [#use-the-mantle-endpoint](https://code.claude.com/docs/en/amazon-bedrock#use-the-mantle-endpoint)
+</div>
+
+<span id="ch59-platform-aws" />
+
+## Claude Platform on AWS
+
+```bash
+export CLAUDE_CODE_USE_ANTHROPIC_AWS=1
+export ANTHROPIC_AWS_WORKSPACE_ID=wrkspc_01ABCDEFGHIJKLMN
+export AWS_REGION=us-east-1
+```
+
+- Anthropic 運用の Claude API に AWS の認証・IAM・Marketplace 課金を組み合わせたものです。モデル・API 機能・公開時期は Claude API と同じです。
+- Marketplace の契約で **別の Anthropic 組織** ができます。既存の Console の資格情報やキーは使えません。
+- `ANTHROPIC_AWS_WORKSPACE_ID` は必須で、毎回 `anthropic-workspace-id` ヘッダーで送ります。
+- 接続先は `https://aws-external-anthropic.{region}.api.aws`（リージョンは Bedrock と同じ順で解決）。`ANTHROPIC_AWS_BASE_URL` で上書きします。
+
+* 認証は SigV4（AWS の既定チェーン）か、ワークスペース API キー `ANTHROPIC_AWS_API_KEY`（`x-api-key` で送り、SigV4 より優先）です。
+* `awsAuthRefresh` を設定すると、`/login` → **3rd-party platform** → **Claude Platform on AWS · refresh credentials** で再読み込みできます。`/login`・`/logout` は claude.ai には入りません。
+* opt-in です。Bedrock と Foundry の変数が優先するので外します。
+* 未ピン留めの `opus` は Opus 5.5 です。ピンには直接 API と同じ ID（`claude-opus-4-8` など）を使います。
+* Bedrock と違い WebSearch が使えます。使えないもの: fast mode、Channels、GitHub Actions、analytics、server-managed settings、`/import`、`/design-sync`。feature flag で動く機能は既定で無効です。
+* 確認: 起動バナーと `/status` の `API provider` に `Claude Platform on AWS` と出ます。
+* Advisor の提供可否は docs と changelog 2.1.300 で食い違います（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/#ch05-cost)）。実機の init には `advisor` が出ます。
+
+<div class="src">
+  出典: [claude-platform-on-aws](https://code.claude.com/docs/en/claude-platform-on-aws)（Setup / Pin model versions / Launch and verify）· [feature-availability#summary-by-provider](https://code.claude.com/docs/en/feature-availability#summary-by-provider) · changelog 2.1.300 · 実機確認 2.1.321
+</div>
+
+<span id="ch59-vertex-foundry" />
+
+## Google Cloud's Agent Platform と Microsoft Foundry
+
+### Agent Platform（旧 Vertex AI）
+
+- `CLAUDE_CODE_USE_VERTEX=1`、`CLOUD_ML_REGION`（`global`、`eu`・`us`、または `us-east5` など）、`ANTHROPIC_VERTEX_PROJECT_ID`。
+- global 非対応モデルは `VERTEX_REGION_CLAUDE_*` で個別に指定します。落ち先は `CLOUD_ML_REGION`、次に `us-east5` です。
+- 資格情報は ADC。`gcpAuthRefresh` は失効を事前確認（上限 5 秒）してから実行し、3 分で打ち切ります。
+- 既定は主モデル `claude-opus-5-5`、small/fast `claude-sonnet-4-5@20250929`。IAM は `roles/aiplatform.user`。
+- MCP tool search は Opus・Sonnet・Haiku 4.5 以降だけです。
+
+### Microsoft Foundry
+
+- `CLAUDE_CODE_USE_FOUNDRY=1` と `ANTHROPIC_FOUNDRY_RESOURCE`（リソース名だけ。URL は拒否）か `ANTHROPIC_FOUNDRY_BASE_URL`。
+- 認証: `ANTHROPIC_FOUNDRY_AUTH_TOKEN`（最優先）、`ANTHROPIC_FOUNDRY_API_KEY`、Entra ID の既定チェーン。
+- モデル変数には Azure のデプロイ名を書きます。未ピン留めの `opus` は Opus 4.6、small/fast は主モデルです。1M の判定のため、デプロイ名をモデル ID にするか `modelOverrides` で対応付けます。
+- RBAC は `Azure AI User` か `Cognitive Services User`。ウィザードはありません。
+
+:::danger[食い違い]
+docs: 「起動時のモデル確認が無いので、既定が無いとリクエストが失敗する」。changelog 2.1.314: 「既定のデプロイが無いと同系列の旧モデルに落とす」。changelog を採るが未検証。
+:::
+
+<div class="src">
+  出典: [google-vertex-ai#4-configure-claude-code](https://code.claude.com/docs/en/google-vertex-ai#4-configure-claude-code) · [#5-pin-model-versions](https://code.claude.com/docs/en/google-vertex-ai#5-pin-model-versions) · [microsoft-foundry](https://code.claude.com/docs/en/microsoft-foundry) · changelog 2.1.314
+</div>

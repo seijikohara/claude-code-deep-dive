@@ -1,0 +1,45 @@
+---
+title: ホーム
+description: Claude Code 2.1.321 の全機能を、公式ドキュメントと実機の動作にもとづいて解説するリファレンスです。
+template: splash
+hero:
+  title: Claude Code Deep Dive
+  tagline: Claude Code 2.1.321 の全機能を 1 つのリファレンスにまとめました。記述はすべて、公式ドキュメント、changelog、インストール済みのバイナリでの実行結果に基づきます。
+  actions:
+    - text: この資料の読み方
+      link: /claude-code-deep-dive/ja/intro/about/
+      icon: right-arrow
+    - text: GitHub のソース
+      link: https://github.com/seijikohara/claude-code-deep-dive
+      variant: minimal
+---
+
+```console title="claude --version"
+$ claude --version
+2.1.321 (Claude Code)
+```
+
+## 構成
+
+- **導入**: [この資料について](/claude-code-deep-dive/ja/intro/about/)、[全体像](/claude-code-deep-dive/ja/intro/overview/)
+- **基礎の深掘り**: [仕組み](/claude-code-deep-dive/ja/fundamentals/how-it-works/)、[モデル選択](/claude-code-deep-dive/ja/fundamentals/models/)、[Effort と思考](/claude-code-deep-dive/ja/fundamentals/effort/)、[Fast mode](/claude-code-deep-dive/ja/fundamentals/fast-mode/)、[Advisor](/claude-code-deep-dive/ja/fundamentals/advisor/)、[コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/)、[セッション](/claude-code-deep-dive/ja/fundamentals/sessions/)、[チェックポイント](/claude-code-deep-dive/ja/fundamentals/checkpoints/)、[メモリ](/claude-code-deep-dive/ja/fundamentals/memory/)、[.claude ディレクトリ](/claude-code-deep-dive/ja/fundamentals/claude-dir/)、[ベストプラクティスと大規模リポジトリ](/claude-code-deep-dive/ja/fundamentals/best-practices/)
+- **操作**: [スラッシュコマンド完全ガイド](/claude-code-deep-dive/ja/operation/commands/)、[キーボードと入力](/claude-code-deep-dive/ja/operation/keyboard/)、[キーバインド](/claude-code-deep-dive/ja/operation/keybindings/)、[ステータスライン](/claude-code-deep-dive/ja/operation/statusline/)、[出力スタイル](/claude-code-deep-dive/ja/operation/output-styles/)、[表示とアクセシビリティ](/claude-code-deep-dive/ja/operation/display/)
+- **設定と安全**: [設定ファイル](/claude-code-deep-dive/ja/settings/settings-files/)、[設定キー早見表](/claude-code-deep-dive/ja/settings/settings-keys/)、[環境変数](/claude-code-deep-dive/ja/settings/env-vars/)、[組み込みツール](/claude-code-deep-dive/ja/settings/tools/)、[権限ルール](/claude-code-deep-dive/ja/settings/permission-rules/)、[パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/)、[Auto mode](/claude-code-deep-dive/ja/settings/auto-mode/)、[サンドボックス](/claude-code-deep-dive/ja/settings/sandbox/)、[セキュリティ](/claude-code-deep-dive/ja/settings/security/)、[診断](/claude-code-deep-dive/ja/settings/diagnostics/)
+- **拡張**: [Hooks](/claude-code-deep-dive/ja/extensions/hooks/)、[Skills](/claude-code-deep-dive/ja/extensions/skills/)、[MCP](/claude-code-deep-dive/ja/extensions/mcp/)、[プラグイン](/claude-code-deep-dive/ja/extensions/plugins/)、[マーケットプレイス](/claude-code-deep-dive/ja/extensions/marketplaces/)、[Mods](/claude-code-deep-dive/ja/extensions/mods/)、[Channels](/claude-code-deep-dive/ja/extensions/channels/)、[Artifacts](/claude-code-deep-dive/ja/extensions/artifacts/)
+- **並列化**: [並列化の全体像](/claude-code-deep-dive/ja/parallel/parallel/)、[サブエージェント](/claude-code-deep-dive/ja/parallel/subagents/)、[Agent View とバックグラウンド](/claude-code-deep-dive/ja/parallel/agent-view/)、[Agent Teams](/claude-code-deep-dive/ja/parallel/agent-teams/)、[セッション間メッセージング](/claude-code-deep-dive/ja/parallel/messaging/)、[Dynamic Workflows](/claude-code-deep-dive/ja/parallel/workflows/)、[Worktree](/claude-code-deep-dive/ja/parallel/worktrees/)、[スケジュール実行](/claude-code-deep-dive/ja/parallel/scheduling/)
+- **自動化**: [ヘッドレス実行](/claude-code-deep-dive/ja/automation/headless/)、[Agent SDK](/claude-code-deep-dive/ja/automation/agent-sdk/)、[CI/CD](/claude-code-deep-dive/ja/automation/cicd/)、[コードレビュー](/claude-code-deep-dive/ja/automation/code-review/)
+- **プラットフォーム**: [サーフェス](/claude-code-deep-dive/ja/platforms/surfaces/)、[Remote Control とモバイル](/claude-code-deep-dive/ja/platforms/remote-control/)、[クラウドセッション](/claude-code-deep-dive/ja/platforms/cloud/)、[セルフホスト環境](/claude-code-deep-dive/ja/platforms/self-hosted/)、[Desktop](/claude-code-deep-dive/ja/platforms/desktop/)、[IDE](/claude-code-deep-dive/ja/platforms/ide/)、[Chrome と Computer use](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)、[Projects・Slack・Claude Tag](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)
+- **エンタープライズ**: [インストールと更新](/claude-code-deep-dive/ja/enterprise/install/)、[認証](/claude-code-deep-dive/ja/enterprise/auth/)、[管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/)、[クラウドプロバイダ](/claude-code-deep-dive/ja/enterprise/providers/)、[ネットワークとゲートウェイ](/claude-code-deep-dive/ja/enterprise/network-gateways/)、[監視・コスト・分析](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)
+- **まとめ**: [実験的・プレビュー機能一覧](/claude-code-deep-dive/ja/summary/status-board/)、[未公開の実験フラグ候補](/claude-code-deep-dive/ja/summary/candidates/)、[タイムライン](/claude-code-deep-dive/ja/summary/timeline/)、[直近 25 リリース](/claude-code-deep-dive/ja/summary/recent/)、[改名・廃止・削除](/claude-code-deep-dive/ja/summary/renames/)、[ドキュメントと実機の食い違い](/claude-code-deep-dive/ja/summary/conflicts/)、[アップグレードチェックリスト](/claude-code-deep-dive/ja/summary/upgrade/)、[参考資料](/claude-code-deep-dive/ja/summary/references/)
+- **全件付録**: [設定キー全件](/claude-code-deep-dive/ja/appendix/settings/)、[環境変数全件](/claude-code-deep-dive/ja/appendix/env/)、[CLI フラグとサブコマンド全件](/claude-code-deep-dive/ja/appendix/cli/)、[Hook イベント全件](/claude-code-deep-dive/ja/appendix/hooks/)、[組み込みツール全件](/claude-code-deep-dive/ja/appendix/tools/)
+
+## 確認の方法
+
+- 情報源は、公式ドキュメント（228 ページ）、changelog、`--help` の出力、2.1.321 のヘッドレス実行の結果です。
+- すべての節に出典を記載し、一般提供前の機能にはステータス（Beta・Preview・Experimental・Undocumented・Deprecated・Removed）を付けています。
+- ドキュメント・changelog・実機の記述が食い違う箇所では、両方の説を並べて示します。
+- 公開前に、執筆者とは別の確認者が全章を出典と照合しました。
+
+非公式のリファレンスです。Anthropic とは関係がなく、Anthropic の承認も受けていません。
+
+本文は [CC BY 4.0](https://github.com/seijikohara/claude-code-deep-dive/blob/main/LICENSE-content)、コードは [MIT](https://github.com/seijikohara/claude-code-deep-dive/blob/main/LICENSE) で提供します。

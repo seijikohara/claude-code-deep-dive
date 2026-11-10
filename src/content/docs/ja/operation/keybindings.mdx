@@ -1,0 +1,112 @@
+---
+title: "キーバインド"
+description: "~/.claude/keybindings.json で、UI のコンテキストごとにキーとアクションの対応を変える仕組みです。この章では、ファイルの構造とコンテキスト、キー表記とコード（連続キー）、変えられないキー・優先関係・検証を扱います。"
+sidebar:
+  order: 14
+---
+
+`~/.claude/keybindings.json` で、UI のコンテキストごとにキーとアクションの対応を変える仕組みです。この章では、ファイルの構造とコンテキスト、キー表記とコード（連続キー）、変えられないキー・優先関係・検証を扱います。
+
+<span id="ch14-schema" />
+
+## ファイルの構造とコンテキスト
+
+- `/keybindings` が `~/.claude/keybindings.json` を作成または開きます。グローバルのみで、保存すると再起動なしで反映します（v2.1.18 で追加）。`--safe-mode` では読み込みません。
+
+```json
+{
+  "$schema": "https://www.schemastore.org/claude-code-keybindings.json",
+  "$docs": "https://code.claude.com/docs/en/keybindings",
+  "bindings": [
+    {
+      "context": "Chat",
+      "bindings": {
+        "ctrl+e": "chat:externalEditor",
+        "ctrl+s": null
+      }
+    }
+  ]
+}
+```
+
+- アクションは `namespace:action` 形式です。`command:<name>` は任意のコマンドを実行し、`Chat` に `"meta+g": "command:compact"` と書くと <kbd>Meta</kbd>+<kbd>G</kbd> で `/compact` が走ります。
+
+`$schema`（補完用）と `$docs` は任意です。`bindings` の各要素は `context` と、キー → アクション（または `null`）の表です。
+
+| 場面                  | コンテキスト（27）                                                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 入力                  | `Global` `Chat` `Autocomplete` `HistorySearch` `Task` `Attachments` `Footer`                                           |
+| ダイアログ            | `Settings` `Confirmation` `Tabs` `Help` `ThemePicker` `ModelPicker` `EffortSlider` `Select` `MessageSelector` `Plugin` |
+| 表示                  | `Transcript` `Scroll` `DiffDialog` `DiffPanel`                                                                         |
+| Mods                  | `AbovePrompt` `AbovePromptInput` `AbovePromptSelect` `Pane` `PaneField`                                                |
+| Agent view（Preview） | `Agents`                                                                                                               |
+
+`MessageSelector`（`/rewind` の一覧）は固有のアクションを持たず、`select:*` をこの一覧だけで変えるために使います。`Scroll` はフルスクリーン描画（[Ch17](/claude-code-deep-dive/ja/operation/display/)、Preview）専用です。
+
+<div class="src">
+  出典: [keybindings#configuration-file](https://code.claude.com/docs/en/keybindings#configuration-file) · [#contexts](https://code.claude.com/docs/en/keybindings#contexts) · [#available-actions](https://code.claude.com/docs/en/keybindings#available-actions) · [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · [claude-directory#file-reference](https://code.claude.com/docs/en/claude-directory#file-reference) · changelog 2.1.18
+</div>
+
+<span id="ch14-syntax" />
+
+## キーの書き方とコード（連続キー）
+
+| 種類              | 書き方                                                                                                                                               |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Control           | `ctrl` `control`                                                                                                                                     |
+| Shift             | `shift`                                                                                                                                              |
+| Alt / Option      | `alt` `opt` `option` `meta`                                                                                                                          |
+| Cmd / Win / Super | `cmd` `command` `super` `win`。Super を報告する端末（Kitty キーボードプロトコル、`modifyOtherKeys`）でだけ検出                                       |
+| 特殊キー          | `escape`/`esc` `enter`/`return` `tab` `space` `up` `down` `left` `right` `pageup` `pagedown` `home` `end` `backspace` `delete` `wheelup` `wheeldown` |
+
+- 修飾キーは `+` でつなぎます（`ctrl+shift+c`）。キー名は大文字小文字を区別せず、`K` は `k` と同じです。Shift 付きは `shift+k` と書きます。
+- Ctrl のキー名は配列に関係なくラテン文字で書きます。キリル文字などの配列では、Kitty プロトコルで物理位置を報告する端末に限り US 配列の位置で照合します。AZERTY などは、そのキーが入力する文字で照合します。
+- 既定の割り当てを外すには、アクションを `null` にします。
+
+コードは空白区切りで書きます（`ctrl+k ctrl+s`）。各キーは前のキーから 3 秒以内に押し、超えると取り消して通知します。
+
+| コンテキスト | 既定の `ctrl+x` コード                                                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Chat`       | `ctrl+x ctrl+k` `ctrl+x ctrl+e` `ctrl+x enter`（v2.1.247） `ctrl+x ctrl+a`（v2.1.260） `ctrl+x tab`（v2.1.260） `ctrl+x ctrl+s`（v2.1.275） |
+| `Task`       | `ctrl+x ctrl+b`                                                                                                                             |
+| `DiffPanel`  | `ctrl+x b`（v2.1.260）                                                                                                                      |
+| `Pane`       | `ctrl+x left` `ctrl+x right` `ctrl+x up` `ctrl+x down` `ctrl+x x`                                                                           |
+| `PaneField`  | `ctrl+x x`                                                                                                                                  |
+
+- 有効なコンテキストに同じ接頭辞のコードが 1 つでも残ると、接頭辞は予約されたままです。一部だけ外すと、接頭辞を押した時点で次のキー待ちに入ります。
+- `ctrl+x` を単独キーとして取り戻すには、上の全コードを定義元のコンテキストごとに `null` にしてから、`Chat` に `"ctrl+x": "chat:newline"` などを書きます。
+
+<div class="src">
+  出典: [keybindings#keystroke-syntax](https://code.claude.com/docs/en/keybindings#keystroke-syntax) · [#chords](https://code.claude.com/docs/en/keybindings#chords) · [#unbind-default-shortcuts](https://code.claude.com/docs/en/keybindings#unbind-default-shortcuts)
+</div>
+
+<span id="ch14-limits" />
+
+## 変えられないキー・優先関係・検証
+
+| 予約キー                                                    | 理由                                                                               |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| <kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>D</kbd> | 中断・終了に固定                                                                   |
+| <kbd>Ctrl</kbd>+<kbd>M</kbd> / <kbd>Ctrl</kbd>+<kbd>I</kbd> | 常に <kbd>Enter</kbd> / <kbd>Tab</kbd> として届く                                  |
+| <kbd>Ctrl</kbd>+<kbd>\[</kbd>                               | 常に <kbd>Esc</kbd>（Kitty プロトコルでは v2.1.242 以降）                          |
+| <kbd>Ctrl</kbd>+<kbd>H</kbd>                                | ASCII のバックスペース。Windows では端末と `CLAUDE_CODE_BS_AS_CTRL_BACKSPACE` 次第 |
+| <kbd>Caps Lock</kbd>                                        | 端末アプリに届かない                                                               |
+
+- 端末側との衝突: <kbd>Ctrl</kbd>+<kbd>B</kbd>（tmux の prefix。2 回押す）、<kbd>Ctrl</kbd>+<kbd>A</kbd>（GNU screen）、<kbd>Ctrl</kbd>+<kbd>Z</kbd>（SIGTSTP）。
+- アクションが無く変えられないもの: 単語系の編集キー、vim のキー、フルスクリーンの履歴検索ダイアログの <kbd>Enter</kbd>/<kbd>Tab</kbd>/<kbd>Esc</kbd>、`/effort` スライダーの <kbd>Enter</kbd>/<kbd>Esc</kbd>。
+- 検証の警告は `--debug` のログに出ます（構造の誤り、不正なコンテキスト、予約キーとの衝突、同一コンテキスト内の重複など）。`ctl+k` は `k` に割り当てられ、`ctrl+ k` は発火しないコードになります。未知のアクションはその行を飛ばし、既定を残します。
+
+### 優先関係
+
+- agent view（Preview）では `Agents` の割り当てが、同じキーの `Chat`・`Global` より勝ちます（<kbd>Ctrl</kbd>+<kbd>S</kbd> は stash ではなくグループ切り替え）。
+- ダイアログ内のテキスト欄では、修飾なしの印字キーは文字になります。非印字キー、修飾キー付き、コードの 2 打目は割り当てどおり動きます。
+- フッター項目の選択中は、`Chat` で <kbd>Enter</kbd> を変えていても <kbd>Enter</kbd> で開きます。
+- `Confirmation` に裸の文字を割り当てると、その文字を表示しないダイアログにも効きます。<kbd>y</kbd>/<kbd>n</kbd> の既定割り当ては v2.1.280 で外れましたが、それ以前に生成したファイルには残ります。
+
+### 旧名と無効なアクション
+
+- 旧名 `messageSelector:*`・`diff:viewDetails`（v2.1.283 より前）は対応する `select:*` として動きます。`confirm:previousField`・`permission:toggleDebug`・`footer:dismiss` は何もしませんが、書いても有効です。
+
+<div class="src">
+  出典: [keybindings#reserved-shortcuts](https://code.claude.com/docs/en/keybindings#reserved-shortcuts) · [#text-fields](https://code.claude.com/docs/en/keybindings#text-fields) · [#agents-actions](https://code.claude.com/docs/en/keybindings#agents-actions) · [#validation](https://code.claude.com/docs/en/keybindings#validation) · [interactive-mode](https://code.claude.com/docs/en/interactive-mode#word-boundaries-in-editing-shortcuts) · changelog 2.1.283・2.1.293（検証の警告）
+</div>

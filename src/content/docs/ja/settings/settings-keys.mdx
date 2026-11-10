@@ -1,0 +1,121 @@
+---
+title: "設定キー早見表"
+description: "249 個の設定キーから、日常の調整でよく触るものを分野別に抜き出しました。1 キー 1 行で、既定値と要点だけを示します。全キーの一覧は 付録 A、ファイルの優先順位とマージは Ch18 を参照してください。スコープの列が無い行は Any file（4 種のファイルすべてに書ける）です。"
+sidebar:
+  order: 19
+---
+
+249 個の設定キーから、日常の調整でよく触るものを分野別に抜き出しました。1 キー 1 行で、既定値と要点だけを示します。全キーの一覧は [付録 A](/claude-code-deep-dive/ja/appendix/settings/)、ファイルの優先順位とマージは [Ch18](/claude-code-deep-dive/ja/settings/settings-files/) を参照してください。スコープの列が無い行は Any file（4 種のファイルすべてに書ける）です。
+
+<span id="ch19-model" />
+
+## モデルと応答
+
+| キー                    | 既定                             | 要点                                                                                                                            |
+| ----------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `model`                 | アカウントの既定モデル           | 新規セッションの開始モデル。途中の `/model` は妨げない                                                                          |
+| `fallbackModel`         | 未設定（別モデルで再試行しない） | 過負荷・利用不可のときに順に試すモデルの配列。`"default"` は既定モデル                                                          |
+| `availableModels`       | 未設定（全モデル）               | メイン・サブエージェント・Skill・advisor で選べるモデルを制限                                                                   |
+| `modelOverrides`        | 未設定                           | Anthropic のモデル ID を、Bedrock の ARN などプロバイダ固有の ID に対応付け                                                     |
+| `modelSettings`         | 未設定                           | モデルごとに effort を保存（2.1.251 以降）                                                                                      |
+| `effortLevel`           | 未設定                           | `"low"`・`"medium"`・`"high"`・`"xhigh"`。保存の無いモデルの既定                                                                |
+| `maxEffortLevel`        | 未設定（上限なし）               | effort の上限。全スコープで最も低い上限が効く                                                                                   |
+| `alwaysThinkingEnabled` | 未設定（対応モデルで思考オン）   | `false` で拡張思考をオフ。`true` は何も変えない                                                                                 |
+| `advisorModel`          | 未設定（advisor オフ）           | advisor のモデル <span class="badge experimental">Experimental</span>（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/)） |
+| `promptCacheTtl`        | 未設定                           | メイン会話のキャッシュ TTL。`"5m"` か `"1h"`                                                                                    |
+| `language`              | 未設定                           | 既定の応答言語。固定の一覧は無く、値をそのまま Claude に渡す                                                                    |
+
+<div class="src">
+  出典: [settings-reference#model-and-responses](https://code.claude.com/docs/en/settings-reference#model-and-responses) · 全キーは [付録 A](/claude-code-deep-dive/ja/appendix/settings/)
+</div>
+
+<span id="ch19-permissions" />
+
+## 権限
+
+| キー                                               | スコープ・既定                  | 要点                                                                                                                   |
+| -------------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `permissions.allow` / `ask` / `deny`               | 未設定                          | `Tool(specifier)` ルールの配列。全ファイルの要素を結合（[Ch22](/claude-code-deep-dive/ja/settings/permission-rules/)） |
+| `permissions.defaultMode`                          | 未設定                          | 新規セッションのモード。`auto`・`bypassPermissions` は project・local では無視                                         |
+| `permissions.additionalDirectories`                | 未設定                          | 追加の作業ディレクトリ。共有ファイルでは trust 待ち                                                                    |
+| `permissions.blockReadsOutsideWorkingDirectories`  | 未設定                          | 作業ディレクトリ外の読み取りを全モードで拒否。`true` はどこからでも効く                                                |
+| `permissions.blockWritesOutsideWorkingDirectories` | 未設定                          | `Write`・`Edit`・`NotebookEdit` の外部書き込みを全モードで拒否                                                         |
+| `permissions.denyInsteadOfPrompting`               | User or managed                 | 承認待ちになる呼び出しを拒否して、セッションを止めない                                                                 |
+| `permissions.disableBypassPermissionsMode`         | 未設定                          | `"disable"` で `bypassPermissions` を禁止                                                                              |
+| `disableAutoMode`                                  | 未設定                          | `"disable"` で auto mode を <kbd>Shift</kbd>+<kbd>Tab</kbd> の巡回から外す                                             |
+| `autoMode`                                         | User or managed                 | auto mode の分類器に独自のルールを追加（[Ch24](/claude-code-deep-dive/ja/settings/auto-mode/)）                        |
+| `useAutoModeDuringPlan`                            | User, local, or managed・`true` | plan mode でも分類器がシェルコマンドを審査                                                                             |
+| `allowManagedPermissionRulesOnly`                  | Managed                         | user・project・local・`--settings` の権限ルールと `--allowedTools` を無視                                              |
+
+<div class="src">
+  出典: [settings-reference#permission-settings](https://code.claude.com/docs/en/settings-reference#permission-settings) · 全キーは [付録 A](/claude-code-deep-dive/ja/appendix/settings/)
+</div>
+
+<span id="ch19-extensions" />
+
+## フック・MCP・プラグイン・Skill
+
+| キー                                               | 既定                         | 要点                                                                                                |
+| -------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| `hooks`                                            | 未設定                       | イベントごとのフック定義。全ファイルでマージ（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)） |
+| `disableAllHooks`                                  | 未設定                       | フック、カスタムステータスライン、ファイル候補コマンドを止める                                      |
+| `allowedHttpHookUrls`                              | 未設定（全 URL）             | HTTP フックの送信先を制限                                                                           |
+| `enableAllProjectMcpServers`                       | 未設定（サーバーごとに確認） | project の `.mcp.json` の全サーバーを承認                                                           |
+| `enabledMcpjsonServers` / `disabledMcpjsonServers` | 未設定                       | `.mcp.json` のサーバーを個別に承認・拒否                                                            |
+| `allowedMcpServers` / `deniedMcpServers`           | 未設定                       | 追加できる MCP サーバーの許可・拒否リスト（[Ch30](/claude-code-deep-dive/ja/extensions/mcp/)）      |
+| `disableClaudeAiConnectors`                        | `false`                      | claude.ai コネクタを取得しない。`true` はどこからでも効く                                           |
+| `enabledPlugins`                                   | 未設定                       | `"plugin@marketplace": true` の形でプラグインをオン・オフ                                           |
+| `extraKnownMarketplaces`                           | 未設定                       | マーケットプレイスを追加登録。共有ファイルでは trust 待ち                                           |
+| `skillOverrides`                                   | 全 Skill が `"on"`           | `"on"`・`"name-only"`・`"user-invocable-only"`・`"off"`                                             |
+| `disableBundledSkills`                             | 未設定                       | バンドル Skill と workflow を外す                                                                   |
+| `disableSkillShellExecution`                       | 未設定                       | Skill とカスタムコマンドのインラインシェル実行を止める                                              |
+
+<div class="src">
+  出典: [settings-reference#hooks-and-automation](https://code.claude.com/docs/en/settings-reference#hooks-and-automation) · [#mcp](https://code.claude.com/docs/en/settings-reference#mcp) · [#plugins-and-skills](https://code.claude.com/docs/en/settings-reference#plugins-and-skills) · 全キーは [付録 A](/claude-code-deep-dive/ja/appendix/settings/)
+</div>
+
+<span id="ch19-ui-session" />
+
+## 表示・セッション・コンテキスト
+
+| キー                       | 既定               | 要点                                                                                      |
+| -------------------------- | ------------------ | ----------------------------------------------------------------------------------------- |
+| `theme`                    | `"dark"`           | `"auto"`・`"light"`・`*-daltonized`・`*-ansi`・`"custom:<slug>"`                          |
+| `tui`                      | 未設定（自動選択） | `"default"`（従来の描画）か `"fullscreen"` <span class="badge preview">Preview</span>     |
+| `viewMode`                 | 未設定             | `"default"`・`"verbose"`・`"focus"`。`--verbose` が優先                                   |
+| `editorMode`               | `"normal"`         | `"vim"` で入力欄を Vim キーバインドに                                                     |
+| `statusLine`               | 未設定             | ステータスラインを描くコマンド（[Ch15](/claude-code-deep-dive/ja/operation/statusline/)） |
+| `cleanupPeriodDays`        | `30`               | トランスクリプトなどの保持日数。最小 `1`                                                  |
+| `autoCompactEnabled`       | `true`             | 自動圧縮のオン・オフ（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/)）            |
+| `autoCompactWindow`        | 未設定（モデル別） | 自動圧縮の基準。`100000`〜`1000000` トークン                                              |
+| `autoMemoryEnabled`        | `true`             | auto memory の読み書き（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/)）           |
+| `claudeMdExcludes`         | 未設定             | 読まない CLAUDE.md の glob。絶対パスと照合                                                |
+| `bashOutputMaxChars`       | 未設定（30,000）   | Bash 出力のインライン上限。`4000`〜`128000` に丸める                                      |
+| `fileCheckpointingEnabled` | `true`             | 編集前のスナップショット（`/rewind` 用）                                                  |
+
+<div class="src">
+  出典: [settings-reference#interface-and-terminal](https://code.claude.com/docs/en/settings-reference#interface-and-terminal) · [#memory-and-context](https://code.claude.com/docs/en/settings-reference#memory-and-context) · 全キーは [付録 A](/claude-code-deep-dive/ja/appendix/settings/)
+</div>
+
+<span id="ch19-env-auth" />
+
+## サンドボックス・エージェント・Git・認証・更新
+
+| キー                                         | 既定           | 要点                                                                                                 |
+| -------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------- |
+| `sandbox.enabled`                            | `false`        | Bash コマンドのサンドボックス（[Ch25](/claude-code-deep-dive/ja/settings/sandbox/)）                 |
+| `sandbox.filesystem.allowWrite` / `denyRead` | 未設定         | サンドボックス内の書き込み先を追加、読み取りを禁止                                                   |
+| `sandbox.network.allowedDomains`             | 未設定         | 通信先を事前に許可。`*.example.com` はサブドメインに一致                                             |
+| `agent`                                      | 未設定         | メインスレッドを名前付きサブエージェントとして動かす。`--agent` が優先                               |
+| `worktree.baseRef`                           | `"fresh"`      | `"fresh"` は `origin/<default-branch>`、`"head"` はローカルの `HEAD` から分岐                        |
+| `teammateMode`                               | `"in-process"` | `"auto"`・`"tmux"`・`"iterm2"` で分割ペイン表示 <span class="badge experimental">Experimental</span> |
+| `attribution`                                | 未設定         | commit・PR の帰属表記。`false` ですべて非表示（2.1.281 以降）                                        |
+| `includeGitInstructions`                     | `true`         | git の手順と git status のスナップショットを Claude に渡す                                           |
+| `apiKeyHelper`                               | 未設定         | 認証情報を出力するコマンド。`/bin/sh`（Windows は `cmd`）で実行                                      |
+| `forceLoginMethod`                           | 未設定         | `"claudeai"`・`"console"`・`"gateway"` に限定                                                        |
+| `autoUpdatesChannel`                         | `"latest"`     | `"stable"` は通常 1 週間ほど前の版                                                                   |
+| `env`                                        | 未設定         | セッションとサブプロセスの環境変数（[Ch20](/claude-code-deep-dive/ja/settings/env-vars/)）           |
+
+<div class="src">
+  出典: [settings-reference#sandbox-settings](https://code.claude.com/docs/en/settings-reference#sandbox-settings) · [#agents-sessions-and-worktrees](https://code.claude.com/docs/en/settings-reference#agents-sessions-and-worktrees) · [#git-and-attribution](https://code.claude.com/docs/en/settings-reference#git-and-attribution) · [#authentication-and-providers](https://code.claude.com/docs/en/settings-reference#authentication-and-providers) · [#updates-and-versioning](https://code.claude.com/docs/en/settings-reference#updates-and-versioning) · 全キーは [付録 A](/claude-code-deep-dive/ja/appendix/settings/)
+</div>

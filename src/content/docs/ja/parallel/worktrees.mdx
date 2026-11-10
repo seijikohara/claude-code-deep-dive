@@ -1,0 +1,145 @@
+---
+title: "Worktree"
+description: "セッションやサブエージェントを別々の git worktree で動かし、並列の編集が衝突しないようにする仕組みです。この章では、起動の方法、worktree.* 設定と .worktreeinclude、Claude Code が強制する分離チェック、後片付けとロック、再開を扱います。"
+sidebar:
+  order: 42
+---
+
+セッションやサブエージェントを別々の git worktree で動かし、並列の編集が衝突しないようにする仕組みです。この章では、起動の方法、`worktree.*` 設定と `.worktreeinclude`、Claude Code が強制する分離チェック、後片付けとロック、再開を扱います。
+
+<span id="ch42-start" />
+
+## `-w`・PR ブランチ・`--tmux`・`EnterWorktree`
+
+```bash
+claude --worktree feature-auth
+claude --worktree "#1234"
+claude -w feature-auth --tmux
+```
+
+- `<repo>/.claude/worktrees/<name>/` に、新しいブランチ `worktree-<name>` で作ります。名前を省くと `bright-running-fox` のような名前が付きます。既存の名前なら、その worktree を開き直します。
+- 対話起動にはワークスペースの信頼が要ります。`-p` は信頼の確認を飛ばします。
+- `.claude/worktrees/` を `.gitignore` に入れておくと、メイン側に未追跡ファイルとして出ません。
+- git リポジトリ外で `WorktreeCreate` フックも無いと `Can only use --worktree in a git repository` で止まります。
+- `--tmux` は `--worktree` 必須です。iTerm2 があればネイティブのペインを使い、`--tmux=classic` で従来の tmux になります。この組み合わせではプラグインより先に worktree を作るため、プラグインの `WorktreeCreate` フックは動きません。
+
+### PR・MR からの作成
+
+- `#<number>`、GitHub の PR URL、GitLab の MR URL（v2.1.233 以降）を渡すと、`.claude/worktrees/pr-<number>` を作ります。URL からは番号だけを読み、常に `origin` から取得します。
+- github.com は `pull/<number>/head`、gitlab.com は `merge-requests/<number>/head`、それ以外のホストは両方を順に試します。
+- 取得は入力を待たず、パスワードや新しい SSH ホストの確認が要ると `Error creating worktree: Failed to fetch PR/MR #<number>` で終了します。
+
+### セッション中の切り替え
+
+- 「work in a worktree」と頼むと `EnterWorktree` が作って移ります（`name` か `path`）。`.claude/worktrees/` 外の `path` は、allow ルールがあっても確認が出ます（`bypassPermissions` を除く）。
+- `ExitWorktree` は `action: "keep" | "remove"` です。未コミットや未マージがあると `discard_changes: true` が要ります。
+- フックの `${CLAUDE_PROJECT_DIR}` は起動時のルートのままで、入力 JSON の `cwd` が worktree を指します。
+
+<div class="src">
+  出典: [worktrees#start-claude-in-a-worktree](https://code.claude.com/docs/en/worktrees#start-claude-in-a-worktree) · [#branch-from-a-pull-request](https://code.claude.com/docs/en/worktrees#branch-from-a-pull-request) · [#ask-claude-to-create-a-worktree](https://code.claude.com/docs/en/worktrees#ask-claude-to-create-a-worktree) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · [hooks#worktreecreate](https://code.claude.com/docs/en/hooks#worktreecreate) · [agent-sdk/typescript#exitworktree](https://code.claude.com/docs/en/agent-sdk/typescript#exitworktree)
+</div>
+
+<span id="ch42-config" />
+
+## `worktree.*` 設定と `.worktreeinclude`
+
+| キー                          | 値と既定                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `worktree.baseRef`            | `"fresh"`（既定。`origin/<default-branch>` から）か `"head"`（ローカル HEAD。未 push のコミットを含む）。ブランチ名は不可             |
+| `worktree.symlinkDirectories` | メインから symlink するディレクトリ。例 `["node_modules", ".cache"]`                                                                  |
+| `worktree.sparsePaths`        | sparse-checkout するディレクトリ。`.claude` を含める。共有 `.git/config` で `extensions.worktreeConfig` が有効になる                  |
+| `worktree.bgIsolation`        | 背景セッションの隔離 <span class="badge preview">Preview</span>。[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/#ch38-worktree) |
+| `worktree.location`           | Desktop の SSH セッション専用。CLI は無視する                                                                                         |
+
+- `"fresh"` は、24 時間取得していなければ既定ブランチを取得します（上限 5 秒）。remote か `origin/HEAD` が無ければローカル HEAD を使います。
+- `"head"` は、worktree の中ではその worktree の HEAD を指します。
+- 既存の名前で開き直すと、`"fresh"` では変更なし・自分のブランチのまま・独自コミットなし（またはマージ済みで remote ブランチ削除済み）のときだけ既定ブランチへリセットします。
+
+```text
+.env
+.env.local
+config/secrets.json
+```
+
+- `.worktreeinclude` はプロジェクトルートに置く `.gitignore` 構文のファイルです。パターンに一致し、かつ gitignore されているファイルだけを、git で作る worktree（`--worktree`、サブエージェント、Desktop の並列セッション）へコピーします。
+- `WorktreeCreate` フックを使うと処理されません。コピーはフックの中で行います。
+- `**/` で始まるパターンは、丸ごと無視されたディレクトリにはそのディレクトリ名に届くときだけ効きます。届かなければ `vendor/**/config.json` のように名前を書きます（v2.1.239 で変更）。
+- Claude Code が作る worktree では、リポジトリ自身の filter driver を動かしません。`git lfs install --local` の LFS ファイルはポインタのままなので、worktree 内で `git lfs pull` を実行します。
+
+<div class="src">
+  出典: [worktrees#customize-worktree-creation](https://code.claude.com/docs/en/worktrees#customize-worktree-creation) · [#copy-gitignored-files-into-worktrees](https://code.claude.com/docs/en/worktrees#copy-gitignored-files-into-worktrees) · [#reuse-a-worktree-name](https://code.claude.com/docs/en/worktrees#reuse-a-worktree-name) · [#troubleshooting](https://code.claude.com/docs/en/worktrees#troubleshooting) · [settings-reference#worktree](https://code.claude.com/docs/en/settings-reference#worktree)
+</div>
+
+<span id="ch42-isolation" />
+
+## 分離チェック・サブエージェント・メインと共有するもの
+
+| チェック         | ブロックするもの                                                                                                                                     |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ファイル編集     | メイン checkout を指す `Edit`・`Write`・`NotebookEdit`                                                                                               |
+| 作業ディレクトリ | 作業ディレクトリがメイン checkout か、外にあると確認できない Bash・PowerShell・Monitor                                                               |
+| git の向け先     | `git -C`、`--git-dir`、`GIT_DIR`・`GIT_WORK_TREE`、`cd` してからの git で、メイン checkout へ向けるもの                                              |
+| コマンドの形     | 実行時に決まるコマンド名、解析できない構文、`${!name}` や `${ command; }` など、git が worktree 内に留まると文面から確認できないもの。無効にできない |
+
+- `--worktree`、`EnterWorktree`、再開した worktree セッションに適用され、そこから起動したサブエージェントにも及びます。PowerShell には作業ディレクトリのチェックだけが効きます。
+- 書き込み先は追跡しません。git を使わない `cp` やリダイレクトは、権限とサンドボックスの扱いになります。
+- サブエージェントの worktree も `--worktree` と同じ基点から作ります。進行中の作業を渡すには `worktree.baseRef` を `"head"` にします。
+
+### サブエージェントの worktree
+
+- frontmatter に `isolation: worktree` を書くか、「use worktrees for your agents」と頼むと、サブエージェントごとに一時 worktree を作ります。
+- 変更が無ければ終了時に自動で消し、変更があれば定期 sweep まで残します。
+- 指示ファイルはメイン会話から引き継ぎます。既定の場所の worktree では、worktree ルートの `CLAUDE.md` と `.claude/rules/` を読みません。
+
+### メイン checkout と共有するもの
+
+- リポジトリの `.git`（サンドボックスでも書き込み可）とプロジェクトスコープのプラグイン
+- Bash の「Yes, and don't ask again」は、メイン側の `.claude/settings.local.json` に保存されます。
+- worktree に `.claude/skills`・`agents`・`commands` が無ければ、メイン側のものを読みます（skills は v2.1.277 以降）。
+
+<div class="src">
+  出典: [worktrees#how-claude-code-enforces-isolation](https://code.claude.com/docs/en/worktrees#how-claude-code-enforces-isolation) · [#isolate-subagents-with-worktrees](https://code.claude.com/docs/en/worktrees#isolate-subagents-with-worktrees) · [#what-worktrees-share-with-the-main-checkout](https://code.claude.com/docs/en/worktrees#what-worktrees-share-with-the-main-checkout)
+</div>
+
+<span id="ch42-cleanup" />
+
+## 後片付け・ロック・再開
+
+| 対話セッション終了時         | 動作                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| 変更なし・無名               | worktree とブランチを自動で削除                                          |
+| 変更なし・名前付き           | 残すか確認                                                               |
+| 変更・未追跡・新コミットあり | keep / remove を確認。keep は `claude --worktree <name> --resume` を表示 |
+| 別ブランチに移っている       | 確認。そのブランチは常に残す                                             |
+| 状態を確認できない           | 確認。確認できなかった内容を示す                                         |
+
+- `-p` は終了時に確認も削除もせず、作成時のロックを残します。
+- 定期 sweep は、Claude が作ったサブエージェントと背景セッションの worktree を `cleanupPeriodDays` より古くなったら消します。変更・未追跡・未 push、サブモジュールの変更、背景に送っていない `--worktree`、`git worktree add` で作ったものは残します。
+- エージェント実行中は `git worktree lock` を掛けます。終了済みプロセスのロックは sweep が外し、自分で掛けたロックには触れません。
+- 再開すると、その worktree に戻ります（`-p` は v2.1.212 以降）。`--fork-session` は起動したディレクトリで始まります。worktree が消えていれば、起動したディレクトリで再開し、紐付けを解除します。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p -w labwt --no-session-persistence \
+    --setting-sources project --model haiku "Reply with OK"
+OK
+$ git worktree list
+<repo>                         9d93f66 [main]
+<repo>/.claude/worktrees/labwt 9d93f66 [worktree-labwt] locked
+$ git worktree list --porcelain | grep locked
+locked claude session labwt (pid … start …)
+$ ls -a .claude/worktrees/labwt
+. .. .env .git .gitignore .worktreeinclude README.md
+$ git worktree remove .claude/worktrees/labwt
+fatal: cannot remove a locked working tree, lock reason: …
+use 'remove -f -f' to override or unlock first
+$ git worktree unlock .claude/worktrees/labwt \
+    && git worktree remove .claude/worktrees/labwt
+$ git worktree list
+<repo> 9d93f66 [main]
+```
+
+remote なし・2 コミットのリポジトリで、`.gitignore` と `.worktreeinclude` に `.env` を書いて実行しました。`"fresh"` がローカル HEAD に戻り、`.env` がコピーされ、`-p` の終了後もロックが残りました。
+
+<div class="src">
+  出典: [worktrees#clean-up-worktrees](https://code.claude.com/docs/en/worktrees#clean-up-worktrees) · [#clean-up-subagent-and-background-session-worktrees](https://code.claude.com/docs/en/worktrees#clean-up-subagent-and-background-session-worktrees) · [#resume-a-worktree-session](https://code.claude.com/docs/en/worktrees#resume-a-worktree-session) · 実機確認 2.1.321
+</div>

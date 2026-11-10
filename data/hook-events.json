@@ -43,7 +43,7 @@
   },
   {
     "name": "PermissionDenied",
-    "desc_ja": "auto モードがツール呼び出しを拒否したときに発火し、`hookSpecificOutput.retry: true` で再試行を許可できる。",
+    "desc_ja": "auto モードの拒否時に発火し、分類器の判定があれば `hookSpecificOutput.retry: true` で再試行を許可できる。",
     "status": "ga",
     "anchor": "https://code.claude.com/docs/en/hooks#permissiondenied",
     "can_block": false

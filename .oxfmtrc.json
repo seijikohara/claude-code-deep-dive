@@ -3,10 +3,7 @@
   "ignorePatterns": [
     "data/**/*.json",
     "pnpm-lock.yaml",
-    "src/chapters/**",
-    "src/head.html",
-    "src/scripts.html",
     "tools/fixtures/**",
-    "tools/check-page.js"
+    "src/content/docs/**/*.mdx"
   ]
 }

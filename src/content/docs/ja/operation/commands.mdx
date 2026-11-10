@@ -1,0 +1,427 @@
+---
+title: "スラッシュコマンド完全ガイド"
+description: "公式一覧に載る現行コマンド名 116（組み込み 95 ＋バンドル 21）と、削除済み 3 件をすべて掲載します。"
+sidebar:
+  order: 12
+---
+
+import DataTable from "../../../../components/DataTable.astro";
+
+公式一覧に載る現行コマンド名 116（組み込み 95 ＋バンドル 21）と、削除済み 3 件をすべて掲載します。
+
+<span id="ch12-overview" />
+
+## 全体像: 種類と件数
+
+### 公式一覧（commands ページの All commands 表）
+
+| 区分               | 件数    | 内訳・備考                                            |
+| ------------------ | ------- | ----------------------------------------------------- |
+| 組み込みコマンド   | 95      | 94 行。`/design consent` と `/design revoke` が同じ行 |
+| バンドル Skill     | 20      | Purpose 列に **Skill** の印                           |
+| バンドル Workflow  | 1       | `/deep-research`                                      |
+| **現行コマンド名** | **116** | 組み込み 95＋バンドル 21                              |
+| エイリアス         | 24      | 別名だけの行 `/cost`・`/review`・`/stats` を含む      |
+| 削除済み           | 3       | `/pr-comments`・`/ultraplan`・`/vim`                  |
+
+### -p セッションの init（実測）
+
+- -p の init: 55（コマンド 36＋Skill 19）。
+- init はその -p セッションで実行できる正式名だけを列挙し、docs は全サーフェスの全コマンドを列挙します。別名は init に出ません。
+- `terminal_slash_commands` は 4 件（`doctor`・`color`・`focus`・`reload-plugins`）。UI がローカル端末に結び付いた項目で、リモートやモバイルのクライアントがメニューから隠すために使います。
+
+### / メニューに並ぶもの
+
+- 組み込みコマンド、バンドル Skill とユーザー作成の Skill、プラグインと MCP サーバーが提供するコマンドです。
+- 表示はプラットフォーム・プラン・環境で変わります。例: `/desktop` は macOS と x64 Windows で Claude サブスクリプションにサインインしたときだけ表示され、`/upgrade` は Enterprise プランでは表示されません。
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands) · [interactive-mode#commands](https://code.claude.com/docs/en/interactive-mode#commands) · [agent-sdk/typescript](https://code.claude.com/docs/en/agent-sdk/typescript)（`terminal_slash_commands`） · 実機確認 2.1.321
+</div>
+
+<span id="ch12-parsing" />
+
+## 解析・連結・キューイング
+
+### 解析と Skill の連結
+
+- コマンドはメッセージの先頭にあるときだけ認識されます。後ろのテキストは引数になります。一覧の `<arg>` は必須、`[arg]` は任意の引数です。
+- 端末のプロンプトでは、先頭に Skill を重ねられます。`/skill-a /skill-b do XYZ` は両方を読み込み、末尾のテキストを各 Skill に引数として渡します。
+- 展開されるのは先頭の Skill と後続の最大 5 個（計 6 個）です。インラインで呼べるユーザー起動 Skill ではないトークンで展開は止まります。
+- フォークしたサブエージェントで動く Skill（`/code-review` など）や、引数が別のコマンドで始まりうる Skill（`/loop`）でも、展開はそこで終わります。
+- `claude -p` と Agent SDK では先頭の Skill だけを読み込み、残りは引数になります。
+- 文中の `run the tests, then /com` でも補完できますが、挿入したコマンドは文字列として入るだけです。
+
+### Claude の応答中に送ったとき
+
+| コマンド                    | 扱い                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| 大半のコマンド              | ターン終了まで保留し、送った順に 1 つずつ実行                                       |
+| `/status` `/tasks` `/usage` | すぐに実行し、応答を中断しない                                                      |
+| `/model`                    | 同じターンの次のリクエストから新モデル（キャッシュ警告が出たら確認後）              |
+| `/effort`                   | 次に送るメッセージから新レベル                                                      |
+| `/fast`                     | 実行中のターンは元の速度。次のターンから反映                                        |
+| `/bug` `/feedback`          | ダイアログをすぐ開く（v2.1.232 以降）                                               |
+| `/add-dir`                  | すぐに確認を求め、確認後は同じターンの次のツール呼び出しから使える（v2.1.234 以降） |
+| `/theme` `/help` など       | フルスクリーン描画ではダイアログをすぐ開く（v2.1.234 以降）                         |
+
+メッセージのキューイングと <kbd>Ctrl</kbd>+<kbd>Enter</kbd> は [Ch13](/claude-code-deep-dive/ja/operation/keyboard/) で扱います。
+
+<div class="src">
+  出典: [commands](https://code.claude.com/docs/en/commands) · [skills#stack-several-skills-in-one-message](https://code.claude.com/docs/en/skills#stack-several-skills-in-one-message) · [interactive-mode#complete-a-command-mid-prompt](https://code.claude.com/docs/en/interactive-mode#complete-a-command-mid-prompt) · [#when-claude-code-sends-what-you-queued](https://code.claude.com/docs/en/interactive-mode#when-claude-code-sends-what-you-queued)
+</div>
+
+<span id="ch12-menu" />
+
+## メニュー照合と非表示コマンド
+
+### / メニューの照合
+
+- v2.1.236 以降、先頭の候補を強調するのは、`/` の後の文字がコマンド名か別名の先頭、または名前の中の単語の先頭と一致したときだけです。`:`・`_`・`-` の区切りは無視します。
+- 例: `/adddir` は `/add-dir` を、`/new` は別名を通じて `/clear` を強調します。<kbd>Enter</kbd> で強調中の候補を実行します。
+- 打ち間違えたときは何も強調しません。近い候補は一覧に残り、<kbd>Tab</kbd> か矢印キーで選べます。<kbd>Enter</kbd> は入力どおりに送信し、`Unknown command` になります。
+- プラグインの Skill は短い名前でも一致します。`/deploy` で `myplugin:deploy-app` が見つかり、挿入すると `/myplugin:deploy-app` と書かれます。
+
+### メニューに出ないコマンド
+
+| 種類             | 振る舞い                                                                                                                                                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 使えないコマンド | メニューから外れる。何も一致しないと `No commands match "/name"`。送信すると大半は `Unknown command`。Console API キーでの `/schedule` など一部は独自の案内を返す。組織ポリシーで無効なものも独自のメッセージを返す場合がある |
+| 非表示コマンド   | 設計上メニューから外す。部分入力では出ず、完全な名前を打つと一覧に出て、送信すれば実行される。例: `/heapdump`                                                                                                                 |
+| 条件付きで非表示 | `/setup-bedrock` は `CLAUDE_CODE_USE_BEDROCK=1`、`/setup-vertex` は `CLAUDE_CODE_USE_VERTEX=1` を設定するまで非表示                                                                                                           |
+| すべて無効化     | `--disable-slash-commands`（Skill とコマンドをすべて無効にする）                                                                                                                                                              |
+
+公式一覧に無いのに binary が認識する名前は [情報源の突き合わせ](/claude-code-deep-dive/ja/operation/commands/#ch12-sources) にまとめています。
+
+<div class="src">
+  出典: [commands#how-the-command-menu-matches-what-you-type](https://code.claude.com/docs/en/commands#how-the-command-menu-matches-what-you-type) · [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands) · [interactive-mode#complete-a-command-mid-prompt](https://code.claude.com/docs/en/interactive-mode#complete-a-command-mid-prompt) · [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags)
+</div>
+
+<span id="ch12-kinds" />
+
+## 組み込み・Skill・Workflow の違い
+
+| 種類              | 実体                                                                                  | 件数 | 例                               |
+| ----------------- | ------------------------------------------------------------------------------------- | ---- | -------------------------------- |
+| 組み込みコマンド  | CLI にコード化された固定ロジック                                                      | 95   | `/clear` `/model` `/config`      |
+| バンドル Skill    | Claude に渡すプロンプト（自作 Skill と同じ仕組み）。Claude がツールで作業を組み立てる | 20   | `/code-review` `/loop` `/doctor` |
+| バンドル Workflow | 多数のサブエージェントへ作業を分散し、バックグラウンドで動く dynamic workflow         | 1    | `/deep-research <question>`      |
+
+### 呼び出しと前提条件
+
+- Claude が場面に応じて自動で呼ぶバンドル Skill もあります。`/verify` と `/deep-research` は、ユーザーが呼んだときだけ動きます。
+- 特定の機能に依存する Skill があります。例: `/workflow-authoring` は dynamic workflows が有効なときだけ使えます。
+- `/deep-research` には WebSearch ツールが必要です。詳細は [Ch29](/claude-code-deep-dive/ja/extensions/skills/)（Skill）と [Ch41](/claude-code-deep-dive/ja/parallel/workflows/)（Workflow）で扱います。
+
+### 無効化と名前の衝突
+
+- `disableBundledSkills`（`CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1`）はバンドル Skill と Workflow を取り除きます。`/init` などの組み込みコマンドは入力できますが、モデルからは見えなくなります。
+- `/doctor` は入力できるまま残ります。隠すには `DISABLE_DOCTOR_COMMAND` か `skillOverrides` の `"doctor": "off"` を使います。
+- 同名の自作 Skill はバンドル Skill を置き換えますが、別名は置き換えません（`code-review` Skill があっても `/review` はバンドル側）。ローカル端末では組み込みコマンドも同様です。
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands) · [skills#bundled-skills](https://code.claude.com/docs/en/skills#bundled-skills) · [skills#resolve-skills-that-share-a-name](https://code.claude.com/docs/en/skills#resolve-skills-that-share-a-name) · [workflows#bundled-workflows](https://code.claude.com/docs/en/workflows#bundled-workflows) · [settings-reference#disablebundledskills](https://code.claude.com/docs/en/settings-reference#disablebundledskills) · [env-vars](https://code.claude.com/docs/en/env-vars)
+</div>
+
+<span id="ch12-map-session" />
+
+## カテゴリ別マップ (1/4): セッションとモデル
+
+### セッション・コンテキスト
+
+| 用途                       | 組み込みコマンド（17）                        |
+| -------------------------- | --------------------------------------------- |
+| リセット・圧縮・使用状況   | `/clear` `/compact` `/autocompact` `/context` |
+| 再開・命名・分岐・要約     | `/resume` `/rename` `/branch` `/recap`        |
+| 巻き戻し                   | `/rewind`                                     |
+| 書き出し・参照・横道の質問 | `/export` `/copy` `/diff` `/btw`              |
+| 作業ディレクトリ           | `/cd` `/add-dir`                              |
+| 終了・再起動               | `/exit` `/restart`                            |
+
+### モデル・挙動
+
+| 用途               | 組み込みコマンド（10） |
+| ------------------ | ---------------------- |
+| モデル             | `/model` `/advisor`    |
+| 推論量・速度       | `/effort` `/fast`      |
+| 進め方             | `/plan` `/goal`        |
+| 応答の書き方       | `/output-style`        |
+| プロジェクトの指示 | `/init` `/memory`      |
+| 変更の検査         | `/security-review`     |
+
+同じ用途のバンドル Skill: `/code-review` `/simplify` `/verify` `/run` `/run-skill-generator` `/claude-api`
+
+4 つのマップで、現行の組み込みコマンド 95 件をそれぞれ 1 回ずつ用途別に並べます。分類はこの資料によるものです。引数・別名・状態は組み込みコマンド一覧を見てください。
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands)（分類はこの資料による）
+</div>
+
+<span id="ch12-map-config" />
+
+## カテゴリ別マップ (2/4): 設定・拡張
+
+| 用途                     | 組み込みコマンド（24）                                                     |
+| ------------------------ | -------------------------------------------------------------------------- |
+| 設定と安全               | `/config` `/permissions` `/sandbox` `/auto-mode-setup` `/privacy-settings` |
+| Hooks・MCP・プラグイン   | `/hooks` `/mcp` `/plugin` `/reload-plugins` `/plugin-authoring`            |
+| Skill                    | `/skills` `/reload-skills` `/skill-doctor`                                 |
+| サブエージェント         | `/agents`                                                                  |
+| 入力・表示のカスタマイズ | `/keybindings` `/statusline` `/terminal-setup`                             |
+| 外部ツール連携・移行     | `/import` `/ide` `/chrome` `/install-github-app` `/install-slack-app`      |
+| クラウドプロバイダの設定 | `/setup-bedrock` `/setup-vertex`                                           |
+
+同じ用途のバンドル Skill: `/update-config` `/fewer-permission-prompts` `/claude-in-chrome`
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands)（分類はこの資料による）
+</div>
+
+<span id="ch12-map-parallel" />
+
+## カテゴリ別マップ (3/4): 並列・リモート
+
+| 用途                   | 組み込みコマンド（16）                                              |
+| ---------------------- | ------------------------------------------------------------------- |
+| バックグラウンド       | `/background` `/stop` `/tasks`                                      |
+| 会話を複製して並行作業 | `/fork` `/subtask`                                                  |
+| エージェント間の連絡   | `/list-agents`                                                      |
+| Workflow・スケジュール | `/workflows` `/schedule`                                            |
+| 別デバイス・別アプリ   | `/remote-control` `/mobile` `/desktop`                              |
+| クラウドセッション     | `/teleport` `/remote-env` `/web-setup` `/autofix-pr` `/ultrareview` |
+
+同じ用途のバンドル Skill・Workflow: `/batch` `/loop` `/workflow-authoring` `/deep-research`
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands)（分類はこの資料による）
+</div>
+
+<span id="ch12-map-misc" />
+
+## カテゴリ別マップ (4/4): UI・アカウント・その他
+
+| 用途                     | 組み込みコマンド（28）                                               |
+| ------------------------ | -------------------------------------------------------------------- |
+| 表示・入力               | `/theme` `/tui` `/scroll-speed` `/focus` `/color` `/voice`           |
+| ヘルプ・情報             | `/help` `/status` `/release-notes` `/powerup`                        |
+| 利用量・プラン           | `/usage` `/usage-credits` `/rate-limit-options` `/upgrade` `/passes` |
+| アカウント               | `/login` `/logout`                                                   |
+| 利用履歴のレポート       | `/insights` `/team-onboarding`                                       |
+| Artifacts・Claude Design | `/artifacts` `/design consent` `/design revoke` `/design-login`      |
+| 報告・診断               | `/feedback` `/bug` `/heapdump`                                       |
+| その他                   | `/stickers` `/radio`                                                 |
+
+同じ用途のバンドル Skill: `/doctor` `/debug` `/dataviz` `/design` `/design-sync` `/slides` `/artifact-capabilities` `/artifact-diagramming`
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands)（分類はこの資料による）
+</div>
+
+<span id="ch12-owners" />
+
+## 詳しく扱う章
+
+| Part                              | 章とコマンド                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I 基礎                            | [Ch1](/claude-code-deep-dive/ja/fundamentals/how-it-works/) `/context` · [Ch2](/claude-code-deep-dive/ja/fundamentals/models/) `/model` · [Ch3](/claude-code-deep-dive/ja/fundamentals/effort/) `/effort` · [Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/) `/fast` · [Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/) `/advisor` · [Ch6](/claude-code-deep-dive/ja/fundamentals/context/) `/clear` `/compact` `/autocompact` · [Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/) `/resume` `/rename` `/branch` `/fork` `/subtask` `/goal` · [Ch8](/claude-code-deep-dive/ja/fundamentals/checkpoints/) `/rewind` · [Ch9](/claude-code-deep-dive/ja/fundamentals/memory/) `/memory` |
+| II 操作                           | [Ch13](/claude-code-deep-dive/ja/operation/keyboard/) `/btw` `/diff` `/focus` · [Ch14](/claude-code-deep-dive/ja/operation/keybindings/) `/keybindings` · [Ch15](/claude-code-deep-dive/ja/operation/statusline/) `/statusline` · [Ch16](/claude-code-deep-dive/ja/operation/output-styles/) `/output-style` · [Ch17](/claude-code-deep-dive/ja/operation/display/) `/tui` `/scroll-speed` `/theme` `/terminal-setup` `/voice`                                                                                                                                                                                                                                                                           |
+| III 設定と安全                    | [Ch22](/claude-code-deep-dive/ja/settings/permission-rules/) `/permissions` · [Ch23](/claude-code-deep-dive/ja/settings/permission-modes/) `/plan` · [Ch24](/claude-code-deep-dive/ja/settings/auto-mode/) `/auto-mode-setup` · [Ch25](/claude-code-deep-dive/ja/settings/sandbox/) `/sandbox`                                                                                                                                                                                                                                                                                                                                                                                                           |
+| IV 拡張                           | [Ch28](/claude-code-deep-dive/ja/extensions/hooks/) `/hooks` · [Ch29](/claude-code-deep-dive/ja/extensions/skills/) `/skills` `/reload-skills` `/skill-doctor` · [Ch30](/claude-code-deep-dive/ja/extensions/mcp/) `/mcp` · [Ch31](/claude-code-deep-dive/ja/extensions/plugins/) `/plugin` `/reload-plugins` · [Ch33](/claude-code-deep-dive/ja/extensions/mods/) `/plugin-authoring` · [Ch35](/claude-code-deep-dive/ja/extensions/artifacts/) `/artifacts`                                                                                                                                                                                                                                            |
+| V 並列化                          | [Ch37](/claude-code-deep-dive/ja/parallel/subagents/) `/agents` · [Ch38](/claude-code-deep-dive/ja/parallel/agent-view/) `/background` `/stop` · [Ch40](/claude-code-deep-dive/ja/parallel/messaging/) `/list-agents` · [Ch41](/claude-code-deep-dive/ja/parallel/workflows/) `/workflows` `/deep-research` `/workflow-authoring` · [Ch43](/claude-code-deep-dive/ja/parallel/scheduling/) `/schedule` `/loop`                                                                                                                                                                                                                                                                                           |
+| VI・VII 自動化とプラットフォーム  | [Ch47](/claude-code-deep-dive/ja/automation/code-review/) `/code-review` `/ultrareview` · [Ch49](/claude-code-deep-dive/ja/platforms/remote-control/) `/remote-control` `/mobile` · [Ch50](/claude-code-deep-dive/ja/platforms/cloud/) `/teleport` `/remote-env` `/autofix-pr` `/web-setup` · [Ch52](/claude-code-deep-dive/ja/platforms/desktop/) `/desktop` · [Ch53](/claude-code-deep-dive/ja/platforms/ide/) `/ide` · [Ch54](/claude-code-deep-dive/ja/platforms/chrome-computer-use/) `/chrome` · [Ch55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/) `/install-slack-app`                                                                                                              |
+| VIII・IX エンタープライズとまとめ | [Ch57](/claude-code-deep-dive/ja/enterprise/auth/) `/login` `/logout` · [Ch59](/claude-code-deep-dive/ja/enterprise/providers/) `/setup-bedrock` `/setup-vertex` · [Ch61](/claude-code-deep-dive/ja/enterprise/monitoring-costs/) `/usage` `/usage-credits` · [Ch66](/claude-code-deep-dive/ja/summary/renames/) 削除・改名の全体                                                                                                                                                                                                                                                                                                                                                                        |
+
+表に無いコマンドは、カタログの行とこの章の後半の節で扱います。
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands)（章の割り当てはこの資料による）
+</div>
+
+<span id="ch12-catalog-builtin-1" />
+
+## 組み込みコマンド一覧
+
+<DataTable spec={{"data":"commands","filter":{"kind":"builtin"},"id":"ch12-catalog-builtin","title":"組み込みコマンド一覧","rowsPerSlide":"auto","columns":[{"key":"name","label":"コマンドと引数","code":true,"sub":"args","width":"26%"},{"key":"desc_ja","label":"説明"},{"key":"aliases","label":"別名","code":true,"width":"11%"},{"key":"status","label":"状態","badge":true,"width":"9%"}],"src":"<a href=\"https://code.claude.com/docs/en/commands#all-commands\">commands#all-commands</a>（docs ミラーから機械抽出。説明は日本語要約）"}} />
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands)（docs ミラーから機械抽出。説明は日本語要約）
+</div>
+
+<span id="ch12-catalog-bundled-1" />
+
+## バンドル Skill・Workflow 一覧
+
+<DataTable spec={{"data":"commands","filter":{"kind":["bundled-skill","bundled-workflow"]},"id":"ch12-catalog-bundled","title":"バンドル Skill・Workflow 一覧","rowsPerSlide":"auto","columns":[{"key":"name","label":"コマンドと引数","code":true,"sub":"args","width":"30%"},{"key":"desc_ja","label":"説明"},{"key":"aliases","label":"別名","code":true,"width":"10%"},{"key":"kind","label":"種別","width":"9%","map":{"bundled-skill":"Skill","bundled-workflow":"Workflow"}},{"key":"status","label":"状態","badge":true,"width":"9%"}],"src":"<a href=\"https://code.claude.com/docs/en/commands#all-commands\">commands#all-commands</a> · <a href=\"https://code.claude.com/docs/en/skills#bundled-skills\">skills#bundled-skills</a>（docs ミラーから機械抽出。説明は日本語要約）"}} />
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands) · [skills#bundled-skills](https://code.claude.com/docs/en/skills#bundled-skills)（docs ミラーから機械抽出。説明は日本語要約）
+</div>
+
+<span id="ch12-history" />
+
+## 改名・削除の歴史
+
+| 版                | 対象                         | 変更                                                                                                                                                                                           |
+| ----------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.0.70            | `#`                          | メモリを追加するショートカットを削除。CLAUDE.md の編集は Claude に頼む（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/)）                                                                |
+| 2.1.73 / 2.1.269  | `/output-style`              | 2.1.73 で非推奨（`/config` を使う）。2.1.269 で `/output-style [name]` として再追加                                                                                                            |
+| 2.1.77 / 2.1.212  | `/branch` `/fork` `/subtask` | 2.1.77 で `/fork` を `/branch` に改名（`/fork` は別名）。2.1.212 で `/fork` は新しいバックグラウンドセッションへの複製になり、従来のセッション内サブエージェントは `/subtask` に移った         |
+| v2.1.91           | `/pr-comments`               | 削除（docs）。PR のコメントは Claude に直接頼む                                                                                                                                                |
+| 2.1.92            | `/vim` `/tag`                | 削除。Vim モードの切り替えは `/config` → Editor mode                                                                                                                                           |
+| 2.1.111           | `/fewer-permission-prompts`  | `/less-permission-prompts` として追加。現行名への改名は changelog に記載なし                                                                                                                   |
+| 2.1.144           | `/usage-credits`             | `/extra-usage` から改名（旧名も動く）                                                                                                                                                          |
+| 2.1.147 / 2.1.154 | `/code-review` `/simplify`   | 2.1.147 で `/simplify` を `/code-review` に改名し、旧来のクリーンアップ動作を削除。2.1.152 で `/simplify` は `/code-review --fix` を呼ぶ形に、2.1.154 でクリーンアップ専用のレビューに変わった |
+| 2.1.198 / 2.1.281 | `/agents`                    | ウィザードを削除。2.1.281 でメニューに残った項目も削除。入力するとリマインダーを表示する                                                                                                       |
+| 2.1.222           | `/ultraplan`                 | ultraplan 機能を削除。docs は代わりに plan mode を案内                                                                                                                                         |
+| 2.1.223           | `/review`                    | `/code-review` の別名に変更                                                                                                                                                                    |
+
+別名の追加: `/settings`（2.0.71）、`/proactive`（2.1.105）、`/undo`（2.1.108）。`/permissions` は 1.0.7 で `/allowed-tools` から改名。v2.1.212 より前は `/bug`・`/share` が `/feedback` の別名（docs）。全体は [Ch66](/claude-code-deep-dive/ja/summary/renames/)。
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands) · [changelog](https://code.claude.com/docs/en/changelog) 1.0.7, 2.0.70, 2.0.71, 2.1.73, 2.1.77, 2.1.92, 2.1.105, 2.1.108, 2.1.111, 2.1.144, 2.1.147, 2.1.152, 2.1.154, 2.1.198, 2.1.212, 2.1.222, 2.1.223, 2.1.269, 2.1.281（`/tag` と `/less-permission-prompts` はリファレンス未掲載）
+</div>
+
+<span id="ch12-headless" />
+
+## ヘッドレスでの実態（実測）
+
+| -p での応答                                    | 意味                                                                              | 例                                                    |
+| ---------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 実行される                                     | Skill 以外はモデルのターンを使わない                                              | `/config --help` `/mcp` `/agents` `/model` `/usage`   |
+| `/<name> isn't available in this environment.` | 組み込みの名前として認識するが、このセッションでは動かない。ターンを使わない      | `/theme` `/permissions` `/resume` `/vim` `/ultraplan` |
+| モデルへ渡る                                   | どのコマンドにも一致しない名前。注記付きの通常のプロンプトになる（v2.1.274 以降） | `/pr-comments`                                        |
+
+| init の区分      | 名前（init の表記）                                                                                                                                                                                                                                                                                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Skill（19）      | `deep-research` `design` `design-sync` `dataviz` `update-config` `verify` `debug` `code-review` `simplify` `batch` `fewer-permission-prompts` `doctor` `loop` `schedule` `claude-api` `workflow-authoring` `run` `run-skill-generator` `plugin-authoring`                                                                                                  |
+| コマンド（31）   | `advisor` `agents` `auto-mode-setup` `autocompact` `clear` `color` `compact` `config` `output-style` `context` `effort` `fast` `focus` `heapdump` `init` `mcp` `import` `model` `reload-plugins` `reload-skills` `rename` `ultrareview` `security-review` `usage-credits` `usage` `insights` `recap` `skill-doctor` `goal` `list-agents` `team-onboarding` |
+| 表記が違う（3）  | `extra-usage`（`/usage-credits` の旧名）、`design-consent` `design-revoke`（docs は `/design consent` と `/design revoke`）                                                                                                                                                                                                                                |
+| docs に無い（2） | <span class="undocumented">`__remote-workflow`</span> <span class="undocumented">`workflow-launch-exec`</span> <span class="badge undocumented">Undocumented</span>                                                                                                                                                                                        |
+
+別名は init に出ませんが -p で動きます（例: `/cost` `/settings` `/peers`）。`--bare` の init は 51 件、`--disable-slash-commands` は 0 件です。N/A のメッセージは対話専用の証明になりません。削除済みの `/vim` も返します。
+
+<div class="src">
+  出典: [agent-sdk/skills#dispatch-commands-by-name](https://code.claude.com/docs/en/agent-sdk/skills#dispatch-commands-by-name) · [headless](https://code.claude.com/docs/en/headless) · [changelog 2.1.144](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch12-sources" />
+
+## 情報源の突き合わせ
+
+### Skill の分類は情報源ごとに違う
+
+- docs の印: 21（Skill 20＋Workflow 1）。この資料の件数はこの印で数えます。
+- init の `skills`: 19。`schedule` と `plugin-authoring` が加わり、`artifact-capabilities`・`artifact-diagramming`・`claude-in-chrome`・`slides` がありません。
+- -p の `/context` は、`init`・`security-review`・`keybindings-help` も組み込みの Skill として表示します。
+
+:::danger[食い違い]
+`/mcp` の構文
+
+- **docs**: `/mcp [reconnect (<server>|all)|enable|disable [<server>|all]]`
+- **binary の usage 行（実測）**: `/mcp [reconnect|enable|disable [<server>|all]]` と「With no server name, applies to all.」。`reconnect` でもサーバー名を省略できる読み方になります。
+  :::
+
+### 公式一覧に無いのに認識される名前 <span class="badge undocumented">Undocumented</span>
+
+<span class="undocumented">`/loops`</span> <span class="undocumented">`/wellbeing`</span> <span class="undocumented">`/cloud-plugins`</span> <span class="undocumented">`/project`</span> <span class="undocumented">`/session`</span> <span class="undocumented">`/use-case`</span>
+
+- -p ではどれも N/A のメッセージを返し、モデルのターンを使いません。
+- docs ミラーにも changelog にもコマンドとしての記載がなく、用途は不明です。使える機能として扱わないでください。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "/loops"
+/loops isn't available in this environment.
+$ claude -p "/use-case"
+/use-case isn't available in this environment.
+```
+
+空のディレクトリで `--safe-mode --setting-sources project --tools ""` を付けて実行
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands) · [skills#bundled-skills](https://code.claude.com/docs/en/skills#bundled-skills) · 実機確認 2.1.321
+</div>
+
+<span id="ch12-config" />
+
+## `/config` の主要キー (1/2): 書式と true|false のキー
+
+- 書式は `/config [key=value ...]`（別名 `/settings`）です。引数なしで Settings 画面を開きます。
+- `key=value` を 1 組以上並べると、画面を開かずに設定します。例: `/config thinking=false`、`/config theme=dark`、`/config model=sonnet`
+- `key=value` は -p と Remote Control でも動きます（2.1.181）。
+- パネルで確認が要る設定（例: `autoContinueAtUsageLimit`）は、`key=value` で無効にはできますが、有効にはできません。
+- `/config --help`（2.1.183）が shorthand キーを一覧します。実測では 37 キーで、この節の表の 24 キーと次の節の 13 キーです。
+
+### `true|false` を取るキー（24）
+
+`agentPushNotifEnabled` `autoCompact` `autoConnectIde` `autoScroll` `checkpoints` `copyFullResponse` `copyOnSelect` `defaultToAgentsView` `externalEditorContext` `gitignore` `inputNeededNotifEnabled` `leftArrowOpensAgents` `prStatus` `progressBar` `promptSuggestionEnabled` `recap` `reduceMotion` `thinking` `tips` `turnDuration` `useAutoModeDuringPlan` `verbose` `workflowKeywordTriggerEnabled` `workflows`
+
+:::danger[食い違い]
+`--help` の一覧に無いキーの記述があります。
+
+- **docs**: `/config autoContinueAtUsageLimit=false` が動く。
+- **changelog 2.1.285**: `/config chrome=true` は /config パネルへ案内し、`/config chrome=false` は有効だった場合に無効化する。
+
+どちらも未検証です。
+:::
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands) · [interactive-mode#turn-automatic-continue-off](https://code.claude.com/docs/en/interactive-mode#turn-automatic-continue-off) · [changelog 2.1.181, 2.1.183, 2.1.285](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch12-config-values" />
+
+## `/config` の主要キー (2/2): 値を選ぶキー
+
+| キー                    | 受け付ける値（`/config --help` の表記）                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `editor`                | `normal\|vim`                                                                           |
+| `language`              | `<value>`                                                                               |
+| `model`                 | `default\|sonnet\|opus\|haiku\|fable\|best\|sonnet[1m]\|opus[1m]\|fable[1m]\|opusplan`  |
+| `notifChannel`          | `auto\|iterm2\|terminal_bell\|iterm2_with_bell\|kitty\|ghostty\|notifications_disabled` |
+| `outputStyle`           | `default\|Proactive\|Concise\|Explanatory\|Learning`                                    |
+| `permissionMode`        | `default\|plan\|acceptEdits\|auto\|dontAsk`                                             |
+| `remoteControl`         | `true\|false\|default`                                                                  |
+| `switchModelsOnFlag`    | `Switch automatically\|Ask each time`                                                   |
+| `teammateMode`          | `auto\|tmux\|iterm2\|in-process`                                                        |
+| `theme`                 | `auto\|dark\|light\|light-daltonized\|dark-daltonized\|light-ansi\|dark-ansi`           |
+| `timeFormat`            | `auto\|12-hour\|24-hour\|24-hour-utc`                                                   |
+| `workflowSizeGuideline` | `unrestricted\|small\|medium\|large`                                                    |
+| `worktreeBaseRef`       | `fresh\|head`                                                                           |
+
+空のディレクトリで `--safe-mode --setting-sources project` を付けて実行した結果です。
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands) · [settings](https://code.claude.com/docs/en/settings) · 実機確認 2.1.321
+</div>
+
+<span id="ch12-details" />
+
+## 詳細: `/init` `/import` `/doctor` `/insights`
+
+### `/init`
+
+- 既存の `CLAUDE.md` は上書きせず、改善案を出します。
+- `CLAUDE_CODE_NEW_INIT=1` では、CLAUDE.md・Skill・Hooks のどれを作るか尋ね、サブエージェントで調べ、書き込む前に案を示します。
+- `.cursor/rules/`・`.cursorrules`・`.github/copilot-instructions.md` を取り込みます。`CLAUDE_CODE_NEW_INIT=1` では `AGENTS.md`・`.devin/rules/`・`.windsurf/rules/`・`.windsurfrules`・`.clinerules` も対象です。
+
+### `/import [codex|gemini|cursor] [--dry-run] [--yes]`
+
+- 指示ファイル・MCP サーバー・コマンド・サブエージェント・Skill を取り込みます。指示ファイルは対応する `CLAUDE.md` に 1 回限り追記されます。端末からは `claude import [source]`。
+- Bedrock・Agent Platform・Foundry・Claude Platform on AWS・Claude apps gateway 経由と、feature flag の取得を止めた環境では使えません。Cursor は v2.1.265 以降です。
+
+### `/doctor [prompt-audit [path]]`（Skill、別名 `/checkup`）
+
+- インストール、拡張（未使用の Skill・MCP サーバー・プラグイン、遅い Hooks）、`CLAUDE.md`、権限、利用量（v2.1.305 以降、直近 7 日）を点検し、修正は確認後に適用します。
+- `prompt-audit`（v2.1.283 以降）は指示ファイルの古い記述や矛盾を調べます。読み取り専用の診断は `claude doctor` です。
+
+### `/insights`
+
+- 未分析のセッションを 1 回で最大 200 件分析し、`~/.claude/usage-data/report.html` に書きます。`cleanupPeriodDays`（既定 30 日）で削除され、トークンは通常の利用として計上されます。
+
+### `/heapdump`
+
+- 報告に添付するのは `-diagnostics.json` だけにします。`.heapsnapshot` には会話全体と認証情報が入り、`claude purge` でも消えません。
+
+<div class="src">
+  出典: [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands) · [memory](https://code.claude.com/docs/en/memory) · [skills#check-your-setup-with-/doctor](https://code.claude.com/docs/en/skills#check-your-setup-with-%2Fdoctor) · [costs#analyze-your-usage-patterns](https://code.claude.com/docs/en/costs#analyze-your-usage-patterns) · [claude-directory](https://code.claude.com/docs/en/claude-directory) · [cli-reference](https://code.claude.com/docs/en/cli-reference#cli-commands)
+</div>

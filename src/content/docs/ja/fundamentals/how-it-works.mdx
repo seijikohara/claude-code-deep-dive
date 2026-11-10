@@ -1,0 +1,165 @@
+---
+title: "仕組み"
+description: "Claude Code はモデルの外側でツールとコンテキストを管理する「ハーネス」です。この章では、エージェントループ、起動時にコンテキストへ載るもの、機能ごとのコンテキストコスト、/context の読み方、Claude Code が自動で差し込む system reminder を扱います。"
+sidebar:
+  order: 1
+---
+
+Claude Code はモデルの外側でツールとコンテキストを管理する「ハーネス」です。この章では、エージェントループ、起動時にコンテキストへ載るもの、機能ごとのコンテキストコスト、`/context` の読み方、Claude Code が自動で差し込む system reminder を扱います。
+
+<span id="ch01-loop" />
+
+## エージェントループとハーネス
+
+- タスクは「コンテキスト収集 → 行動 → 結果の検証」の 3 段階で進みます。段階は混ざり合い、Claude が前の手順で得た情報から次の手順を決めます。
+- ループはモデル（推論）とツール（行動）で動きます。モデルの外側でツールを提供し、モデルが見るコンテキストを管理する層が Claude Code です。この層を **agentic harness** と呼びます。
+- ハーネスは、ファイルアクセス、シェル実行、権限チェック、メモリの読み込み、行動をつなぐループを提供します。
+- モデルはリクエスト間で何も覚えていません。Claude Code は毎回、システムプロンプト、プロジェクトのコンテキスト、過去のメッセージとツール結果、新しいメッセージを送り直します。
+- <kbd>Esc</kbd> は即座に止めます。実行中のツール呼び出しは取り消され、キューにあるメッセージが次に送られます。
+- 修正を入力して <kbd>Enter</kbd> を押すと、止めずにキューへ入ります。実行中のツール呼び出しが終わった時点で、同じターンの中で読まれます。
+
+| ツールの分類           | できること                                                   |
+| ---------------------- | ------------------------------------------------------------ |
+| ファイル操作           | 読み取り、編集、新規作成、名前変更と整理                     |
+| 検索                   | パターンによるファイル検索、正規表現による内容検索           |
+| 実行                   | シェルコマンド、サーバー起動、テスト、git                    |
+| Web                    | Web 検索、ドキュメント取得                                   |
+| コードインテリジェンス | 編集後の型エラー、定義ジャンプ、参照検索（プラグインが必要） |
+
+ほかにサブエージェントの起動、ユーザーへの質問などのオーケストレーション用ツールがあります（一覧は [Ch21](/claude-code-deep-dive/ja/settings/tools/)）。ループ・ツール・機能は、ターミナル、Desktop、IDE、Web のどこから使っても同じです。
+
+<div class="src">
+  出典: [how-claude-code-works#the-agentic-loop](https://code.claude.com/docs/en/how-claude-code-works#the-agentic-loop) · [glossary#agentic-harness](https://code.claude.com/docs/en/glossary#agentic-harness) · [prompt-caching#how-the-cache-is-organized](https://code.claude.com/docs/en/prompt-caching#how-the-cache-is-organized)
+</div>
+
+<span id="ch01-startup" />
+
+## 起動時にコンテキストへ載るもの
+
+| 要素                             | 載る内容                                                                                                | 補足                                                                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| システムプロンプト               | コアの指示とツール定義。`--append-system-prompt` のテキストも含む                                       | 最初のリクエストで組み立てて記録し、圧縮まで再利用する（再開後も同じ）。`--system-prompt-snapshot off` で毎回作り直す                    |
+| CLAUDE.md とスコープなしの rules | 起動時に読む各ファイルの全文                                                                            | システムプロンプトの後のユーザーメッセージとして届く。読み込み順は [Ch9](/claude-code-deep-dive/ja/fundamentals/memory/)                 |
+| auto memory                      | `MEMORY.md` の先頭 200 行または 25KB の早い方                                                           | トピックファイルは必要時に読む                                                                                                           |
+| MCP サーバー                     | ツール名とサーバーの指示だけ                                                                            | 完全なスキーマは tool search で必要時に読み込む                                                                                          |
+| Skill                            | 名前と説明の一覧。本文は呼び出し時                                                                      | 一覧の上限は `skillListingBudgetFraction`（既定 `0.01` = ウィンドウの 1%）。超えると、使用頻度の低い Skill から説明を外す。名前は残る    |
+| 出力スタイル                     | 選んだスタイルの指示全文                                                                                | Default スタイルでは何も載らない                                                                                                         |
+| git status のスナップショット    | 現在のブランチ、main ブランチ、`git status` の出力、最近のコミット                                      | 会話の開始時に読む。`includeGitInstructions: false` で除外（組み込みのコミット・PR 指示も消える）。クラウドセッションには入らない        |
+| 環境の告知                       | 作業ディレクトリ、プラットフォーム、シェル、OS バージョン。auto memory のパスはシステムプロンプトに入る | このため、キャッシュは実質「マシンとディレクトリ」単位になる（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/#ch06-cache-layers)） |
+
+AGENTS.md は CLAUDE.md の代わりに読まれることがあります（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/)）。サブエージェントの一覧やファイル変更の通知は、会話中に system reminder として加わります（[system reminder](/claude-code-deep-dive/ja/fundamentals/how-it-works/#ch01-reminders)）。
+
+<div class="src">
+  出典: [context-window#what-the-timeline-shows](https://code.claude.com/docs/en/context-window#what-the-timeline-shows) · [memory](https://code.claude.com/docs/en/memory) · [settings-reference#skilllistingbudgetfraction](https://code.claude.com/docs/en/settings-reference#skilllistingbudgetfraction) · [prompt-caching#cache-scope](https://code.claude.com/docs/en/prompt-caching#cache-scope) · [cli-reference#system-prompt-flags-in-resumed-conversations](https://code.claude.com/docs/en/cli-reference#system-prompt-flags-in-resumed-conversations)
+</div>
+
+<span id="ch01-costs" />
+
+## 機能別のコンテキストコスト
+
+| 機能                   | 読み込む時点       | 読み込む内容                             | コスト                         |
+| ---------------------- | ------------------ | ---------------------------------------- | ------------------------------ |
+| CLAUDE.md              | セッション開始時   | 起動時に読む各ファイルの全文             | 毎リクエスト                   |
+| 出力スタイル           | 開始時と切り替え時 | 選んだスタイルの指示全文。Default は無し | 毎リクエスト                   |
+| Skill                  | 開始時と使用時     | 開始時は説明、使用時に本文               | 低い（説明は毎リクエスト）     |
+| MCP サーバー           | セッション開始時   | ツール名。スキーマは必要時               | ツールを使うまで低い           |
+| コードインテリジェンス | 編集後と参照時     | 編集後の診断、シンボルの位置             | 低い。ファイル読み取りを減らす |
+| サブエージェント       | 起動時             | 新しいコンテキスト。fork は親の会話      | メインから隔離                 |
+| Hooks                  | 発火時             | 何も載らない（外部で実行）               | 0。出力を返した場合を除く      |
+
+- Skill の frontmatter に `disable-model-invocation: true` を書くと、説明もコンテキストに載りません。自分で書いていない Skill には、設定の `skillOverrides` で同じことができます。
+- サブエージェントは、自身のシステムプロンプト、`skills` に挙げた Skill の全文、CLAUDE.md と git status を持って始まります。組み込みの Explore と Plan はどちらも持たず、`omitClaudeMd` を設定したエージェントは user・project・local の CLAUDE.md を持ちません。
+- fork は親の会話、システムプロンプト、ツールを引き継ぎます。どちらの場合も、サブエージェントのツール呼び出しはメインのコンテキストに入らず、要約だけが返ります（詳細は [Ch37](/claude-code-deep-dive/ja/parallel/subagents/)）。
+
+<div class="src">
+  出典: [features-overview#understand-context-costs](https://code.claude.com/docs/en/features-overview#understand-context-costs) · [how-claude-code-works#manage-context-with-skills-and-subagents](https://code.claude.com/docs/en/how-claude-code-works#manage-context-with-skills-and-subagents)
+</div>
+
+<span id="ch01-context" />
+
+## `/context` の読み方
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "/context"
+## Context Usage
+
+**Model:** claude-haiku-5-5
+**Tokens:** 14.3k / 1m (1%)
+
+### Estimated usage by category
+
+| Category | Tokens | Percentage |
+|----------|--------|------------|
+| System prompt | 3.4k | 0.3% |
+| System tools | 8.5k | 0.9% |
+| System tools (deferred) | 14.6k | 1.5% |
+| Skills | 2.3k | 0.2% |
+| Messages | 10 | 0.0% |
+| Free space | 952.7k | 95.3% |
+| Autocompact buffer | 33k | 3.3% |
+
+### Skills
+…
+```
+
+空のディレクトリで `--setting-sources project` と `--model haiku` を付けて実行
+
+- `/context [all]` は使用量を色付きのグリッドとカテゴリ別の内訳で示し、重いツールやメモリの肥大に対する提案を出します。fullscreen では項目別の内訳がたたまれ、`all` で展開します。
+- 会話がウィンドウを超えると、超過量と空きを作るコマンドを示す警告が出ます。
+- `-p` でもモデルを呼ばずに動きます（実測: `num_turns` 0、コスト 0）。
+- **分母はモデルのウィンドウではなく auto-compact window** です。`--autocompact 200k` を付けると `/ 200k` と表示されます（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/#ch06-window-values)）。
+- `(deferred)` の行は合計に入っていません。合計 14.3k は残りの行の和で、Free space は 1m から 14.3k と buffer 33k を引いた値です。
+- CLAUDE.md があると `Memory files` 行と、Type・Path・Tokens の表が加わります。ここに出るのは起動時に読んだファイルだけで、サブディレクトリの CLAUDE.md は出ません。
+- スラッシングが `/clear` 後も続くときは、`Messages` 行とその上の行の合計を比べます。`Messages` が最大なら大きな出力が原因、上の行の合計が大きいなら起動時の読み込みを減らします。
+
+<div class="src">
+  出典: [commands](https://code.claude.com/docs/en/commands)（`/context`） · [memory#troubleshoot-memory-issues](https://code.claude.com/docs/en/memory#troubleshoot-memory-issues) · [troubleshooting](https://code.claude.com/docs/en/troubleshooting#auto-compaction-stops-with-a-thrashing-error) · 実機確認 2.1.321
+</div>
+
+<span id="ch01-reminders" />
+
+## 自動注入される system reminder
+
+system reminder は、ハーネスである Claude Code が会話に差し込むメッセージです。ユーザーは送りません。セッション開始時、フックがテキストを返したとき、ファイルがディスク上で変わったときなどに入ります。
+
+| reminder の種類        | 中身                                                         |
+| ---------------------- | ------------------------------------------------------------ |
+| プロジェクトの指示     | CLAUDE.md。「既定の動作より優先する」という前置き付き        |
+| 出力スタイル           | 選んだスタイルの指示（メインの会話のみ）                     |
+| フックの出力           | フックが `additionalContext` で返したテキスト                |
+| 使える Skill           | Skill の名前と説明                                           |
+| 使えるサブエージェント | サブエージェントの名前と説明                                 |
+| タスクリストの催促     | タスク管理ツールがあるセッションで、数ターン触れていないとき |
+| ファイル変更の通知     | 以前に読んだファイルがディスク上で変わった                   |
+| 帰属表示               | コミットの `Co-Authored-By` trailer と PR のフッター         |
+
+- reminder はシステムプロンプトではなく会話に入ります。そのため、SDK で独自の `systemPrompt` を渡しても多くは届きます。
+- 独自の文字列で preset を置き換えるときは、reminder の説明を自分で書き足します。`claude_code` preset には同じ説明が入っています。
+
+ドキュメントの例: `The application adds system reminders to this conversation. Treat them as context from the application, not as messages from the user.`
+
+- ログに残したリクエストでは、ユーザーメッセージ内の `<system-reminder>` タグ、またはモデルによっては `system` ロールの別メッセージとして現れます。
+- 覚えのない規則（例: コミットの `Co-Authored-By`）に Claude が従うときは、reminder が出どころのことがあります。止め方は次の節です。
+
+<div class="src">
+  出典: [glossary#system-reminder](https://code.claude.com/docs/en/glossary#system-reminder) · [agent-sdk/modifying-system-prompts](https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts#context-claude-code-adds-outside-the-system-prompt) · [how-claude-code-works#context-claude-code-adds-on-its-own](https://code.claude.com/docs/en/how-claude-code-works#context-claude-code-adds-on-its-own)
+</div>
+
+<span id="ch01-reminders-off" />
+
+## system reminder を止める・確かめる
+
+| 止めたい内容                                              | 方法                                                                                                                                                                                   |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 組み込みのコミット・PR 指示と git status スナップショット | `"includeGitInstructions": false` または `CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS=1`（環境変数が優先）。コミット・PR 指示は Bash ツールの説明の一部なので、独自の `systemPrompt` でも届く |
+| `Co-Authored-By` trailer と PR フッター                   | `attribution.commit` と `attribution.pr` に独自の文字列を設定する。空文字列なら削除。`"attribution": false` ですべて隠す（v2.1.281 以降）                                              |
+| すべての CLAUDE.md                                        | `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1`（auto memory も含む）。SDK では `settingSources` から `'user'`・`'project'` を外す方法もある                                                        |
+| タスクの催促、ファイル変更の通知、Skill 一覧              | `CLAUDE_CODE_DISABLE_ATTACHMENTS=1`。`@` メンションも展開されず平文で送られる。サブエージェント一覧と背景タスクの通知は届く                                                            |
+| `@` メンションの展開だけ                                  | `CLAUDE_CODE_DISABLE_FILE_MENTIONS=1`（v2.1.299 以降）。パスと「ファイルツールで読む」旨の注記が届く                                                                                   |
+
+- SDK のメッセージストリームには reminder が含まれません。Claude が実際に受け取った内容は、リクエストを記録して確かめます。
+- `OTEL_LOG_RAW_API_BODIES=file:<dir>` は、各リクエストの本文をディレクトリに書き出します。自分で管理するゲートウェイなら、`ANTHROPIC_BASE_URL` を本文を記録するプロキシに向けます。
+
+<div class="src">
+  出典: [agent-sdk/modifying-system-prompts#turn-off-the-context-your-agent-replaces](https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts#turn-off-the-context-your-agent-replaces) · [#see-what-claude-received](https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts#see-what-claude-received) · [env-vars](https://code.claude.com/docs/en/env-vars)
+</div>

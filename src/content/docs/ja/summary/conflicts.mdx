@@ -1,0 +1,81 @@
+---
+title: "ドキュメントと実機の食い違い"
+description: "ドキュメント、changelog、実機（--help・init イベント・実行結果）の記述が一致しなかった項目と、本資料での判定の一覧です。判定の基本は「新しく明示的な changelog が古いドキュメントより優先」「実機の観察が strings からの推測より優先」です。"
+sidebar:
+  order: 67
+---
+
+ドキュメント、changelog、実機（`--help`・init イベント・実行結果）の記述が一致しなかった項目と、本資料での判定の一覧です。判定の基本は「新しく明示的な changelog が古いドキュメントより優先」「実機の観察が strings からの推測より優先」です。
+
+<span id="ch67-models-permissions" />
+
+## モデル・権限モード・スケジュール
+
+| 項目                                | ドキュメント                                                                    | changelog・実機                                                                                            | 判定（詳細の章）                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Claude Platform on AWS の Advisor   | 使えない（advisor、claude-platform-on-aws、feature-availability）               | 2.1.300 で `/advisor` を追加。実機の init にも `advisor`                                                   | コマンドは存在。助言が返るかは未検証（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/)）              |
+| `best` エイリアス                   | 2.1.321 で `opus` と同じモデル（版履歴）                                        | changelog は Fable 時代の意味だけ。実機は `claude-opus-5-5`                                                | `best` → `claude-opus-5-5`（[Ch2](/claude-code-deep-dive/ja/fundamentals/models/)）                         |
+| `fable[1m]`                         | エイリアス表に無い                                                              | 実機は受け付けて `claude-fable-5-2` に解決。2.1.311:「効果のない `[1m]` も受け付ける」                     | 受け付けるが効果なし（[Ch2](/claude-code-deep-dive/ja/fundamentals/models/)）                               |
+| Sonnet 5.5 のキャッシュ読み取り単価 | 価格表なし                                                                      | 2.1.284 の告知は $0.20/Mtok。2.1.296 で $0.10 に訂正                                                       | $0.10/Mtok（[Ch2](/claude-code-deep-dive/ja/fundamentals/models/)）                                         |
+| 対話セッションの auto 開始          | v2.1.283 以降すべてのプラン                                                     | 2.1.283 はサードパーティとテレメトリ無効だけ。全プランは 2.1.284                                           | 2.1.284 以降（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)）                                |
+| `-p`・SDK の開始モード              | v2.1.302 以降は `default`。それより前は flag を取得しない環境で auto になりえた | 実機の init は `default`。2.1.285 でサードパーティ・テレメトリ無効時に auto、2.1.302 で `default` に戻した | 2.1.302 で解消。2.1.285〜2.1.301 が例外期間（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)） |
+| サーバーが審査しない auto mode      | 組み込み classifier へフォールバック                                            | 2.1.319: テレメトリ・flag 無効やゲートウェイでは確認か拒否。フォールバックなし                             | 該当ケースは changelog（[Ch24](/claude-code-deep-dive/ja/settings/auto-mode/)）                             |
+| self-paced `/loop` の終了           | 約 20 分後に予備の wakeup を 1 回                                               | 2.1.319: 再スケジュールしなければ終了。`CLAUDE_CODE_LOOP_KEEPALIVE=1` で旧動作                             | changelog（[Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)）                                         |
+| `--cloud <id>`                      | `-p` 付きで既存セッションにメッセージを送る。`-p` なしはエラー                  | `--help`:「既存セッションに attach」                                                                       | docs の動作。未検証（[Ch50](/claude-code-deep-dive/ja/platforms/cloud/)）                                   |
+
+<div class="src">
+  出典: [advisor](https://code.claude.com/docs/en/advisor) · [model-config](https://code.claude.com/docs/en/model-config) · [permission-modes](https://code.claude.com/docs/en/permission-modes) · [scheduled-tasks](https://code.claude.com/docs/en/scheduled-tasks) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · [claude-code-on-the-web](https://code.claude.com/docs/en/claude-code-on-the-web) · changelog 2.1.283, 2.1.284, 2.1.285, 2.1.296, 2.1.300, 2.1.302, 2.1.311, 2.1.319 · 実機確認 2.1.321
+</div>
+
+<span id="ch67-cli-commands" />
+
+## CLI・コマンド・ツール
+
+| 項目                                                  | ドキュメント                                                                    | changelog・実機                                                                                                                            | 判定（詳細の章）                                                                                          |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `/skill-doctor` の導入版                              | v2.1.252 以降                                                                   | 2.1.261 で追加                                                                                                                             | 未解決（[Ch29](/claude-code-deep-dive/ja/extensions/skills/)）                                            |
+| スクリーンリーダーモード                              | v2.1.181 以降                                                                   | 2.1.208 で追加                                                                                                                             | 未解決（[Ch17](/claude-code-deep-dive/ja/operation/display/)）                                            |
+| `--help` に無いフラグ                                 | `--advisor`、`--permission-prompt-tool`、`--exec`、`--teammate-mode` などを記載 | `--help` に行が無い                                                                                                                        | docs の記載が事実。`--help` 非表示（[付録 C](/claude-code-deep-dive/ja/appendix/cli/)）                   |
+| <span class="undocumented">`--file <specs...>`</span> | 記載なし                                                                        | `--help` に記載あり                                                                                                                        | <span class="badge undocumented">Undocumented</span>（[付録 C](/claude-code-deep-dive/ja/appendix/cli/)） |
+| `--restricted` で外れるツール                         | 「コマンドやコードを実行する組み込みツールと WebFetch」                         | 実機: `Bash`、`Monitor`、`CronCreate`、`RemoteTrigger`、`Workflow` が消え、`Glob`、`Grep` が現れる                                         | 実機の観察を記載（[Ch44](/claude-code-deep-dive/ja/automation/headless/)）                                |
+| 組み込みツールの数                                    | 表に 46 行（現行 45＋削除済み `TaskOutput`）                                    | `-p` の init は 24。<span class="undocumented">`DesignSync`</span> <span class="badge undocumented">Undocumented</span> は init にだけある | 不在の理由は docs にある分だけ記載（[Ch21](/claude-code-deep-dive/ja/settings/tools/)）                   |
+| バンドル Skill の数                                   | 21（Skill 20＋Workflow 1）                                                      | init の `skills` は 19。顔ぶれも違う                                                                                                       | docs の印で数える（[Ch12](/claude-code-deep-dive/ja/operation/commands/)）                                |
+| `/teleport` の向き                                    | クラウドのセッションを取り込むだけ                                              | strings の説明文は「送る、または再開する」                                                                                                 | docs を採用。strings は参考（[Ch50](/claude-code-deep-dive/ja/platforms/cloud/)）                         |
+| `claude remote-control --settings`                    | フラグ表に無い                                                                  | 2.1.321 で追加。実機の help にもある                                                                                                       | 事実。docs の表は未掲載（[Ch49](/claude-code-deep-dive/ja/platforms/remote-control/)）                    |
+| `-p` での `/btw`                                      | —                                                                               | 実機: `/btw isn't available in this environment.`。2.1.299 は非対話セッションの `/btw` に言及                                              | 実機の観察を記載。対象サーフェスは不明（[Ch13](/claude-code-deep-dive/ja/operation/keyboard/)）           |
+| `/agents`                                             | リマインダーを表示するだけ                                                      | 2.1.198 でウィザード削除。init には `agents` が残る                                                                                        | 削除済み（[Ch66](/claude-code-deep-dive/ja/summary/renames/)）                                            |
+
+<div class="src">
+  出典: [skills](https://code.claude.com/docs/en/skills) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · [tools-reference](https://code.claude.com/docs/en/tools-reference) · [commands](https://code.claude.com/docs/en/commands) · [remote-control](https://code.claude.com/docs/en/remote-control) · [env-vars](https://code.claude.com/docs/en/env-vars) · changelog 2.1.198, 2.1.208, 2.1.261, 2.1.299, 2.1.321 · 実機確認 2.1.321（`--help`、init イベント）
+</div>
+
+<span id="ch67-extensions-admin" />
+
+## 拡張・管理・テレメトリ
+
+| 項目                                   | ドキュメント                                                        | changelog・実機                                                                       | 判定（詳細の章）                                                             |
+| -------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Claude が書いた mod の有効化           | Claude Code が有効化を確認する                                      | 2.1.321: auto・bypass では確認なしで有効。`dontAsk` では読み込まない                  | changelog（[Ch33](/claude-code-deep-dive/ja/extensions/mods/)）              |
+| `$.tool.call`・`$.mcp.call`            | セッションの権限ルールの下で動く                                    | 2.1.321: 権限プロンプトを出さない。deny ルールと組織ポリシーは有効                    | changelog（[Ch33](/claude-code-deep-dive/ja/extensions/mods/)）              |
+| MCP tasks と flag 取得                 | flag 取得が必要な機能に含む                                         | 2.1.319: ターミナルでは flag 取得なしで動く。`CLAUDE_CODE_DISABLE_MCP_TASKS=1` で無効 | changelog（[Ch30](/claude-code-deep-dive/ja/extensions/mcp/)）               |
+| フックの exit 1＋JSON                  | JSON が判定を決める                                                 | 実機: deny は効くが、stream は `outcome: "error"` と報告                              | どちらも事実（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）          |
+| サブエージェントの `autoCompactWindow` | `CLAUDE_CODE_AUTO_COMPACT_WINDOW` があると効かない                  | 2.1.312: その window を下げる。上げはしない                                           | 両方を併記。未検証（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/)） |
+| サブエージェントの `name`              | sub-agents: Agent Teams 有効時。agent-teams: 無効でも名前を付けうる | —                                                                                     | 未解決（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）            |
+
+<div class="src">
+  出典: [plugins/mods/create](https://code.claude.com/docs/en/plugins/mods/create) · [plugins/mods/admin](https://code.claude.com/docs/en/plugins/mods/admin) · [env-vars](https://code.claude.com/docs/en/env-vars) · [hooks](https://code.claude.com/docs/en/hooks) · [sub-agents](https://code.claude.com/docs/en/sub-agents) · [agent-teams](https://code.claude.com/docs/en/agent-teams) · changelog 2.1.312, 2.1.319, 2.1.321 · 実機確認 2.1.321
+</div>
+
+<span id="ch67-extensions-admin-2" />
+
+| 項目                            | ドキュメント                                                                      | changelog・実機                                             | 判定（詳細の章）                                                                                             |
+| ------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| OTel `claude_code.safety_event` | イベントとして記載                                                                | 2.1.307 で追加、2.1.312 で送信停止。実機の deny でも出ない  | <span class="badge removed">Removed</span>（[Ch61](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)） |
+| エラー報告の無効化              | data-usage: `DISABLE_ERROR_REPORTING`。network-config: それか `DISABLE_TELEMETRY` | —                                                           | `DISABLE_TELEMETRY` は未解決（[Ch61](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)）               |
+| サーバー管理設定の承認          | 承認ダイアログを表示                                                              | 2.1.316: Team・Enterprise は承認なしで適用                  | changelog。未検証（[Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/)）                          |
+| Foundry の既定モデル不在        | 起動時の確認がなく、リクエストが失敗                                              | 2.1.314: 同系統の旧モデルにフォールバック                   | changelog。未検証（[Ch59](/claude-code-deep-dive/ja/enterprise/providers/)）                                 |
+| 認証の優先順位                  | 表の 1 番目は Bedrock・Vertex・Foundry だけ                                       | Mantle と Platform on AWS も `auth status` で `third_party` | 「表には未記載」と注記（[Ch57](/claude-code-deep-dive/ja/enterprise/auth/)）                                 |
+
+<div class="src">
+  出典: [monitoring-usage](https://code.claude.com/docs/en/monitoring-usage) · [data-usage](https://code.claude.com/docs/en/data-usage) · [network-config](https://code.claude.com/docs/en/network-config) · [server-managed-settings](https://code.claude.com/docs/en/server-managed-settings) · [microsoft-foundry](https://code.claude.com/docs/en/microsoft-foundry) · [authentication](https://code.claude.com/docs/en/authentication) · changelog 2.1.307, 2.1.312, 2.1.314, 2.1.316 · 実機確認 2.1.321
+</div>

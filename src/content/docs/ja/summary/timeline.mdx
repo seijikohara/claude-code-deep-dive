@@ -1,0 +1,195 @@
+---
+title: "タイムライン"
+description: "2.1.0（2026-01-07）から 2.1.321（2026-11-09）までの 260 リリースから、大きな追加と変更を月ごとに版付きで並べます。日付は changelog の公開日です。What's New だけに載る項目は、その週のリリース範囲を版の欄に書きます。"
+sidebar:
+  order: 64
+---
+
+2.1.0（2026-01-07）から 2.1.321（2026-11-09）までの 260 リリースから、大きな追加と変更を月ごとに版付きで並べます。日付は changelog の公開日です。What's New だけに載る項目は、その週のリリース範囲を版の欄に書きます。
+
+<span id="ch64-q1" />
+
+## 1〜2 月: Skill の統合、Opus 4.6、Agent Teams、worktree
+
+### 1 月（2.1.0〜2.1.29、24 リリース）
+
+| 版     | 日付  | 内容                                                                                              |
+| ------ | ----- | ------------------------------------------------------------------------------------------------- |
+| 2.1.0  | 01-07 | Skill のホットリロード。Skill の frontmatter に `context: fork` と `agent`                        |
+| 2.1.0  | 01-07 | エージェント・Skill の frontmatter にフック。Bash ルールの任意位置ワイルドカード（`Bash(npm *)`） |
+| 2.1.3  | 01-09 | スラッシュコマンドと Skill を統合（動作は変わらない）                                             |
+| 2.1.7  | 01-14 | MCP tool search の auto を既定で有効化                                                            |
+| 2.1.10 | 01-17 | `Setup` フックイベント（`--init`、`--maintenance` など）                                          |
+| 2.1.18 | 01-23 | キーバインドのカスタマイズ（`/keybindings`）                                                      |
+
+### 2 月（2.1.30〜2.1.63、28 リリース）
+
+| 版     | 日付  | 内容                                                                                      |
+| ------ | ----- | ----------------------------------------------------------------------------------------- |
+| 2.1.32 | 02-05 | Opus 4.6。Agent Teams を research preview で公開                                          |
+| 2.1.36 | 02-07 | Opus 4.6 の fast mode                                                                     |
+| 2.1.45 | 02-17 | Sonnet 4.6                                                                                |
+| 2.1.49 | 02-19 | `--worktree`（`-w`）。2.1.50 でエージェント定義の `isolation: worktree`                   |
+| 2.1.51 | 02-24 | `claude remote-control` サブコマンド                                                      |
+| 2.1.63 | 02-28 | HTTP フック。`/simplify` と `/batch`。`Task` ツールを `Agent` に改名（sub-agents ページ） |
+
+<div class="src">
+  出典: [changelog](https://code.claude.com/docs/en/changelog) 2.1.0, 2.1.3, 2.1.7, 2.1.10, 2.1.18, 2.1.32, 2.1.36, 2.1.45, 2.1.49, 2.1.50, 2.1.51, 2.1.63 · [sub-agents](https://code.claude.com/docs/en/sub-agents)
+</div>
+
+<span id="ch64-mar" />
+
+## 3 月: `/loop`、MCP elicitation、Channels、auto mode（2.1.66〜2.1.87、20 リリース）
+
+| 版             | 日付  | 内容                                                                                               |
+| -------------- | ----- | -------------------------------------------------------------------------------------------------- |
+| 2.1.69         | 03-05 | `/claude-api` Skill。`InstructionsLoaded` フック（CLAUDE.md と `.claude/rules/*.md` の読み込み時） |
+| 2.1.71         | 03-07 | `/loop`: プロンプトやコマンドを一定間隔で繰り返す                                                  |
+| 2.1.75         | 03-13 | Max・Team・Enterprise で Opus 4.6 の 1M コンテキストが既定に                                       |
+| 2.1.76         | 03-14 | MCP elicitation と `Elicitation`・`ElicitationResult` フック。`/effort`。`PostCompact` フック      |
+| 2.1.78         | 03-17 | `StopFailure` フック（API エラーでターンが終わったとき）                                           |
+| 2.1.80         | 03-19 | `--channels`（research preview）: MCP サーバーがセッションにメッセージを送る                       |
+| 2.1.81         | 03-20 | `--bare`（スクリプト用の `-p`）。`--channels` の権限リレー                                         |
+| 2.1.83〜2.1.85 | W13   | auto mode を research preview で公開（What's New W13）                                             |
+| 2.1.83         | 03-25 | `managed-settings.d/` ドロップイン。`CwdChanged`・`FileChanged` フック                             |
+| 2.1.84         | 03-26 | Windows の PowerShell ツール（opt-in preview）。`TaskCreated` フック                               |
+| 2.1.85         | 03-26 | フックの `if` フィールド（権限ルールの構文で絞り込む。例: `Bash(git *)`）                          |
+
+<div class="src">
+  出典: [changelog](https://code.claude.com/docs/en/changelog) 2.1.69, 2.1.71, 2.1.75, 2.1.76, 2.1.78, 2.1.80, 2.1.81, 2.1.83, 2.1.84, 2.1.85 · [whats-new/2026-w13](https://code.claude.com/docs/en/whats-new/2026-w13)
+</div>
+
+<span id="ch64-apr" />
+
+## 4 月: Opus 4.7 と `xhigh`、ネイティブバイナリ、`/usage`（2.1.89〜2.1.123、26 リリース）
+
+| 版              | 日付  | 内容                                                                                                                          |
+| --------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 2.1.89          | 04-01 | PreToolUse の `"defer"`（ヘッドレスで一時停止し `-p --resume` で再開）。`PermissionDenied` フック。`CLAUDE_CODE_NO_FLICKER=1` |
+| 2.1.86〜2.1.91  | W14   | CLI の computer use を research preview で公開（What's New W14）                                                              |
+| 2.1.92          | 04-04 | `forceRemoteSettingsRefresh`（管理設定の取得に失敗したら起動しない）。`/vim`・`/tag` を削除                                   |
+| 2.1.92〜2.1.101 | W15   | Ultraplan を research preview で公開（What's New W15。2.1.222 で削除）                                                        |
+| 2.1.98          | 04-09 | Monitor ツール（バックグラウンドのスクリプトのイベントを流す）                                                                |
+| 2.1.108         | 04-14 | `/recap`。`ENABLE_PROMPT_CACHING_1H`。`/undo` を `/rewind` のエイリアスに                                                     |
+| 2.1.111         | 04-16 | Opus 4.7 と `xhigh` effort。`/ultrareview`。auto mode に `--enable-auto-mode` が不要に                                        |
+| 2.1.113         | 04-17 | CLI が同梱の JavaScript ではなくネイティブバイナリを起動                                                                      |
+| 2.1.117         | 04-22 | macOS・Linux のネイティブビルドで `Glob`・`Grep` を Bash 経由の `bfs`・`ugrep` に置き換え                                     |
+| 2.1.118         | 04-23 | `/cost` と `/stats` を `/usage` に統合。フックの `type: "mcp_tool"`                                                           |
+| 2.1.120         | 04-28 | `claude ultrareview [target]`。Windows で Git Bash が不要に（PowerShell にフォールバック）                                    |
+
+<div class="src">
+  出典: [changelog](https://code.claude.com/docs/en/changelog) 2.1.89, 2.1.92, 2.1.98, 2.1.108, 2.1.111, 2.1.113, 2.1.117, 2.1.118, 2.1.120 · [whats-new/2026-w14](https://code.claude.com/docs/en/whats-new/2026-w14) · [whats-new/2026-w15](https://code.claude.com/docs/en/whats-new/2026-w15)
+</div>
+
+<span id="ch64-may" />
+
+## 5 月: Agent view、`/goal`、Opus 4.8、Dynamic workflows（2.1.126〜2.1.159、27 リリース）
+
+| 版               | 日付  | 内容                                                                                                 |
+| ---------------- | ----- | ---------------------------------------------------------------------------------------------------- |
+| 2.1.126          | 05-01 | `claude project purge [path]`（2.1.288 で `claude purge` に改名）                                    |
+| 2.1.129          | 05-06 | `--plugin-url`: URL の `.zip` プラグインをそのセッションだけ読み込む                                 |
+| 2.1.136          | 05-08 | `autoMode.hard_deny`: 例外なしでブロックする auto mode のルール                                      |
+| 2.1.139          | 05-11 | Agent view（`claude agents`、Research Preview）。`/goal`。PostToolUse の `continueOnBlock`           |
+| 2.1.142          | 05-14 | fast mode の既定モデルを Opus 4.7 に                                                                 |
+| 2.1.143〜2.1.149 | W21   | auto mode を Pro プランと Sonnet 4.6 に拡大（What's New W21）                                        |
+| 2.1.147          | 05-21 | `/simplify` を `/code-review` に改名（effort を指定して正しさのバグを報告）                          |
+| 2.1.149          | 05-22 | `/usage` に Skill・サブエージェント・プラグイン・MCP サーバー別の内訳                                |
+| 2.1.152          | 05-27 | `/reload-skills`。`MessageDisplay` フック                                                            |
+| 2.1.154          | 05-28 | Opus 4.8（既定 effort は high）。Dynamic workflows（`/workflows`）                                   |
+| 2.1.158          | 05-30 | Bedrock・Vertex・Foundry の Opus 4.7・4.8 で auto mode（`CLAUDE_CODE_ENABLE_AUTO_MODE=1` で opt-in） |
+
+<div class="src">
+  出典: [changelog](https://code.claude.com/docs/en/changelog) 2.1.126, 2.1.129, 2.1.136, 2.1.139, 2.1.142, 2.1.147, 2.1.149, 2.1.152, 2.1.154, 2.1.158, 2.1.288 · [whats-new/2026-w21](https://code.claude.com/docs/en/whats-new/2026-w21)
+</div>
+
+<span id="ch64-jun-jul" />
+
+## 6〜7 月: Fable 5、Sonnet 5、Chrome の GA、Opus 5
+
+### 6 月（2.1.160〜2.1.197、28 リリース）
+
+| 版               | 日付  | 内容                                                                        |
+| ---------------- | ----- | --------------------------------------------------------------------------- |
+| 2.1.160          | 06-02 | workflow のトリガー語を `ultracode` に                                      |
+| 2.1.166          | 06-06 | `fallbackModel`（最大 3 つ）                                                |
+| 2.1.169          | 06-08 | `--safe-mode`。`/cd`                                                        |
+| 2.1.170          | 06-09 | Fable 5                                                                     |
+| 2.1.166〜2.1.176 | W24   | サブエージェントが子サブエージェントを起動可能に（What's New W24。2.1.172） |
+| 2.1.178          | 06-15 | 権限ルールの `Tool(param:value)`。`TeamCreate`・`TeamDelete` を削除         |
+| 2.1.178〜2.1.183 | W25   | Artifacts（Team・Enterprise で beta。What's New W25）                       |
+| 2.1.181          | 06-17 | `/config key=value`                                                         |
+| 2.1.197          | 06-30 | Sonnet 5（既定モデル、ネイティブ 1M）                                       |
+
+### 7 月（2.1.198〜2.1.220、22 リリース）
+
+| 版      | 日付  | 内容                                                                                             |
+| ------- | ----- | ------------------------------------------------------------------------------------------------ |
+| 2.1.198 | 07-01 | Claude in Chrome が GA。サブエージェントが既定でバックグラウンド実行。`/agents` ウィザードを削除 |
+| 2.1.200 | 07-03 | 権限モード `default` の表示名を Manual に                                                        |
+| 2.1.205 | 07-08 | `/doctor` が全体チェックに（`/checkup`）                                                         |
+| 2.1.207 | 07-11 | Bedrock・Vertex・Foundry で auto mode の opt-in が不要に                                         |
+| 2.1.208 | 07-14 | スクリーンリーダーモード（`--ax-screen-reader`）                                                 |
+| 2.1.212 | 07-17 | `/fork` が別のバックグラウンドセッションを作る。旧動作は `/subtask`                              |
+| 2.1.217 | 07-21 | 同時実行サブエージェントの上限（既定 20）。入れ子を既定で無効に                                  |
+| 2.1.219 | 07-24 | Opus 5。サブエージェントの入れ子を既定で深さ 3 まで                                              |
+
+<div class="src">
+  出典: [changelog](https://code.claude.com/docs/en/changelog) 2.1.160〜2.1.219 の各版 · [whats-new/2026-w24](https://code.claude.com/docs/en/whats-new/2026-w24) · [whats-new/2026-w25](https://code.claude.com/docs/en/whats-new/2026-w25)
+</div>
+
+<span id="ch64-aug-sep" />
+
+## 8〜9 月: セッション間メッセージング、fork、Opus 5.5、Sonnet 5.5
+
+### 8 月（2.1.221〜2.1.252、28 リリース）
+
+| 版               | 日付  | 内容                                                                                          |
+| ---------------- | ----- | --------------------------------------------------------------------------------------------- |
+| 2.1.222          | 08-04 | Ultraplan を削除                                                                              |
+| 2.1.223          | 08-06 | `/review` を `/code-review` のエイリアスに。`/code-review ultra`                              |
+| 2.1.224          | 08-07 | セッション間の `SendMessage` と `ListAgents`。セルフホスト環境（`claude self-hosted-runner`） |
+| 2.1.220〜2.1.224 | W32   | 08-14 から Pro・Max・Team の新規セッションで auto mode が既定（What's New W32）               |
+| 2.1.232          | 08-13 | fork サブエージェントを既定で有効化                                                           |
+| 2.1.237          | 08-20 | 組み込みの Concise 出力スタイル                                                               |
+| 2.1.248          | 08-27 | `--restricted`                                                                                |
+
+### 9 月（2.1.257〜2.1.286、27 リリース）
+
+| 版      | 日付  | 内容                                                                 |
+| ------- | ----- | -------------------------------------------------------------------- |
+| 2.1.257 | 09-01 | Fable 5.1                                                            |
+| 2.1.260 | 09-03 | フルスクリーンの `/diff` パネル。2.1.261 で `/skill-doctor`          |
+| 2.1.269 | 09-11 | `claude plugin eval`                                                 |
+| 2.1.277 | 09-18 | CLAUDE.md が無いプロジェクトで AGENTS.md を読む。`TaskOutput` を削除 |
+| 2.1.280 | 09-22 | Opus 5.5。Pro と Team Standard の既定モデルを Opus に                |
+| 2.1.284 | 09-28 | Sonnet 5.5。対話セッションが全プランで auto 開始                     |
+| 2.1.285 | 09-29 | `claude --desktop`。`allowedProviders`                               |
+
+<div class="src">
+  出典: [changelog](https://code.claude.com/docs/en/changelog) 2.1.222〜2.1.285 の各版 · [whats-new/2026-w32](https://code.claude.com/docs/en/whats-new/2026-w32)
+</div>
+
+<span id="ch64-oct-nov" />
+
+## 10〜11 月: Mods、Haiku 5.5、アイドル圧縮、MCP tasks、Fable 5.2（2.1.287〜2.1.321、30 リリース）
+
+| 版      | 日付  | 内容                                                                                                            |
+| ------- | ----- | --------------------------------------------------------------------------------------------------------------- |
+| 2.1.287 | 10-01 | Claude Mods（プラグインがより深い動作を変えられる）。組み込み mod の You should know                            |
+| 2.1.288 | 10-02 | `claude project purge` を `claude purge` に改名                                                                 |
+| 2.1.293 | 10-07 | Haiku 5.5（Anthropic API の既定 Haiku）                                                                         |
+| 2.1.295 | 10-08 | command・HTTP フックの `onFailure: "block"`。Program Status Protocol（OSC 7501）                                |
+| 2.1.299 | 10-14 | ターミナルのアイドル圧縮（20 万トークン超で約 54 分アイドル）                                                   |
+| 2.1.302 | 10-16 | `-p` と SDK を `default` 開始に戻す（2.1.285 からの例外を終了）。fork サブエージェントを `-p`・SDK でも既定有効 |
+| 2.1.304 | 10-19 | `/auto-mode-setup`                                                                                              |
+| 2.1.314 | 10-30 | `permissions.blockWritesOutsideWorkingDirectories`                                                              |
+| 2.1.316 | 10-31 | `CLAUDE_CODE_SUBAGENT_EFFORT`。Opus 4.8 の fast mode を非推奨                                                   |
+| 2.1.319 | 11-06 | ターミナルの MCP tasks。`permissions.denyInsteadOfPrompting`。`CLAUDE_CODE_DISABLE_FEATURE_FLAGS`               |
+| 2.1.321 | 11-09 | Fable 5.2（既定 Fable）。`claude remote-control --settings <file>`                                              |
+
+2.1.292 以降の詳細は [Ch65](/claude-code-deep-dive/ja/summary/recent/) にあります。
+
+<div class="src">
+  出典: [changelog](https://code.claude.com/docs/en/changelog) 2.1.287, 2.1.288, 2.1.293, 2.1.295, 2.1.299, 2.1.302, 2.1.304, 2.1.314, 2.1.316, 2.1.319, 2.1.321
+</div>

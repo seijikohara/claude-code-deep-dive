@@ -1,0 +1,174 @@
+---
+title: "ステータスライン"
+description: "任意のシェルコマンドに JSON でセッション情報を渡し、その標準出力をフッターの上に表示する仕組みです。この章では、設定と更新タイミング、stdin JSON の全フィールドと意味、例と表示条件、サブエージェント行の書き換えを扱います。"
+sidebar:
+  order: 15
+---
+
+任意のシェルコマンドに JSON でセッション情報を渡し、その標準出力をフッターの上に表示する仕組みです。この章では、設定と更新タイミング、stdin JSON の全フィールドと意味、例と表示条件、サブエージェント行の書き換えを扱います。
+
+<span id="ch15-config" />
+
+## 設定と更新タイミング
+
+- `/statusline <説明>` は `~/.claude/` にスクリプトを生成して設定を書き換えます。引数なしではシェルのプロンプトから自動構成し、`/statusline delete` などで消します。手書きなら user か project の設定に置きます。
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh",
+    "padding": 2
+  }
+}
+```
+
+| フィールド             | 意味（既定値）                            |
+| ---------------------- | ----------------------------------------- |
+| `type`                 | `"command"` のみ                          |
+| `command`              | シェルで実行。`jq` を直接書いてもよい     |
+| `padding`              | 組み込みの余白に足す横方向の文字数（`0`） |
+| `refreshInterval`      | N 秒ごとにも再実行。最小 `1`（未設定）    |
+| `hideVimModeIndicator` | `true` で組み込みの `-- INSERT --` を消す |
+
+### 再実行のきっかけ
+
+- セッション開始と再開のあと、次のときに再実行します: 新しいアシスタントメッセージ、`/compact` の完了、権限モードの変更、vim モードの切り替え、`command` の変更、`refreshInterval` の経過、直前の入力にある `rate_limits.*.resets_at` と `prompt_cache.expires_at` の時刻。
+- 300ms でデバウンスします。`command` の変更だけはデバウンスせず即実行します。
+- 実行中に次のきっかけが来ると、走っているスクリプトを取り消します。終了コード 0 のときだけ出力を表示し、0 以外や出力なしでは空欄です。
+- メインセッションが待機中だとイベントが止まることがあります。時刻などは `refreshInterval` で更新します。
+- 出力は端末に直結しないので、`tput cols` は使えません。幅は環境変数 `COLUMNS`・`LINES` で読みます。
+- 複数行・ANSI カラー・OSC 8 リンクを出せます。ローカル実行でトークンは使いません。
+
+<div class="src">
+  出典: [statusline#set-up-a-status-line](https://code.claude.com/docs/en/statusline#set-up-a-status-line) · [#how-status-lines-work](https://code.claude.com/docs/en/statusline#how-status-lines-work) · [settings-reference#statusline](https://code.claude.com/docs/en/settings-reference#statusline) · [commands](https://code.claude.com/docs/en/commands) · changelog 2.1.97（`refreshInterval`）
+</div>
+
+<span id="ch15-fields-session" />
+
+## stdin JSON (1/2): セッション・作業場所・コスト・コンテキスト
+
+| フィールド（\* は欠けることがある） | 内容                                                |
+| ----------------------------------- | --------------------------------------------------- |
+| `model.id` `model.display_name`     | モデル ID と表示名                                  |
+| `cwd` `workspace.current_dir`       | 作業ディレクトリ（同じ値。後者を推奨）              |
+| `workspace.project_dir`             | 起動したディレクトリ                                |
+| `workspace.added_dirs`              | `--add-dir` などの追加分。無ければ空配列            |
+| `workspace.git_worktree`\*          | リンクされた git worktree 内での名前                |
+| `workspace.repo`\*                  | `origin` から得た `host` `owner` `name`             |
+| `session_id` `session_name`\*       | ID と名前。既定の表示名では埋まらない               |
+| `prompt_id`\*                       | 処理中プロンプトの UUID。OTel の `prompt.id` と一致 |
+| `transcript_path` `version`         | トランスクリプトのパスとバージョン                  |
+| `output_style.name`                 | 現在の出力スタイル                                  |
+| `agent.name`\*                      | `--agent` かエージェント設定で動くとき              |
+
+### `cost` と `context_window`
+
+- `cost.total_cost_usd` はクライアント側の定価による推定です（`modelPricing` があればその表）。`/clear` で $0 に戻ります。コスト表示全般は [Ch61](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)。
+- `total_duration_ms` は再開をまたいで積算し、止まっていた時間は含みません。ほかに `total_api_duration_ms`・`total_lines_added`・`total_lines_removed`。
+- `total_input_tokens` は `input_tokens`＋`cache_creation_input_tokens`＋`cache_read_input_tokens`。`used_percentage` も入力だけで計算し、出力は含みません。
+- `current_usage` は最初の API 呼び出し前と `/compact` 直後に `null`。`used_percentage` も序盤は `null` になり得ます。
+- `context_window_size` は 200000、拡張コンテキストのモデルでは 1000000 です。`exceeds_200k_tokens` は直近応答の入力・キャッシュ・出力の合計を固定の 200k と比べます。
+- `/context` は直近応答以降の推定を足すので、ステータスラインより高く出ることがあります。
+
+<div class="src">
+  出典: [statusline#available-data](https://code.claude.com/docs/en/statusline#available-data) · [#context-window-fields](https://code.claude.com/docs/en/statusline#context-window-fields) · [#context-percentage-shows-unexpected-values](https://code.claude.com/docs/en/statusline#context-percentage-shows-unexpected-values)
+</div>
+
+<span id="ch15-fields-limits" />
+
+## stdin JSON (2/2): effort・レート制限・キャッシュ・PR・worktree
+
+| フィールド                                        | 内容と出る条件                                                                                  |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `fast_mode` `thinking.enabled`                    | fast mode と拡張思考の状態                                                                      |
+| `effort.level`\*                                  | セッションの effort。Skill・サブエージェント・`ultrathink` の値ではない。未対応モデルでは欠ける |
+| `rate_limits.five_hour` `rate_limits.seven_day`\* | `used_percentage`（0〜100）と `resets_at`（epoch 秒）                                           |
+| `rate_limits.spend_limit`\*                       | Claude apps gateway の支出上限（v2.1.251 以降）                                                 |
+| `vim.mode`\*                                      | `NORMAL` `INSERT` `VISUAL` `VISUAL LINE`                                                        |
+| `pr.number` `pr.url`\*                            | 現在ブランチの PR。GitLab では MR（v2.1.234 以降）                                              |
+| `pr.review_state`\*                               | `approved` `pending` `changes_requested` `draft`                                                |
+| `pr.kind`\*                                       | MR のとき `mr`。GitHub では欠ける                                                               |
+| `worktree.*`\*                                    | worktree セッション中だけ。`name` `path` `branch` `original_cwd` `original_branch`              |
+
+- `rate_limits` は Pro・Max・Ultra か、支出上限を課す apps gateway の背後だけで、最初の応答のあとに出ます。窓ごとに独立して欠け、`resets_at` を過ぎた窓は消えます。
+- `spend_limit.used_percentage` は 100 を超え得ます。`used_usd`・`limit_usd`・`period`（`daily`/`weekly`/`monthly`）は約 5 分ごとの別リクエストで届くため、遅れて現れます（双方 v2.1.284 以降）。
+- `prompt_cache`（v2.1.251 以降）はメイン会話だけの統計で、サブエージェントを含みません。どのプロバイダでも動きます。フィールドは `warm` `caching_observed` `ttl` `expires_at` `requests` `misses` `expected_rebuilds` `hit_ratio` `cache_write_tokens` `miss_recache_tokens` `last_miss_at` `last_miss_cause` `miss_causes` `recache_tokens_if_cold` です。
+- ミスの定義は「キャッシュから読めた分の 5% 超かつ 2,000 トークン以上を再処理し、圧縮やツール結果のクリアで説明できないもの」です。原因名は `tools_changed`・`system_prompt_changed`・`ttl_expired_5m`・`likely_server_side` など（v2.1.260 以降）。キャッシュそのものは [Ch6](/claude-code-deep-dive/ja/fundamentals/context/)。
+
+<div class="src">
+  出典: [statusline#available-data](https://code.claude.com/docs/en/statusline#available-data) · [#spend-limit-fields](https://code.claude.com/docs/en/statusline#spend-limit-fields) · [#prompt-cache-fields](https://code.claude.com/docs/en/statusline#prompt-cache-fields) · [#last-miss-cause](https://code.claude.com/docs/en/statusline#last-miss-cause)
+</div>
+
+<span id="ch15-example" />
+
+## 例と表示条件
+
+```bash
+#!/bin/bash
+# Read all of stdin into a variable
+input=$(cat)
+
+# Extract fields with jq, "// 0" provides fallback for null
+MODEL=$(echo "$input" | jq -r '.model.display_name')
+PCT=$(echo "$input" | jq -r '.context_window.used_percentage // 0' | cut -d. -f1)
+
+# Build progress bar: printf -v creates a run of spaces, then
+# ${var// /▓} replaces each space with a block character
+BAR_WIDTH=10
+FILLED=$((PCT * BAR_WIDTH / 100))
+EMPTY=$((BAR_WIDTH - FILLED))
+BAR=""
+[ "$FILLED" -gt 0 ] && printf -v FILL "%${FILLED}s" && BAR="${FILL// /▓}"
+[ "$EMPTY" -gt 0 ] && printf -v PAD "%${EMPTY}s" && BAR="${BAR}${PAD// /░}"
+
+echo "[$MODEL] $BAR $PCT%"
+```
+
+遅い `git` 呼び出しは一時ファイルにキャッシュします。ファイル名には毎回変わる `$$` ではなく `session_id` を使います。
+
+- ワークスペースの信頼を受け入れるまで空欄です。`claude --debug` は `Status line command skipped: workspace trust not accepted` を記録します。
+- managed 以外で `disableAllHooks: true` のとき、または managed の `allowManagedHooksOnly` があるときは、managed の `statusLine` だけが動きます。後者では自分の設定が警告なしに消えます。
+- ヘルプメニューと権限プロンプトの間は隠れます。設定すると `esc to interrupt`・`? for shortcuts`・`hold space to speak` などのヒントが出なくなります。
+- フルスクリーン以外では、通知が同じ行の右側を共有します。
+- Windows は Git Bash、無ければ PowerShell で実行します。パスは `/` 区切りで書きます。
+- `claude --debug` は毎回の stderr と、初回の終了コードを記録します。
+
+<div class="src">
+  出典: [statusline#context-window-usage](https://code.claude.com/docs/en/statusline#context-window-usage) · [#cache-expensive-operations](https://code.claude.com/docs/en/statusline#cache-expensive-operations) · [#troubleshooting](https://code.claude.com/docs/en/statusline#troubleshooting) · [#windows-configuration](https://code.claude.com/docs/en/statusline#windows-configuration)
+</div>
+
+<span id="ch15-subagent" />
+
+## サブエージェント行の書き換え: `subagentStatusLine`
+
+| `tasks[]`                   | 内容（? は省略あり）                                  |
+| --------------------------- | ----------------------------------------------------- |
+| `id`                        | 書き戻すときに `id` へそのまま入れる                  |
+| `name`?                     | サブエージェントの宛名                                |
+| `type`                      | `local_agent`                                         |
+| `agentType`                 | `Explore` などの種類（v2.1.293 以降）                 |
+| `status`                    | `running` `completed` `failed` `killed` など          |
+| `description` `label`       | 短い説明と進捗の要約                                  |
+| `startTime`                 | 開始時刻（epoch ミリ秒）                              |
+| `model`? `effort`?          | 解決済みモデル ID と、定義・呼び出しで指定した effort |
+| `contextWindowSize`?        | `model` のコンテキスト長                              |
+| `tokenCount` `tokenSamples` | 現在のトークン数と、直近最大 16 回分の推移            |
+| `cwd`                       | サブエージェントの作業ディレクトリ                    |
+
+```json
+{
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "~/.claude/subagent-statusline.sh"
+  }
+}
+```
+
+- 既定の行 `name · description · token count` を書き換えます。コマンドは更新のたびに 1 回、Hooks の共通フィールド・行幅 `columns`・`tasks` 配列を stdin で受け取ります。
+- 上書きしたい行ごとに `{"id": "<task id>", "content": "<row body>"}` を 1 行で出力します。`content` は ANSI と OSC 8 を含めてそのまま描き、空文字なら行を隠します。書き戻さない行は既定のままです。
+- 信頼・`disableAllHooks`・`allowManagedHooksOnly` の制約は `statusLine` と同じです。プラグインは `settings.json` で既定値を配れますが、`allowManagedHooksOnly` の下では動きません。
+
+<div class="src">
+  出典: [statusline#subagent-status-lines](https://code.claude.com/docs/en/statusline#subagent-status-lines) · [#task-fields](https://code.claude.com/docs/en/statusline#task-fields) · [settings-reference#subagentstatusline](https://code.claude.com/docs/en/settings-reference#subagentstatusline) · changelog 2.1.214（`effort`）・2.1.293（`agentType`）
+</div>

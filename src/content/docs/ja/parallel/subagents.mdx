@@ -1,0 +1,445 @@
+---
+title: "サブエージェント"
+description: "1 つのセッションの中で、独立したコンテキストを持つワーカーに作業を委譲する仕組みです。この章では、起動時に渡るもの、組み込みエージェント、定義ファイルのスコープと frontmatter、--agents と --agent、ツール・権限の決まり方、バックグラウンド実行、ネストと同時実行の上限、再開とフック、フォークを扱います。"
+sidebar:
+  order: 37
+---
+
+1 つのセッションの中で、独立したコンテキストを持つワーカーに作業を委譲する仕組みです。この章では、起動時に渡るもの、組み込みエージェント、定義ファイルのスコープと frontmatter、`--agents` と `--agent`、ツール・権限の決まり方、バックグラウンド実行、ネストと同時実行の上限、再開とフック、フォークを扱います。
+
+<span id="ch37-isolation" />
+
+## コンテキスト分離モデル
+
+| 起動時に入るもの   | 内容                                                                                                       | 例外                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| システムプロンプト | エージェント自身のプロンプトと、作業ディレクトリなどの環境情報。Claude Code のシステムプロンプトは入らない | フォークはメイン会話と同じ                                      |
+| タスクメッセージ   | Claude が書く委譲プロンプト                                                                                | —                                                               |
+| CLAUDE.md          | メイン会話が読む全階層（`CLAUDE.local.md`、managed、`AGENTS.md` を含む）                                   | Explore・Plan は読まない。`omitClaudeMd` は managed だけ読む    |
+| Git status         | 起動時のスナップショット。専用 worktree ならその branch の状態                                             | Explore・Plan は読まない。`includeGitInstructions` で全体を off |
+| 事前読み込み Skill | `skills` に書いた Skill の全文                                                                             | 組み込みエージェントは読まない                                  |
+| 兄弟の一覧         | `main` と名前付きエージェントの一覧（`SendMessage` の宛先）。起動時点のスナップショット                    | `SendMessage` を持ち、他に名前付きがいる場合だけ                |
+
+- 会話履歴、呼び出し済みの Skill、読んだファイルは渡りません。出力スタイルとメイン会話の auto memory も届きません。
+- コンテキストウィンドウの大きさは、サブエージェント自身のモデルで決まります。
+- 作業ディレクトリはメイン会話と同じです。Bash の `cd` は呼び出しをまたいで残りません。
+
+* 親に戻るのは最終結果だけです。途中のツール呼び出しは親から見えません。
+* リクエストはメイン会話と同じ利用上限に計上されます。
+* 組み込み以外の `description` の合計が 15,000 トークンを超えると、起動時に警告が出ます（読み込みは続きます）。ツール名は `Agent` です（[Ch21](/claude-code-deep-dive/ja/settings/tools/)）。
+
+<div class="src">
+  出典: [sub-agents#what-loads-at-startup](https://code.claude.com/docs/en/sub-agents#what-loads-at-startup) · [#write-subagent-files](https://code.claude.com/docs/en/sub-agents#write-subagent-files) · [tools-reference#agent-tool-behavior](https://code.claude.com/docs/en/tools-reference#agent-tool-behavior)
+</div>
+
+<span id="ch37-builtin" />
+
+## 組み込みエージェント
+
+| エージェント                                                     | モデル                                                                                                                                                                    | ツールと用途                                                              |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `Explore`                                                        | メイン会話のモデル。メインが Fable なら、サブスクリプション・Console・`ANTHROPIC_BASE_URL` 経由は `opus` の Opus、クラウドプロバイダと Claude apps gateway はメインのまま | 読み取り専用（Write・Edit は拒否）。徹底度は quick・medium・very thorough |
+| `Plan`                                                           | メイン会話を継承（FORCE 時を除く）                                                                                                                                        | 読み取り専用。plan mode での調査                                          |
+| `general-purpose`                                                | 他で決まらなければ `CLAUDE_CODE_SUBAGENT_MODEL`、なければメイン                                                                                                           | 使える全ツール。探索と変更を伴う多段作業                                  |
+| `claude`                                                         | 固有のモデルなし（解決順に従う）                                                                                                                                          | 全ツールの受け皿。Agent View で起動するセッションの既定                   |
+| `statusline-setup` / `claude-code-guide`                         | Sonnet / Haiku                                                                                                                                                            | `/statusline` の実行時 / Claude Code についての質問                       |
+| `web-fetch` <span class="badge undocumented">Undocumented</span> | —                                                                                                                                                                         | docs に記載なし。`-p` の init に出る                                      |
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --safe-mode --setting-sources project \
+    --strict-mcp-config --model haiku --output-format stream-json \
+    --verbose "Reply with OK"
+"agents":["claude","Explore","general-purpose","Plan","web-fetch"]
+```
+
+init の一部。`--safe-mode` では `statusline-setup` が消え、`claude-code-guide` はどの `-p` の init にも出ません。
+
+- `general-purpose` がないと、`subagent_type` のない呼び出しは `subagent_type is required` で失敗します。
+- `CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS=1` は Explore と Plan だけを外します（v2.1.198 以降）。`-p`・SDK では `CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS=1` で全部を外せます。
+- 同名の `Explore` を user・project に置くと組み込みを上書きします（例: `model: haiku`）。
+
+<div class="src">
+  出典: [sub-agents#built-in-subagents](https://code.claude.com/docs/en/sub-agents#built-in-subagents) · [env-vars](https://code.claude.com/docs/en/env-vars) · 実機確認 2.1.321
+</div>
+
+<span id="ch37-scopes" />
+
+## ファイルスコープと優先順位
+
+| 場所                                              | 範囲           | 優先      | 作り方                                       |
+| ------------------------------------------------- | -------------- | --------- | -------------------------------------------- |
+| managed settings ディレクトリの `.claude/agents/` | 組織全体       | 1（最高） | 管理者が managed settings で配布             |
+| `--agents` フラグ                                 | そのセッション | 2         | 起動時に JSON を渡す。ディスクには保存しない |
+| `.claude/agents/`                                 | プロジェクト   | 3         | Claude に頼むか、ファイルを書く              |
+| `~/.claude/agents/`                               | 全プロジェクト | 4         | Claude に頼むか、ファイルを書く              |
+| プラグインの `agents/`                            | 有効な場所     | 5（最低） | プラグインと一緒に入る                       |
+
+- 同名なら優先度の高い場所が勝ちます。
+- プロジェクトは作業ディレクトリからリポジトリルートまで遡り、途中の `.claude/agents/` をすべて読みます。同名なら作業ディレクトリに最も近い定義が勝ちます。
+- `--add-dir`・`/add-dir` で加えたディレクトリの `.claude/agents/` も読みます。
+- ディレクトリは再帰的に読みます。識別子は `name` だけで、サブフォルダは影響しません。同じツリー内の同名は、ファイルシステムの読み順で 1 つだけ読みます。`/doctor` が重複を報告します。
+
+* プラグインではサブフォルダが ID に入ります。`my-plugin` の `agents/review/security.md` は `my-plugin:review:security` です。
+* プラグインのサブエージェントは `hooks`・`mcpServers`・`permissionMode` を無視します。
+* `~/.claude/agents/` と `.claude/agents/` は監視され、数秒で反映されます。再起動が必要なのは、開始時に `agents` ディレクトリがなかった場合、`--add-dir` 配下、`--disable-slash-commands` のセッションです。
+* `/agents` のウィザードは削除済みです（[Ch66](/claude-code-deep-dive/ja/summary/renames/)）。作成と編集は Claude に頼むか、ファイルを直接書きます。
+
+<div class="src">
+  出典: [sub-agents#choose-the-subagent-scope](https://code.claude.com/docs/en/sub-agents#choose-the-subagent-scope) · [#write-subagent-files](https://code.claude.com/docs/en/sub-agents#write-subagent-files) · changelog 2.1.198
+</div>
+
+<span id="ch37-frontmatter-1" />
+
+## frontmatter (1/3): 書式と基本フィールド
+
+```markdown
+---
+name: code-reviewer
+description: Reviews code for quality and best practices
+tools: Read, Glob, Grep
+model: sonnet
+---
+
+You are a code reviewer. When invoked, analyze the code and provide
+specific, actionable feedback on quality, security, and best practices.
+```
+
+- ファイルは `.claude/agents/code-reviewer.md` のような Markdown です。本文がシステムプロンプトになります。
+- 必須は `name` と `description` だけです。
+- 複数語のフィールドは camelCase です。知らないフィールドはエラーなしで無視されます。
+- 呼び出しは、自然文で名前を出すか、`@"code-reviewer (agent)"` の @-メンションで確実に起動します。手入力なら `@agent-<name>`、プラグインは `@agent-my-plugin:code-reviewer` です。
+
+| フィールド        | 値と効果                                                                                                  |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| `name`            | 最大 256 文字の一意な識別子。`:` は不可。ファイル名と一致しなくてよい。フックには `agent_type` として渡る |
+| `description`     | Claude が委譲を決める基準。`use proactively` などの語で自動委譲を促せる                                   |
+| `tools`           | カンマ区切りか YAML リスト。省略するとサブエージェントが使える全ツールを継承                              |
+| `disallowedTools` | 継承・指定から除くツール。`Bash(git push *)` のような指定子つきでもツール全体を除く                       |
+| `model`           | `sonnet`・`opus`・`haiku`・`fable`・完全な ID・`inherit`                                                  |
+| `permissionMode`  | `default`・`acceptEdits`・`auto`・`dontAsk`・`bypassPermissions`・`plan`。`manual` は `default` の別名    |
+| `maxTurns`        | ターン数の上限。達すると出力を partial として返し、再開できる（partial 表示は v2.1.246 以降）             |
+
+<div class="src">
+  出典: [sub-agents#write-subagent-files](https://code.claude.com/docs/en/sub-agents#write-subagent-files) · [#supported-frontmatter-fields](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields) · [#invoke-subagents-explicitly](https://code.claude.com/docs/en/sub-agents#invoke-subagents-explicitly)
+</div>
+
+<span id="ch37-frontmatter-2" />
+
+## frontmatter (2/3): 実行時の挙動を決めるフィールド
+
+| フィールド          | 値と効果                                                                                                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `autoCompactWindow` | `100000`〜`1000000` の整数。自動圧縮の窓を下げるだけで、上げはしない。`200k` は 200 と読まれて範囲外になり、無視される（v2.1.296 以降）。環境変数との関係は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/) |
+| `skills`            | 起動時に Skill の全文を注入する（重複しない先頭 32 個まで）。`disable-model-invocation: true` の Skill（`/verify` を含む）は不可。未指定でも Skill ツールで呼べる                                                  |
+| `mcpServers`        | 設定済みサーバー名（親の接続を共有）か、インライン定義（`stdio`・`http`・`sse`・`ws`）。インラインは起動時に接続し、終了時に切断する                                                                               |
+| `hooks`             | このサブエージェントの実行中だけ動くフック。`Stop` は `SubagentStop` に変換される                                                                                                                                  |
+| `memory`            | `user`・`project`・`local`。永続ディレクトリを持たせる（次の節）                                                                                                                                                   |
+| `background`        | `true` なら、Claude が待とうとしてもバックグラウンドのまま動く                                                                                                                                                     |
+| `omitClaudeMd`      | `true` で user・project・local の CLAUDE.md を読まない。managed は読む（managed 定義では何も読まない）。`--agent` では無視（v2.1.271 以降）                                                                        |
+| `effort`            | `low`〜`max`。セッションの effort に勝つが、`CLAUDE_CODE_EFFORT_LEVEL` には負ける                                                                                                                                  |
+| `isolation`         | `worktree` で一時 git worktree を使う。既定では親の `HEAD` でなく default branch から分岐。変更がなければ自動で消える                                                                                              |
+| `color`             | `red`・`blue`・`green`・`yellow`・`purple`・`orange`・`pink`・`cyan`                                                                                                                                               |
+| `initialPrompt`     | `--agent` か `agent` 設定でメインとして動くときの最初のターン。コマンドと Skill も処理し、ユーザーのプロンプトの前に付く                                                                                           |
+| `experimental`      | キーは `cacheTtl`（`5m` か `1h`）だけ。usage credits 利用中は `1h` を無視。ファイル定義でだけ読む（v2.1.248 以降）                                                                                                 |
+
+プラグインのサブエージェントでは `permissionMode`・`mcpServers`・`hooks`・`initialPrompt` が無視されます。
+
+<div class="src">
+  出典: [sub-agents#supported-frontmatter-fields](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields) · [#subagent-auto-compact-window](https://code.claude.com/docs/en/sub-agents#subagent-auto-compact-window)
+</div>
+
+<span id="ch37-frontmatter-3" />
+
+## frontmatter (3/3): MCP・メモリと、読み込まれないファイル
+
+```yaml
+---
+name: browser-tester
+description: Tests features in a real browser using Playwright
+mcpServers:
+  # Inline definition: scoped to this subagent only
+  - playwright:
+      type: stdio
+      command: npx
+      args: ["-y", "@playwright/mcp@latest"]
+  # Reference by name: reuses an already-configured server
+  - github
+---
+```
+
+- インライン定義のサーバーはメイン会話に出ないので、ツール説明がメインのコンテキストを使いません。
+- `.claude/agents/` のインライン定義は、そのフォルダを信頼するまで読み込まれません（v2.1.238 以降）。親フォルダの信頼と `-p` は数えません。
+- `--strict-mcp-config` は `--agents` のインライン定義を絞りません。
+
+| `memory`  | 場所                                            |
+| --------- | ----------------------------------------------- |
+| `user`    | `~/.claude/agent-memory/<name-of-agent>/`       |
+| `project` | `.claude/agent-memory/<name-of-agent>/`（推奨） |
+| `local`   | `.claude/agent-memory-local/<name-of-agent>/`   |
+
+- `MEMORY.md` の先頭 200 行か 25KB を読み込み、Read・Write・Edit が自動で有効になります。auto memory が off なら効きません。
+- 次のファイルは報告なしで読み飛ばされます: `name` がない、`---` が 1 行目にない、`name` が `-` 始まり・`:` を含む・256 文字超、`description` がない、YAML が壊れている。
+- 事前確認は `claude plugin validate .claude/agents`（v2.1.233 以降。`name` 欠落は検出しない）です。綴り違いは `claude --debug` のログで `does not recognize or apply` を探します（v2.1.296 以降）。
+
+<div class="src">
+  出典: [sub-agents#scope-mcp-servers-to-a-subagent](https://code.claude.com/docs/en/sub-agents#scope-mcp-servers-to-a-subagent) · [#enable-persistent-memory](https://code.claude.com/docs/en/sub-agents#enable-persistent-memory) · [#subagent-files-claude-code-skips](https://code.claude.com/docs/en/sub-agents#subagent-files-claude-code-skips)
+</div>
+
+<span id="ch37-agents-flag" />
+
+## `--agents` JSON と `--agent`
+
+```bash
+claude --agents '{
+  "code-reviewer": {
+    "description": "Expert code reviewer. Use proactively after code changes.",
+    "prompt": "You are a senior code reviewer. Focus on code quality, security, and best practices.",
+    "tools": ["Read", "Grep", "Glob", "Bash"],
+    "model": "sonnet"
+  }
+}'
+```
+
+- キーがエージェント名です（`-` 始まりは不可）。`prompt` は本文に当たり、空でもかまいません（v2.1.281 以降）。他は frontmatter と同じで、`color`・`experimental` は無視されます。
+- `-p` ではファイルパスも渡せます: `claude -p --agents ./agents.json "…"`（v2.1.281 以降）。対話セッションはパスを拒否します。`--safe-mode` では `--agents` 自体が無視されます。
+
+* `claude --agent code-reviewer` か設定の `"agent": "code-reviewer"` で、メインスレッド自体がそのエージェントになります。フラグが設定に勝ちます。
+* プロンプトが空でなければ既定のシステムプロンプトを置き換えます。CLAUDE.md は `omitClaudeMd` でも読みます。ヘッダーに `@<name>` が出て、再開時も復元されます。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --agents '{"-bad":{"description":"d","prompt":"p"}}' "x"
+Error: Invalid --agents configuration:
+-bad: agent names must not start with '-'
+$ claude -p --agents ./missing.json "x"
+Error: --agents file not found: <cwd>/missing.json (a value that is not a JSON object is read as a file path)
+```
+
+<div class="src">
+  出典: [sub-agents#choose-the-subagent-scope](https://code.claude.com/docs/en/sub-agents#choose-the-subagent-scope) · [#invoke-subagents-explicitly](https://code.claude.com/docs/en/sub-agents#invoke-subagents-explicitly) · [errors#invalid-agents-configuration](https://code.claude.com/docs/en/errors#invalid-agents-configuration) · 実機確認 2.1.321
+</div>
+
+<span id="ch37-model" />
+
+## モデル・effort・thinking の決まり方
+
+### 解決順（詳細は [Ch2](/claude-code-deep-dive/ja/fundamentals/models/#ch02-subagents)・[Ch3](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-subagents)）
+
+- モデル: 呼び出し時の `model` → frontmatter の `model` → `CLAUDE_CODE_SUBAGENT_MODEL` → メイン会話のモデル。`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` は前の 2 つを無視させます。
+- effort: frontmatter の `effort` → 呼び出し時の `effort`（v2.1.292 以降）→ `CLAUDE_CODE_EFFORT_LEVEL` の順に強くなります。
+- 呼び出し時の `model` はエイリアス（`sonnet`・`opus`・`haiku`・`fable`）だけで、完全な ID や `inherit` は渡せません。
+- 呼び出し時の `model` と `effort` は、再開や追加メッセージのあとも効き続けます。
+
+### サブエージェント固有の規則
+
+- ファミリーのエイリアスがメインと同じファミリーなら、メインの正確なモデル（`[1m]` を含む）になります。
+- Anthropic API 以外で、Bedrock の未解決の application inference profile ARN のようにメインのファミリーが分からない場合も、`opus` はメインのモデルになります。`ANTHROPIC_DEFAULT_OPUS_MODEL` があれば対象外です。
+- `availableModels` で止められたファミリーは、許可された最新版に置き換わります（v2.1.222 以降。それ以前は継承モデル）。
+- extended thinking はメインの on/off を継承します（v2.1.198 以降）。サブエージェントごとの設定はありません。
+- 実際のモデルと effort は `/tasks` の行で確認できます（v2.1.242 以降）。
+
+<div class="src">
+  出典: [sub-agents#choose-a-model](https://code.claude.com/docs/en/sub-agents#choose-a-model) · [#choose-an-effort-level](https://code.claude.com/docs/en/sub-agents#choose-an-effort-level) · [#run-every-subagent-on-one-model](https://code.claude.com/docs/en/sub-agents#run-every-subagent-on-one-model)
+</div>
+
+<span id="ch37-tools" />
+
+## ツールフィルタ: 2 段の除外と `tools`・`disallowedTools`
+
+- メイン会話の組み込みツールと MCP ツールを継承し、2 つのフィルタで絞ります。フォークはどちらも通らず、メインと同じツールを持ちます。
+- **フィルタ 1（常に除外）**: `Agent`（深さ上限のとき）、`AskUserQuestion`、`EndConversation`、`EnterPlanMode`、`ExitPlanMode`（`permissionMode: plan` 以外）、`ScheduleWakeup`、`WaitForMcpServers`、`Workflow`。`tools` に書いても除かれます。
+- **フィルタ 2（バックグラウンド、既定）**: MCP ツールはすべて残り、組み込みは `Read` `Grep` `Glob` `LSP` `Bash` `PowerShell` `Edit` `Write` `NotebookEdit` `WebFetch` `WebSearch` `TodoWrite` `Skill` `ToolSearch` `EnterWorktree` `ExitWorktree` `Monitor` `TaskStop` `SendMessage` `Artifact` と `SubagentHandback` だけになります。
+- 同じ定義でも前面と背景で結果が変わります。`LSP` は v2.1.280 から背景でも使えます。`ListAgents` は前面だけが継承します。
+
+* 両方あるときは `disallowedTools` を先に適用し、残りに `tools` を当てます。両方に書いたツールは除かれます。
+* MCP: `tools` に `mcp__github__*`、`disallowedTools` に `mcp__github`（全サーバーなら `mcp__*`）。名前に `__` を含むサーバーは `mcp__reports__v2__*` と書きます。
+* `Agent(worker, researcher)` の許可リストは `--agent` のメインスレッドでだけ効きます。サブエージェント定義では括弧内が無視されます。
+* コマンド単位の禁止は `permissions.deny` の `Bash(git push *)` で書きます。
+* `tools` が 1 つも解決できないと、通常は起動を拒否します（v2.1.208 以降）。例: `Agent 'code-reviewer' would be spawned with zero tools — refusing. Its tools list resolved to nothing: unrecognized [Grpe]. Fix the agent's tools frontmatter or pass a different subagent_type.`
+
+<div class="src">
+  出典: [sub-agents#available-tools](https://code.claude.com/docs/en/sub-agents#available-tools) · [#restrict-which-tools-a-subagent-can-use](https://code.claude.com/docs/en/sub-agents#restrict-which-tools-a-subagent-can-use) · [#restrict-which-subagents-can-be-spawned](https://code.claude.com/docs/en/sub-agents#restrict-which-subagents-can-be-spawned) · [errors#agent-would-be-spawned-with-zero-tools](https://code.claude.com/docs/en/errors#agent-would-be-spawned-with-zero-tools)
+</div>
+
+<span id="ch37-permissions" />
+
+## 権限の継承: メイン会話のモードが `permissionMode` を上書きする
+
+| メイン会話のモード                         | サブエージェントのモード                                                                                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `bypassPermissions`・`acceptEdits`・`auto` | 同じモードで動き、`permissionMode` は無視される。auto ではメインのルールで分類器がツール呼び出しを審査し、終了時に作業と最終報告も審査する |
+| `plan`                                     | `permissionMode` に関係なく plan のまま（Agent Teams のチームメイトを除く）。`dontAsk` を指定すると、plan mode が確認する操作は拒否される  |
+| `default`（Manual）・`dontAsk`             | `permissionMode` のモードで動く。ただし `bypassPermissions`（v2.1.267 以降）と、使えない `auto` を指定した場合はメインのモードのまま       |
+| 未指定                                     | メイン会話のモードを継承する                                                                                                               |
+
+- 値は設定値で書きます。Manual は `default` です（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)）。
+- auto が使えない例: 設定の `disableAutoMode`、サブエージェントのモデルが auto mode 非対応。
+- Agent ツールの `mode` パラメータは非推奨で、無視されます。
+- 起動そのものは確認を求めません。サブエージェントのツール呼び出しが権限ルールで審査されます。
+
+```json
+{
+  "permissions": {
+    "deny": ["Agent(Explore)", "Agent(my-custom-agent)"]
+  }
+}
+```
+
+同じ指定は `claude --disallowedTools "Agent(Explore)"` でも書けます。組み込み・カスタムの両方に効きます。
+
+<div class="src">
+  出典: [sub-agents#permission-modes](https://code.claude.com/docs/en/sub-agents#permission-modes) · [#disable-specific-subagents](https://code.claude.com/docs/en/sub-agents#disable-specific-subagents) · [tools-reference#agent-tool-behavior](https://code.claude.com/docs/en/tools-reference#agent-tool-behavior) · [agent-sdk/typescript](https://code.claude.com/docs/en/agent-sdk/typescript)
+</div>
+
+<span id="ch37-background" />
+
+## バックグラウンド既定と待たせ方
+
+- 何も設定しなければ、メイン会話から起動したサブエージェントはバックグラウンドで始まります。
+- `claude -p` と Agent SDK: Claude は自分の判断か、頼まれたときに待てます。
+- 対話ターミナル・VS Code・デスクトップ: 待たせるには fork mode を off にします（既定は on）。
+- 2.1.302 以降、デスクトップと VS Code はメイン会話のサブエージェントを常に背景で動かします。サブエージェント自身の Agent 呼び出しは、`-p`・SDK・デスクトップ・VS Code では前面が既定です。
+- `background: true` の定義は、Claude が待とうとしても背景のままです。
+- 待っている間に <kbd>Ctrl</kbd>+<kbd>B</kbd>（VS Code は Run in background）を押すと、背景へ移せます。
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_FORK_SUBAGENT": "0"
+  }
+}
+```
+
+- 設定後に `claude` を起動し直し、「run the reviewer subagent and wait for its report」のように頼みます。
+- `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` なら Claude はすべてのサブエージェントを待ちます。背景コマンドも止まり、<kbd>Ctrl</kbd>+<kbd>B</kbd> は効きません。
+- 背景のサブエージェントの権限確認はメインセッションに出て、どのサブエージェントかを示します。<kbd>Esc</kbd> はその 1 回だけを拒否します。セッション全体への許可はメイン会話にも効きます。
+- `context: fork` の Skill は、Skill 側の規則に従います（[Ch29](/claude-code-deep-dive/ja/extensions/skills/)）。
+
+<div class="src">
+  出典: [sub-agents#run-subagents-in-foreground-or-background](https://code.claude.com/docs/en/sub-agents#run-subagents-in-foreground-or-background) · [env-vars](https://code.claude.com/docs/en/env-vars) · changelog 2.1.302
+</div>
+
+<span id="ch37-results" />
+
+## 結果の戻り方・API エラー・出力スキャン
+
+### 結果と後片付け
+
+- 背景のサブエージェントの結果は、後のターンに完了通知として届きます。通知は自動イベントとして示され、あなたのメッセージとは区別されます。
+- Claude は通知を待ってから結果を報告します。先に進捗を聞くと「まだ実行中」と答えます。
+- 成功するとパネルの行はすぐ消え、フッターに `/tasks to see subagents` が 30 秒出ます（v2.1.232 以降）。失敗・停止した行は 30 秒残り、<kbd>x</kbd> で消せます。
+- 背景のサブエージェントは、3 分経ったシェルコマンドを背景へ移します（2.1.318）。`/tasks` の「Earlier in this session」行から終了済みのサブエージェントを開き直せます（2.1.319）。
+
+### エラーとスキャン
+
+- 前面で API エラーに当たると、出力があれば途中結果と注記を、なければ `Agent terminated early due to an API error` を返します。背景では failed になり、最後の出力が通知に入ります。
+- フォールバックモデルで終えた報告は `⚠ This agent switched to <model> because its earlier model could not be used.` で始まります。
+- 最終報告は Claude が読む前にスキャンされます。`<system-reminder>` や行頭の `Human:` の模倣にはバックスラッシュを入れ、タグの模倣や `bypassPermissions` などへの言及には `[harness: subagent output matched instruction-shaped pattern(s):` の行を先頭に付けます。
+- 報告は「サブエージェントの出力で、あなたの権限を持たない」と示す見出しつきで届きます。
+
+<div class="src">
+  出典: [sub-agents#tools-permissions-and-results-of-background-subagents](https://code.claude.com/docs/en/sub-agents#tools-permissions-and-results-of-background-subagents) · [#api-errors-in-subagents](https://code.claude.com/docs/en/sub-agents#api-errors-in-subagents) · [#subagent-output-scanning](https://code.claude.com/docs/en/sub-agents#subagent-output-scanning) · changelog 2.1.318, 2.1.319（リファレンス未掲載）
+</div>
+
+<span id="ch37-limits" />
+
+## ネストの深さと同時実行の上限
+
+| 上限     | 既定              | 変更                                                       | 上限に達したとき                                                      |
+| -------- | ----------------- | ---------------------------------------------------------- | --------------------------------------------------------------------- |
+| 深さ     | メインの下 3 階層 | `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`。`1` でネストを禁止 | フォーク以外から `Agent` を外す。フォークには残るがエラーを返す       |
+| 同時実行 | 実行中 20         | `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`（v2.1.217 以降）    | `Concurrent subagent limit reached`。再試行しないよう Claude に伝える |
+
+- どちらの変数も正の整数だけを受け付け、他の値は無視されます。上限を外すことはできません。
+- 深さの既定は v2.1.217〜2.1.218 では 1 で、v2.1.219 で 3 になりました。
+- 対話ターミナルでは、起動側のサブエージェントがネストした背景サブエージェントの結果を待つため、最上位の要約だけが返ります。
+- `-p`・SDK は fork mode が on の間は待ちます。off なら背景で動き、起動側より長く動くとメイン会話へ報告します。
+- 1 つだけ起動を禁じるには、その定義の `tools` から `Agent` を外すか、`disallowedTools` に入れます。
+
+* ultracode が有効なセッションには同時実行の上限が効きません。
+* `/subtask` のフォークは枠を使いますが、上限で止められません。終了したサブエージェントの再開も確認なしで枠を使い、上限を超えることがあります。
+* workflow のエージェントとチームメイトは、それぞれ別の上限に従います。
+* セッション全体で起動できる総数には上限がありません。
+* ターミナルのパネルはネストを木で表示し、子孫が残る行に `(+N)` を付けます。
+
+<div class="src">
+  出典: [sub-agents#let-subagents-spawn-their-own-subagents](https://code.claude.com/docs/en/sub-agents#let-subagents-spawn-their-own-subagents) · [#concurrent-subagent-limit](https://code.claude.com/docs/en/sub-agents#concurrent-subagent-limit) · [env-vars](https://code.claude.com/docs/en/env-vars)
+</div>
+
+<span id="ch37-resume" />
+
+## 再開と `SendMessage`
+
+- 呼び出すたびに新しいインスタンスです。続きをさせるときは、Claude が `SendMessage` の `to` にエージェント ID か名前を入れて再開します。
+- 再開したサブエージェントは全履歴を保ち、新しい `Agent` 呼び出しなしで背景で動きます。最初のツールセットを保ち、元のプロンプトキャッシュを読めます。
+- `SendMessage` は Agent Teams を必要としません。必要なのは `shutdown_request`・`plan_approval_response` などのチーム用メッセージだけです。
+- Explore と Plan は 1 回限りで ID を返さず、再開できません。
+- あなたが止めたもの（`/tasks` の <kbd>x</kbd>、SDK の `stop_task`）は自動では再開せず、メッセージは「cancelled」として拒否されます。パネルに行があるうちにトランスクリプトへ入力すれば再開できます。
+
+* 名前が新しいエージェントに取られていると、誤配を避けて送信を拒否します。この照合は `/clear` で消えます。
+* 再起動後は、最後の圧縮以降に付けた名前だけが残ります（v2.1.299 以降）。残らない場合は ID で 1 回送ると名前が戻ります。
+* エージェントからのメッセージは、権限確認への承認にも、権限・CLAUDE.md・設定の変更にもなりません。
+* トランスクリプトは `~/.claude/projects/{project}/{sessionId}/subagents/agent-{agentId}.jsonl` と `.meta.json` です。メインの圧縮の影響を受けず、`cleanupPeriodDays`（既定 30 日）で消えます。
+* サブエージェントは自分のウィンドウで自動圧縮し、`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` も効きます。
+* 名前付けとチームメイトは [Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)、別セッションへの送信は [Ch40](/claude-code-deep-dive/ja/parallel/messaging/) です。
+
+<div class="src">
+  出典: [sub-agents#resume-subagents](https://code.claude.com/docs/en/sub-agents#resume-subagents) · [#auto-compaction](https://code.claude.com/docs/en/sub-agents#auto-compaction) · [#subagent-names](https://code.claude.com/docs/en/sub-agents#subagent-names)
+</div>
+
+<span id="ch37-hooks" />
+
+## サブエージェントのフック
+
+### frontmatter のフック
+
+- そのサブエージェントの実行中だけ動き、終了で消えます。`--agent` でメインとして動くときは、settings のフックと並んで動きます。
+- 全イベントを使えます。よく使うのは `PreToolUse`・`PostToolUse`・`Stop` です。`Stop` は実行時に `SubagentStop` になります。
+- プロジェクトの定義のフックは、ファイルがあるフォルダの信頼ダイアログを承認するまで読み飛ばされます。親フォルダの信頼と `-p` は数えません。`~/.claude/agents/` と `--agents` の定義は確認なしで動きます。
+- settings・managed・プラグインのフックは、サブエージェント内のツール呼び出しにも発火します。
+
+### settings の `SubagentStart`・`SubagentStop`
+
+- matcher はエージェントの `name`（組み込みは `Explore` など）です。プラグインの `my-plugin:db-agent` は正規表現として扱われるので、`^my-plugin:db-agent$` と固定します。
+- `SubagentStart` は起動・再開時に発火し、起動を止められません。入力は `agent_id` と `agent_type` です。
+- `additionalContext` は最初のプロンプトの前に入ります。再発火しても、同じ内容が残っていれば重ねて入れません。
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStart",
+    "additionalContext": "Follow security guidelines for this task"
+  }
+}
+```
+
+`SubagentStop` の入力と判定は [Ch28](/claude-code-deep-dive/ja/extensions/hooks/#ch28-stop) にあります。
+
+<div class="src">
+  出典: [sub-agents#define-hooks-for-subagents](https://code.claude.com/docs/en/sub-agents#define-hooks-for-subagents) · [hooks#subagentstart](https://code.claude.com/docs/en/hooks#subagentstart)
+</div>
+
+<span id="ch37-fork" />
+
+## フォーク: `/subtask` と fork mode
+
+- フォークは会話全体を引き継ぐサブエージェントです。システムプロンプト・ツール・モデル・履歴がメインと同じで、最終結果だけが戻ります。
+- `/subtask <task>` で、fork mode に関係なく自分で起動できます。名前はタスクの冒頭から付き、結果はメイン会話にメッセージとして届きます。
+- fork mode が on の間は、Claude も Agent ツール（`subagent_type: "fork"`）でフォークを起動します。既定で on で、対話ターミナルは v2.1.232、全環境は v2.1.302 からです。
+- フォークだけ止める: `permissions.deny` に `"Agent(fork)"`。fork mode を止める: `CLAUDE_CODE_FORK_SUBAGENT=0`。
+- フォークは `isolation: "worktree"` を渡せます。フォークからフォークは起動できません。
+- agent view が off なら `/subtask` は使えず、`/fork` がフォークを起動します（[Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-branch)）。
+
+|                    | フォーク       | 通常のサブエージェント         |
+| ------------------ | -------------- | ------------------------------ |
+| コンテキスト       | 会話履歴すべて | 渡したプロンプトから新規       |
+| プロンプトとツール | メインと同じ   | 定義ファイルから。背景用に絞る |
+| モデル             | メインと同じ   | 定義の `model`                 |
+| キャッシュ         | メインと共有   | 別                             |
+
+- 最初のリクエストがメインのキャッシュを再利用するので、同じ文脈が要る作業では新規のサブエージェントより安くなります。
+- パネル: <kbd>↑</kbd>/<kbd>↓</kbd> で選び、<kbd>Enter</kbd> でトランスクリプトを開いて追加の指示を送ります。<kbd>x</kbd> は停止、<kbd>Esc</kbd> は入力欄へ戻ります。
+- 開いている間、`/compact`・`/clear`・`/rewind` はメインに効くため確認が出ます。`/model`・`/fast` は実行されません。
+
+<div class="src">
+  出典: [sub-agents#fork-the-current-conversation](https://code.claude.com/docs/en/sub-agents#fork-the-current-conversation) · [#turn-fork-mode-on-or-off](https://code.claude.com/docs/en/sub-agents#turn-fork-mode-on-or-off) · [agents](https://code.claude.com/docs/en/agents) · changelog 2.1.302
+</div>

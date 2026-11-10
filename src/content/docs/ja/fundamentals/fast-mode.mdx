@@ -1,0 +1,182 @@
+---
+title: "Fast mode"
+description: "同じモデルを、速度優先の API 設定で動かすモードです。この章では、対応モデルと各モデルのステータス、料金と課金先、設定の持続とモデル切り替え時の挙動、組織設定とゲートウェイ環境での可用性チェック、レート制限と廃止予定を扱います。"
+sidebar:
+  order: 4
+---
+
+同じモデルを、速度優先の API 設定で動かすモードです。この章では、対応モデルと各モデルのステータス、料金と課金先、設定の持続とモデル切り替え時の挙動、組織設定とゲートウェイ環境での可用性チェック、レート制限と廃止予定を扱います。
+
+<span id="ch04-basics" />
+
+## 基本と対応モデル
+
+- 応答を最大 2.5 倍速くする代わりに、トークン単価が上がります。モデルは同じで API の設定だけが違うため、品質と機能は変わりません。
+- `/fast` を実行し、<kbd>Space</kbd> で切り替え、<kbd>Enter</kbd> で確定します。`/fast on` / `/fast off` でも指定できます。
+- 有効にすると `Fast mode ON` と表示され、プロンプト横に `↯` が出ます。状態の確認も `/fast` で行います。
+- 非対応モデルで有効にすると Opus に切り替わります。切り替え先は v2.1.280 以降 Opus 5.5 です（v2.1.219〜は Opus 5）。
+- 応答中に `/fast` を実行すると、その場で切り替わります。ただし実行中のターンは元の速度で終わり、次のターンから効きます。
+- 使えるのは Anthropic API とサブスクリプションだけです。Bedrock・Agent Platform・Foundry・Claude Platform on AWS では使えません。
+
+| 比較            | 効果                                                 |
+| --------------- | ---------------------------------------------------- |
+| Fast mode       | 品質は同じ。レイテンシが下がり、コストが上がる       |
+| effort を下げる | 思考が減って速くなる。複雑な作業では品質が下がりうる |
+
+| モデル                | ステータス                                       | 補足                                                                               |
+| --------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Fable 5.2             | GA                                               | v2.1.321 以降                                                                      |
+| Opus 5.5              | GA                                               | `/fast` の既定の切り替え先。2.1.304 でダイアログの「(research preview)」表記を削除 |
+| Opus 5                | <span class="badge preview">Preview</span>       | Console 組織は利用枠のプロビジョニングが必要                                       |
+| Opus 4.8              | <span class="badge deprecated">Deprecated</span> | 2026-10-30 に非推奨、2026-11-30 に削除予定                                         |
+| Opus 4.7              | <span class="badge removed">Removed</span>       | 2026-07-24 に削除。切り替えると fast mode は OFF                                   |
+| Sonnet・Haiku・その他 | 非対応                                           | —                                                                                  |
+
+ページ冒頭の注記は Opus 5 と Opus 4.8 を research preview としています。Opus 4.8 は同じページの警告で非推奨と明記されているため、ここでは Deprecated と表示します。
+
+提供面: CLI、VS Code の **Toggle fast mode**、クラウドセッション（`/fast on`、v2.1.271 以降）、claude.ai/code のモデルメニュー。
+
+<div class="src">
+  出典: [fast-mode](https://code.claude.com/docs/en/fast-mode) · [#toggle-fast-mode](https://code.claude.com/docs/en/fast-mode#toggle-fast-mode) · [#fast-mode-vs-effort-level](https://code.claude.com/docs/en/fast-mode#fast-mode-vs-effort-level) · [#requirements](https://code.claude.com/docs/en/fast-mode#requirements) · changelog 2.1.304
+</div>
+
+<span id="ch04-pricing" />
+
+## 料金と課金
+
+| モデル    | 入力 (MTok) | 出力 (MTok) |
+| --------- | ----------- | ----------- |
+| Fable 5.2 | $16         | $80         |
+| Opus 5.5  | $8          | $40         |
+| Opus 5    | $10         | $50         |
+| Opus 4.8  | $10         | $50         |
+
+- fast mode の単価は 1M トークンのコンテキスト全体で一律です。標準単価は [Ch2](/claude-code-deep-dive/ja/fundamentals/models/) の価格表を参照してください。
+- 会話の途中で初めて有効にすると、その時点までの会話全体を、fast mode のキャッシュなし入力単価で読み直します。会話が長いほど高くなるため、セッションの最初に有効にします。
+- fast mode と標準速度はキャッシュを別に持ちます。以降の切り替えのたびに、相手側にキャッシュがない部分を読み直します。レート制限による自動の速度切り替えも同じ扱いです（キャッシュの詳細は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/)）。
+
+| 契約              | 支払い元                             | 支出の確認場所                                                          |
+| ----------------- | ------------------------------------ | ----------------------------------------------------------------------- |
+| Pro / Max / Ultra | 本人の usage credits                 | claude.ai の **Settings > Usage**。fast mode 分は内訳に出ない           |
+| Team / Enterprise | 組織の usage credits                 | 自分の支出は `/usage`                                                   |
+| Claude Console    | API 利用と合わせてトークン単位で課金 | Console の Usage / Cost で **Group by** に **Speed (research preview)** |
+
+- サブスクリプションでは usage credits からのみ支払います。プランの利用上限には含まれません。
+- プランの利用枠が残っていても、fast mode の利用は usage credits から直接引かれます。
+- どちらで課金されるかは `/status` で確認します。`Login method` 行があればサブスクリプション、`API key` 行があれば Console 組織です。
+
+<div class="src">
+  出典: [fast-mode#understand-the-cost-tradeoff](https://code.claude.com/docs/en/fast-mode#understand-the-cost-tradeoff) · [#see-where-fast-mode-spend-appears](https://code.claude.com/docs/en/fast-mode#see-where-fast-mode-spend-appears) · [#requirements](https://code.claude.com/docs/en/fast-mode#requirements) · [prompt-caching#turning-on-fast-mode](https://code.claude.com/docs/en/prompt-caching#turning-on-fast-mode)
+</div>
+
+<span id="ch04-persistence" />
+
+## 持続性とモデル切り替え
+
+- `/fast` は `~/.claude/settings.json` に `"fastMode": true` を書き、OFF にするとキーを削除します。対話セッションで有効にした fast mode は、対応モデルである限り次のセッションにも引き継がれます。
+- 非対応モデルで `fastMode: true` を設定しても、そのモデルのまま fast mode は OFF です。Fable 5.2 では、Fable 5.2 の上で `/fast` を実行するまで設定だけでは効きません。
+- `CLAUDE_CODE_DISABLE_FAST_MODE=1` は fast mode を無効にし、`fastMode` では戻せません。
+
+| 切り替え             | fast mode の状態                                                        |
+| -------------------- | ----------------------------------------------------------------------- |
+| 非対応モデルへ       | OFF。Opus 4.7 も含む（v2.1.221 より前は ON のまま残り、API が拒否した） |
+| 対応する Opus へ戻る | 保存済みの設定が ON なら ON。per-session opt-in 時は `/fast` を実行     |
+| Fable 5.2 へ         | Fable 5.2 の上で ON にしていない限り OFF                                |
+
+切り替えで状態が変わると、`/model`・`/config model=<model>`・Remote Control のどれでも `Fast mode ON` / `Fast mode OFF` が表示されます。`/fast` で OFF にしてもモデルは変わりません。
+
+### セッションごとに opt-in させる
+
+```json
+{
+  "fastModePerSessionOptIn": true
+}
+```
+
+- すべてのセッションが OFF で始まり、各セッションで `/fast` が必要になります。保存済みの設定は残るため、キーを外せば元に戻ります。
+- `--settings` で渡した `fastMode: true` は、managed 設定がこのキーを設定していなければそのセッションに効きます。
+
+### `-p` とクラウドセッション
+
+- `-p` では、`claude -p --settings '{"fastMode": true}'` のように起動した場合だけ `/fast` が動き、保存はされません（v2.1.205 以降）。
+- クラウドセッションの `/fast on` もそのセッション限りです。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "/fast"
+Fast mode unavailable: Fast mode is not available in the Agent SDK
+```
+
+<div class="src">
+  出典: [fast-mode#toggle-fast-mode](https://code.claude.com/docs/en/fast-mode#toggle-fast-mode) · [#switch-models-while-fast-mode-is-on](https://code.claude.com/docs/en/fast-mode#switch-models-while-fast-mode-is-on) · [#require-per-session-opt-in](https://code.claude.com/docs/en/fast-mode#require-per-session-opt-in) · [settings-reference#fastmode](https://code.claude.com/docs/en/settings-reference#fastmode) · [#fastmodepersessionoptin](https://code.claude.com/docs/en/settings-reference#fastmodepersessionoptin) · 実機確認 2.1.321
+</div>
+
+<span id="ch04-org" />
+
+## 組織設定とゲートウェイでの可用性チェック
+
+### 前提条件
+
+- サブスクリプションでは usage credits の有効化が必要です。無効だと `/fast` は `Fast mode requires usage credits` と表示します（有効化は `/usage-credits` から）。
+- Team / Enterprise は既定で無効です。Owner が **Organization settings > Claude Code** で有効にします。Console は管理者が Claude Code preferences で有効にします。
+- Console の無料 Evaluation プランでは `Fast mode unavailable during evaluation. Please purchase credits.` と表示されます。
+
+### `/fast` を止める組織設定
+
+| 設定                                       | 表示                                                |
+| ------------------------------------------ | --------------------------------------------------- |
+| 組織で未有効化                             | `Fast mode has been disabled by your organization.` |
+| managed の `fastMode: false`               | 同上                                                |
+| managed の `fastModePerSessionOptIn: true` | 対話ターミナル以外で `/fast on` を同上で拒否        |
+| `availableModels` が Opus を除外           | `is not in your organization's allowed models`      |
+
+### ゲートウェイ・プロキシ環境
+
+可用性チェックは `api.anthropic.com` へ直接送られ、`ANTHROPIC_BASE_URL` には従いません。HTTP プロキシの設定には従います。
+
+| 表示                                                       | 原因と対処                                                                                                                                                             |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Fast mode unavailable due to network connectivity issues` | チェックが届かない。直接の通信を許可するか `CLAUDE_CODE_SKIP_FAST_MODE_NETWORK_ERRORS=1`                                                                               |
+| `Fast mode is currently unavailable`                       | Anthropic 形式でないゲートウェイキー、または `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` でチェック自体を送らない。`CLAUDE_CODE_SKIP_FAST_MODE_NETWORK_ERRORS=1` で回避 |
+| `Fast mode has been disabled by your organization`         | `ANTHROPIC_AUTH_TOKEN` のみで認証、または TLS 検査プロキシが独自ページを返す。`CLAUDE_CODE_SKIP_FAST_MODE_ORG_CHECK=1`                                                 |
+
+skip 変数はクライアント側のチェックだけを変えます。組織で無効なら API が拒否し、Claude Code は標準速度で再送して OFF にします。
+
+<div class="src">
+  出典: [fast-mode#requirements](https://code.claude.com/docs/en/fast-mode#requirements) · [#enable-fast-mode-for-your-organization](https://code.claude.com/docs/en/fast-mode#enable-fast-mode-for-your-organization) · [#use-fast-mode-behind-proxies-and-llm-gateways](https://code.claude.com/docs/en/fast-mode#use-fast-mode-behind-proxies-and-llm-gateways) · [env-vars](https://code.claude.com/docs/en/env-vars)
+</div>
+
+<span id="ch04-limits" />
+
+## レート制限・usage credits 切れ・廃止予定
+
+### レート制限
+
+fast mode のレート制限は標準速度とは別枠です。制限に達すると:
+
+1. 自動で標準速度に戻る
+2. `↯` がグレーになり、クールダウン中であることを示す
+3. 標準の速度と料金で作業を続ける
+4. クールダウンが終わると自動で fast mode に戻る
+
+待たずに止めるには `/fast` を実行します。利用枠が未プロビジョニングの Console 組織で Opus 5 / 4.8 を使うと、この制限に当たります。
+
+### usage credits が尽きたとき
+
+- 拒否されたリクエストを標準の速度と料金で再送します。クールダウンはありません。
+- 対話: `Fast mode disabled · Out of usage credits` を表示して OFF にします。保存済みの設定は残ります。
+- `-p` の `stream-json` と SDK: 同じ文面を `system` / `notification` メッセージでターンごとに 1 回出し、ON のままです（v2.1.221 以降）。
+
+### Opus 4.8 の fast mode <span class="badge deprecated">Deprecated</span>
+
+- 2026-10-30 に非推奨となり、2026-11-30 に削除されます。
+- 削除後も Opus 4.8 で fast mode が ON のままだと、API がリクエストを拒否します。標準速度の Opus 4.8 へのフォールバックはありません。
+- fast mode を続けるには、`/model` で Opus 5.5（v2.1.280 以降）へ切り替えます。fast mode は ON のまま残ります。
+- Opus 4.8 を標準速度で使い続けるには `/fast off` を実行します。
+
+Opus 4.7 の fast mode は 2026-06-25 に非推奨、2026-07-24 に削除済みです <span class="badge removed">Removed</span>。
+
+2.1.321 では、fast serving がレート制限・過負荷・失敗のときに、まず同じモデルの標準速度で再試行するよう修正されています。
+
+<div class="src">
+  出典: [fast-mode#handle-rate-limits](https://code.claude.com/docs/en/fast-mode#handle-rate-limits) · [#enable-fast-mode-for-your-organization](https://code.claude.com/docs/en/fast-mode#enable-fast-mode-for-your-organization) · [fast-mode](https://code.claude.com/docs/en/fast-mode) · changelog 2.1.316 · changelog 2.1.321
+</div>

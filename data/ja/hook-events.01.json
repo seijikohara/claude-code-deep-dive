@@ -5,7 +5,7 @@
   "UserPromptExpansion": "ユーザーが入力したコマンドがプロンプトに展開され、Claude に届く前に発火し、展開をブロックできる。",
   "PreToolUse": "ツール呼び出しの実行前に発火し、その呼び出しをブロックできる。",
   "PermissionRequest": "ツール呼び出しに権限の判断が必要なときに発火する。",
-  "PermissionDenied": "auto モードがツール呼び出しを拒否したときに発火し、`hookSpecificOutput.retry: true` で再試行を許可できる。",
+  "PermissionDenied": "auto モードの拒否時に発火し、分類器の判定があれば `hookSpecificOutput.retry: true` で再試行を許可できる。",
   "PostToolUse": "ツール呼び出しが成功した後に発火する。",
   "PostToolUseFailure": "ツール呼び出しが失敗した後に発火する。",
   "PostToolBatch": "並列ツール呼び出しの一式がすべて完了した後、次のモデル呼び出しの前に発火する。",

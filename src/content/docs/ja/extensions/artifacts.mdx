@@ -1,0 +1,131 @@
+---
+title: "Artifacts"
+description: "セッションの出力を claude.ai 上のライブな Web ページとして公開する機能です。この章では、作成と公開前の確認、更新・共有・コメント、ライブデータとテンプレート、ページの制約・提供範囲・無効化を扱います。"
+sidebar:
+  order: 35
+---
+
+セッションの出力を claude.ai 上のライブな Web ページとして公開する機能です。この章では、作成と公開前の確認、更新・共有・コメント、ライブデータとテンプレート、ページの制約・提供範囲・無効化を扱います。
+
+<span id="ch35-overview" />
+
+## Artifacts とは: 作成の流れと公開前の確認
+
+- Claude Code がセッションから claude.ai の非公開 URL へ公開する、操作できる Web ページです。公開は `Artifact` ツールが行います。
+- バックエンドのない自己完結の 1 ページです。複数のルートやサーバー処理が要るツールには使えません。
+- ページ向きの出力なら Claude が自分から公開することもあります。頼むときは平易な言葉で足ります。
+- 置き場所を指定しない限り、Claude はプロジェクト外の一時ディレクトリに HTML か Markdown を書いてから公開します。
+- 初回の公開で URL を表示し、ブラウザを開きます。`CLAUDE_CODE_ARTIFACT_AUTO_OPEN=0` で自動オープンを止めます。
+- <kbd>Ctrl</kbd>+<kbd>]</kbd> は、このセッションの最新の artifact を開き直します。プロンプト下の `⧉` ピルは名前か件数を示します（2.1.281 で 1 つのピルに統合）。
+
+頼み方の例: `Make an artifact that walks through this PR with the diff annotated inline.`
+
+### 公開前に確認が入る場合
+
+入力したプロンプトに応じた新規公開は、確認も classifier の審査もなく通ります。次の場合だけ確認します（auto mode では classifier が審査します）。
+
+| 条件                                                                     | 確認のタイミング                                       |
+| ------------------------------------------------------------------------ | ------------------------------------------------------ |
+| plan mode                                                                | 各 artifact の初回公開の前                             |
+| ランタイム機能（コネクタ呼び出し、ファイルのダウンロード）を宣言する公開 | その公開の前                                           |
+| 公開リンクで共有済み                                                     | 会話ごとに 1 回、変更の前                              |
+| session-scoped scheduled task が始めたターン                             | 各 artifact の初回公開の前                             |
+| Claude が承認なしでは読めないファイル                                    | 公開の前。`Artifact` の allow ルールでも省略されない   |
+| Manual・`acceptEdits` で、承認の要るファイル変更を伴う公開               | 公開の前。`Artifact` の allow ルールがあっても確認する |
+
+<div class="src">
+  出典: [artifacts#create-an-artifact](https://code.claude.com/docs/en/artifacts#create-an-artifact) · [#when-claude-code-asks-before-publishing](https://code.claude.com/docs/en/artifacts#when-claude-code-asks-before-publishing) · [changelog 2.1.281](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch35-share" />
+
+## 更新・`/artifacts`・共有・他人の artifact の読み取り
+
+### 更新と `/artifacts`
+
+- 修正を頼むと、Claude は元ファイルを編集して同じ URL へ再公開します。開いている人の画面もその場で変わります。
+- 公開のたびに版が残ります。ページヘッダーの **Share** で、閲覧者に見せる版を選べます。
+- 別のセッションから更新するには、URL を渡すか `/artifacts` で attach します。どちらもしないと新しい artifact になります。
+
+| キー                        | `/artifacts` での動作                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| <kbd>Enter</kbd>            | attach 済みならブラウザで開く。未 attach なら attach する                                      |
+| <kbd>o</kbd> / <kbd>c</kbd> | ブラウザで開く / リンクをコピーする                                                            |
+| <kbd>d</kbd>                | 自分の artifact を確認後に完全削除。リンクは全員に対して無効になる。クラウドセッションでは不可 |
+
+一覧は claude.ai アカウントから読むので、新しいセッションや `/clear` の後でも使えます。2.1.305 以降、削除の確認は <kbd>1</kbd> か <kbd>Enter</kbd> で残す、<kbd>2</kbd> で削除、<kbd>Esc</kbd> で取り消しです。
+
+### 共有と編集者
+
+- 新しい artifact は本人だけが見られます。共有はページヘッダーの **Share** で行います。一覧は `claude.ai/code/artifacts` にあります。
+- 組織内（Team・Enterprise）: 特定の人か組織全員に共有します。
+- 公開リンク: サインインなしで誰でも開けます。Team・Enterprise では、Owner が **External sharing** を有効にするまで使えません。
+- 編集者（Team・Enterprise）: 共有ダイアログで **viewer** を **editor** に切り替えます。古いコピーからの公開は拒否され、Claude は新しい版に変更を重ねて再公開します。
+
+### 他人の artifact を読む
+
+- URL を渡すと、Claude は WebFetch と同じく要約を受け取ります。ページ内の指示は中継せず、指示があったことを報告します。全ソースはローカルファイルに保存されます。
+- 他組織の公開 artifact は、auto mode でも確認します。確認できない `bypassPermissions` では読めません。
+
+<div class="src">
+  出典: [artifacts#update-an-artifact](https://code.claude.com/docs/en/artifacts#update-an-artifact) · [#find-an-artifact-again](https://code.claude.com/docs/en/artifacts#find-an-artifact-again) · [#share-an-artifact](https://code.claude.com/docs/en/artifacts#share-an-artifact) · [#let-someone-edit-with-you](https://code.claude.com/docs/en/artifacts#let-someone-edit-with-you) · [#read-an-artifact-shared-with-you](https://code.claude.com/docs/en/artifacts#read-an-artifact-shared-with-you) · [changelog 2.1.305（リファレンス未掲載）](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch35-live" />
+
+## コメント・ライブデータ・テンプレート
+
+### コメント（v2.1.221 以降）
+
+- 組織内で共有した artifact に、閲覧者がコメントを付けます。
+- 編集権限のある人が **Send to Claude** か `@claude` でスレッドを有効化します。Claude が返信・解決できるのは、有効化されたスレッドだけです。
+- 自動返信（v2.1.228 以降）は権限モードに従います。承認が要る場合と plan mode では、`Comments are waiting on Artifact: <name>` と表示して待ちます。
+- 1 artifact で 1 時間に 60 件の送信・有効化に達すると、自動返信を止めます。
+- 止め方: アイドル時に <kbd>Ctrl</kbd>+<kbd>C</kbd>、`/tasks` でタスクを停止、<kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd> を 3 秒以内に 2 回。
+
+### ライブデータとダウンロード
+
+- ページは表示のたびに claude.ai の MCP コネクタを呼べます（v2.1.209 以降）。公開時に宣言したコネクタだけが対象です。
+- 呼び出しは閲覧者のアカウントと接続で動き、初回の前に閲覧者の許可を求めます。
+- `.mcp.json` などのローカル MCP サーバーは、公開ページから呼べません。
+- コネクタに無いツール名を呼ぶ部分は、全員に対して空になります。v2.1.265 以降、一致する名前が 1 つもない公開は拒否されます。
+- ダウンロードはランタイム機能として宣言します。通常のリンクや `data:`・`blob:` の URL は閲覧画面が遮断します。
+
+### テンプレート <span class="badge beta">Beta</span>
+
+- Claude Slides（プレゼン）、Claude Design（ビジュアルデザイン）、Claude Docs（人が読んで編集する文書）から始められます。
+- `/slides [brief]`・`/design [brief]` でも始められます。どちらも v2.1.265 以降と、artifacts が使えるセッションが必要です。
+- Claude Docs はコマンドではなく、claude.ai コネクタとして届きます（`/mcp` では `claude.ai Claude Docs`）。
+- Pro・Max・Ultra・Team では既定で有効です。Enterprise では Owner がテンプレートごとに有効にします。
+
+<div class="src">
+  出典: [artifacts#collect-comments-on-an-artifact](https://code.claude.com/docs/en/artifacts#collect-comments-on-an-artifact) · [#let-claude-reply-to-comments-on-its-own](https://code.claude.com/docs/en/artifacts#let-claude-reply-to-comments-on-its-own) · [#pull-live-data-with-mcp-connectors](https://code.claude.com/docs/en/artifacts#pull-live-data-with-mcp-connectors) · [#offer-a-file-download](https://code.claude.com/docs/en/artifacts#offer-a-file-download) · [#start-from-a-slides-design-or-docs-template](https://code.claude.com/docs/en/artifacts#start-from-a-slides-design-or-docs-template)
+</div>
+
+<span id="ch35-limits" />
+
+## ページの制約・提供範囲・無効化
+
+| 制約         | 内容                                                                                                                                                            |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 外部読み込み | Google Fonts と、CDN 5 つ（cdnjs、unpkg、Tailwind、jQuery、jsDelivr の `/npm/` など）のスクリプトだけ。`fetch`・XHR・WebSocket は自オリジンと Google Fonts のみ |
+| 単一ページ   | バックエンドなし。相対リンクは解決しない                                                                                                                        |
+| ファイル     | `.html`・`.htm`・`.md`。UTF-8 か BOM 付き UTF-16LE。`U+FFFD` を含むと拒否。ネットワーク共有上のパスも拒否                                                       |
+| サイズ       | 描画後 16 MiB 以下                                                                                                                                              |
+
+- 無効化: `/config` の **Artifacts** 行、`"enableArtifact": false`（旧 `"disableArtifact": true`）、`CLAUDE_CODE_DISABLE_ARTIFACT=1`、`permissions.deny` の `Artifact`。
+- `"enableArtifact": true` は他の `false` を覆しません。project・local の `false` は v2.1.242 以降で効きます。
+- `domain:` のない `WebFetch` ルールは artifacts に効きません。`WebFetch(domain:claude.ai)` は読み取りに効きます。
+
+| 提供範囲     | すべて満たす必要がある（欠けると Claude はローカル HTML を書くか、公開できないと答える）                         |
+| ------------ | ---------------------------------------------------------------------------------------------------------------- |
+| プラン       | Pro・Max・Ultra・Team・Enterprise。Team・Enterprise は既定で有効で、Owner が無効にできる                         |
+| 認証         | `/login` の claude.ai アカウント。API キー・ゲートウェイトークン・クラウドの資格情報では公開できない             |
+| プロバイダ   | Anthropic API のみ。Bedrock・Agent Platform・Foundry は不可                                                      |
+| 組織ポリシー | CMEK・HIPAA・Zero Data Retention が無効であること。ポリシーは `api.anthropic.com` から読み、読めない間は使えない |
+| サーフェス   | CLI、Desktop 1.13576.0 以降、Claude Tag、自分で始めた `claude remote-control` のセッション（v2.1.281 以降）      |
+| 既定で無効   | Agent SDK、GitHub Action、MCP サーバーの文脈、`-p`、`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` の設定時          |
+
+<div class="src">
+  出典: [artifacts#page-constraints](https://code.claude.com/docs/en/artifacts#page-constraints) · [#availability](https://code.claude.com/docs/en/artifacts#availability) · [#disable-artifacts](https://code.claude.com/docs/en/artifacts#disable-artifacts) · [settings-reference#enableartifact](https://code.claude.com/docs/en/settings-reference#enableartifact)
+</div>

@@ -1,0 +1,40 @@
+Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+Copyright (c) 2026 Seiji Kohara
+
+This license applies to the written content of this repository:
+
+- the reference pages under src/content/docs/ (prose, tables, and examples in .md and .mdx files)
+- the appendix data under data/ (Japanese summaries and status labels)
+- the documents under docs/
+
+Source code (the components under src/components/, the scripts under tools/, and the
+configuration files) is not covered. It is licensed under the MIT License (see LICENSE).
+
+------------------------------------------------------------------------------
+
+The covered content is provided under the Creative Commons Attribution 4.0
+International License. You may copy, redistribute, remix, transform, and build upon
+it for any purpose, under this condition:
+
+- Attribution: give appropriate credit, provide a link to the license, and indicate
+  whether changes were made. Do so in any reasonable manner, but not in any way that
+  suggests the licensor endorses you or your use.
+
+Credit example:
+
+  "Claude Code Deep Dive" by Seiji Kohara, licensed under CC BY 4.0.
+  https://github.com/seijikohara/claude-code-deep-dive
+
+Full license text: https://creativecommons.org/licenses/by/4.0/legalcode
+
+------------------------------------------------------------------------------
+
+Third-party material
+
+The content summarizes, translates, and quotes parts of Anthropic's public Claude Code
+documentation and changelog (https://code.claude.com/docs). This license covers only
+the contributions of the author of this repository. Anthropic's documentation remains
+subject to Anthropic's own terms, and quoted product names, identifiers, and program
+output belong to their respective owners. This repository is not affiliated with or
+endorsed by Anthropic.

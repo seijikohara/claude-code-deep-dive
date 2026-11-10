@@ -199,7 +199,13 @@ export function extractIdentifiers(html, options = {}) {
     const command = text.trimStart().match(COMMAND_RE);
     if (command) add("command", command[0]);
     if (hookRe) for (const [v] of text.matchAll(hookRe)) add("hook", v);
-    if (el.classes.some((c) => /^language-json(c|5)?$/.test(c))) {
+    const jsonBlock =
+      el.classes.some((c) => /^language-json(c|5)?$/.test(c)) ||
+      closest(
+        el,
+        (n) => n.name === "pre" && /^json(c|5)?$/.test(n.attrs["data-language"] ?? ""),
+      ) !== null;
+    if (jsonBlock) {
       for (const m of text.matchAll(SETTING_RE)) add("setting", m[1]);
     }
   }
@@ -273,4 +279,54 @@ export function checkSources(html) {
     if (!descendants.some((n) => hasClass(n, "src"))) missing.push(s.attrs.id || `section[${i}]`);
   });
   return missing;
+}
+
+/**
+ * Return the internal deck links (`href="#/<id>"`) whose target id does not exist in `html`.
+ * A link to a whole chapter (`#/ch05`) and to one slide (`#/ch05-enable`) both need a matching element id.
+ */
+export function checkLinks(html) {
+  const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+  const broken = new Set();
+  for (const m of html.matchAll(/href="#\/([^"]+)"/g)) {
+    if (!ids.has(m[1])) broken.add(m[1]);
+  }
+  return [...broken];
+}
+
+/**
+ * Return the internal links of a built site that point at a missing page or a missing id.
+ * `pages` maps a site path (e.g. "/ja/fundamentals/advisor/") to that page's HTML; `base` is the site base path.
+ */
+export function checkSiteLinks(pages, base) {
+  const idsByPath = new Map();
+  for (const [path, html] of pages) {
+    idsByPath.set(path, new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1])));
+  }
+  const broken = new Set();
+  for (const [path, html] of pages) {
+    for (const m of html.matchAll(/\shref="([^"]+)"/g)) {
+      const href = m[1].replaceAll("&amp;", "&");
+      if (!href.startsWith(`${base}/`) && !href.startsWith("#")) continue;
+      const [rawPath, rawFrag = ""] = href.split("#");
+      const target = rawPath === "" ? path : rawPath.slice(base.length);
+      if (
+        /\.(css|js|svg|png|ico|xml|txt|json)$/.test(target) ||
+        target.includes("/_astro/") ||
+        target.includes("/pagefind/")
+      )
+        continue;
+      const ids =
+        rawPath === ""
+          ? idsByPath.get(path)
+          : idsByPath.get(target.endsWith("/") ? target : `${target}/`);
+      if (!ids) {
+        broken.add(`${path} -> ${href} (no page)`);
+        continue;
+      }
+      const frag = decodeURIComponent(rawFrag);
+      if (frag && frag !== "_top" && !ids.has(frag)) broken.add(`${path} -> ${href} (no id)`);
+    }
+  }
+  return [...broken];
 }

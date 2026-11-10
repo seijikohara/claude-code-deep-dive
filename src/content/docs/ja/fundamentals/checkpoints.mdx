@@ -1,0 +1,90 @@
+---
+title: "チェックポイント"
+description: "Claude がファイル編集ツールで変えたファイルを、プロンプトごとに自動で退避する仕組みです。この章では、スナップショットの単位と保持期間、/rewind メニューの各操作、巻き戻せない変更、Agent SDK からの利用を扱います。"
+sidebar:
+  order: 8
+---
+
+Claude がファイル編集ツールで変えたファイルを、プロンプトごとに自動で退避する仕組みです。この章では、スナップショットの単位と保持期間、`/rewind` メニューの各操作、巻き戻せない変更、Agent SDK からの利用を扱います。
+
+<span id="ch08-mechanism" />
+
+## 仕組みと保持
+
+- ターンを開始するプロンプトを送るたびに、チェックポイントが 1 つ作られます。
+- 対象は Claude のファイル編集ツールによる変更です。Claude Code は編集の前にファイルの内容をスナップショットします（SDK ページでは Write・Edit・NotebookEdit と明記）。
+- スナップショットは、セッション内の直近 **100 チェックポイント**分を保持します。古いチェックポイントを捨てると、残りのどれからも参照されないスナップショットを削除します。
+- 例外として、各ファイルの最初のスナップショットは残ります。VS Code 拡張がセッション差分の基準に使うためです。
+- チェックポイントは会話と一緒に保存されます。`--resume` で再開した後も `/rewind` できます。
+- git とは独立した、セッション単位の復旧手段です。履歴管理と共同作業には引き続き git を使います。
+
+| 項目             | 内容                                                                                                                                                |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 保存先           | `~/.claude/file-history/<session>/`                                                                                                                 |
+| 削除             | retention sweep が削除する。既定ではセッションが最後にスナップショットを保存してから約 30 日後（`cleanupPeriodDays`）                               |
+| 削除後の巻き戻し | `No files were restored` で失敗し得る。長く残すには `cleanupPeriodDays` を延ばす                                                                    |
+| 設定で無効化     | `"fileCheckpointingEnabled": false`。`/config` の **Rewind code (checkpoints)** 行と同じキー                                                        |
+| 環境変数で無効化 | `CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING=1`。設定と環境変数は、どちらかが off にすると他方で戻せない                                                 |
+| `-p` と SDK      | `fileCheckpointingEnabled` を無視する。SDK は `enableFileCheckpointing`、素の `-p` は `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true` で有効にする |
+
+<div class="src">
+  出典: [checkpointing#how-checkpoints-work](https://code.claude.com/docs/en/checkpointing#how-checkpoints-work) · [claude-directory#cleaned-up-automatically](https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically) · [settings-reference#filecheckpointingenabled](https://code.claude.com/docs/en/settings-reference#filecheckpointingenabled) · [how-claude-code-works](https://code.claude.com/docs/en/how-claude-code-works#undo-changes-with-checkpoints) · [agent-sdk/file-checkpointing](https://code.claude.com/docs/en/agent-sdk/file-checkpointing)
+</div>
+
+<span id="ch08-rewind" />
+
+## `/rewind` メニュー
+
+開き方: `/rewind`（エイリアス `/checkpoint`、`/undo`）、または入力欄が空のときに <kbd>Esc</kbd> を 2 回。入力中の文字があると、<kbd>Esc</kbd> 2 回は文字を消して入力履歴に退避します（<kbd>↑</kbd> で戻せる）。一覧から送信済みのプロンプトを選び、操作を選びます。
+
+| 操作                              | 効果                                                         |
+| --------------------------------- | ------------------------------------------------------------ |
+| **Restore code and conversation** | コードと会話の両方をその時点へ戻す                           |
+| **Restore conversation**          | 会話だけ戻し、現在のコードは残す                             |
+| **Restore code**                  | ファイルだけ戻し、会話は残す                                 |
+| **Summarize from here**           | 選んだ地点以降を要約に圧縮する                               |
+| **Summarize up to here**          | 選んだ地点より前を要約に圧縮し、後ろは残す（2.1.141 で追加） |
+| **Never mind**                    | 何もせず一覧へ戻る                                           |
+
+- コードを戻す 2 つの操作は、選んだチェックポイントに追跡済みの変更があるときだけ表示されます。
+- Restore conversation と Summarize from here の後は、選んだプロンプトが入力欄に戻ります。Summarize up to here の後は入力欄が空のままです。
+- 要約した箇所には **Summarized conversation** の印が付きます。元のメッセージはトランスクリプトに残り、ディスク上のファイルは変わりません。
+- 要約の方針は、矢印キーで Summarize を選び **add context (optional)** 行に入力して <kbd>Enter</kbd>。数字キーで選ぶと指示なしで即実行します。
+- 同じプロセスで `/clear` を実行していると、先頭に `/resume <session-id> (previous session)` が出ます。`/clear` 前の会話へ戻れます。
+- 巻き戻した直後に終了すると、消したメッセージが戻ることがあります。終了前に次のプロンプトを 1 つ送ります。
+- `DISABLE_COMPACT` を設定すると、Summarize の 2 つは表示されません（2.1.311）。キャッシュへの影響は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/#ch06-cache-breakers)。
+
+<div class="src">
+  出典: [checkpointing#rewind-and-summarize](https://code.claude.com/docs/en/checkpointing#rewind-and-summarize) · [commands](https://code.claude.com/docs/en/commands) · [prompt-caching#rewinding-the-conversation](https://code.claude.com/docs/en/prompt-caching#rewinding-the-conversation) · [changelog 2.1.108, 2.1.141, 2.1.191, 2.1.311](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch08-limits" />
+
+## 追跡されない変更と SDK からの利用
+
+| 変更の種類                   | 巻き戻しの扱い                                                                                                                                                                                            |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bash による変更              | Claude がファイル編集ツールで一度編集したファイルなら、その後の Bash の変更も戻る。Bash だけが触ったファイルは追跡されない。`sed -i` も 2.1.309 からほかの Bash 編集と同じ扱い                            |
+| サブエージェント             | 原則として記録されない。例外は前景で動く `context: fork` の Skill（`background: false`）。それ以外（背景の fork Skill、背景の `/code-review --fix` を含む）は、会話で Claude が編集済みのファイルだけ戻る |
+| 外部の変更                   | エディタでの手動編集や並行する別セッションの編集は、同じファイルに当たらない限り記録されない                                                                                                              |
+| ターン途中に送ったメッセージ | **No code restore** と表示され、自身のチェックポイントを持たない。ターンを開始したプロンプトから戻す                                                                                                      |
+| symlink・ハードリンク        | スキップして `Restored the code, but skipped N files` と警告する（2.1.216）。`/debug` を有効にすると `~/.claude/debug/<session-id>.txt` にパスが出る                                                      |
+| リモートの副作用             | DB・API・デプロイは対象外                                                                                                                                                                                 |
+
+### Agent SDK とヘッドレス
+
+- 有効化: `enableFileCheckpointing: true`（Python は `enable_file_checkpointing=True`）。
+- 復元点の UUID を受け取るには `extraArgs: { "replay-user-messages": null }` も必要です。ストリームの各ユーザーメッセージの `uuid` が復元点になります。
+- `rewindFiles(uuid)` はファイルだけを戻します。会話は戻りません。作成したファイルは削除し、変更したファイルは当時の内容に戻します。
+- ディレクトリの作成・移動・削除は戻りません。チェックポイントは作成したセッションに紐づきます。
+
+```bash
+CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=true \
+  claude -p --resume <session-id> --rewind-files <checkpoint-uuid>
+```
+
+`--rewind-files` は `claude --help` に載りません。成功すると `Files rewound to state at message <checkpoint-uuid>` を出力し、プロンプトを送らずに終了します。
+
+<div class="src">
+  出典: [checkpointing#limitations](https://code.claude.com/docs/en/checkpointing#limitations) · [agent-sdk/file-checkpointing](https://code.claude.com/docs/en/agent-sdk/file-checkpointing) · [changelog 2.1.216, 2.1.309](https://code.claude.com/docs/en/changelog)
+</div>

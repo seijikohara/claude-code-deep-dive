@@ -2,16 +2,16 @@
 
 [English](README.md)
 
-Claude Code **2.1.321** の全機能を解説するリファレンス用のスライド資料です。コマンド、設定、拡張ポイント、マルチエージェント機能、各プラットフォーム、エンタープライズ運用、実験的なオプションまで扱います。
+Claude Code **2.1.321** の全機能を解説するリファレンスサイトです。コマンド、設定、拡張ポイント、マルチエージェント機能、各プラットフォーム、エンタープライズ運用、実験的なオプションまで扱います。
 記述はすべて、公式ドキュメント、changelog、インストール済みのバイナリでの実行結果に基づきます。
 
-全章の事実確認が終わったら、<https://seijikohara.github.io/claude-code-deep-dive/> で公開します。
+<https://seijikohara.github.io/claude-code-deep-dive/> で公開しています。
 
 ## 版
 
 | 版       | 状況                                                                           |
 | -------- | ------------------------------------------------------------------------------ |
-| 日本語版 | 執筆中（現時点で約 570 枚）                                                    |
+| 日本語版 | 完成（76 章、事実確認済み）                                                    |
 | 英語版   | 準備中。サイトは英語を第一言語、日本語を `/ja/` 以下に置く構成になっています。 |
 
 ## 扱う内容
@@ -30,13 +30,15 @@ Claude Code **2.1.321** の全機能を解説するリファレンス用のス�
 
 ## 確認の方法
 
-- すべての内容スライドに出典を記載します。ドキュメントのページとアンカー、changelog のバージョン、実機で確かめた事実には `実機確認 2.1.321` を付けます。
+- すべての節に出典を記載します。ドキュメントのページとアンカー、changelog のバージョン、実機で確かめた事実には `実機確認 2.1.321` を付けます。
 - 一般提供前の機能には、Beta・Preview・Experimental・Undocumented・Deprecated・Removed のいずれかのステータスを付けます。
 - ドキュメント・changelog・実機の記述が食い違う箇所では、両方の説を並べて示します。
-- `tools/check.mjs` がヘッドレス Chrome で全スライドを表示し、はみ出し・枠内スクロール・出典の欠落を検出します。
-- `tools/lint.mjs` が、識別子と調査資料の照合、個人情報の混入、付録の網羅、出典の有無を検査します。
+- 執筆者とは別の確認者が、全章を出典と照合しました。
+- `tools/lint.mjs --site dist` が、ビルド済みサイトについて、識別子と調査資料の照合、個人情報の混入、付録の網羅、節ごとの出典、内部リンクを検査します。
 
 ## 開発
+
+[Astro](https://astro.build/) と [Starlight](https://starlight.astro.build/) で構築しています。
 
 必要なもの: Node.js 26（`.nvmrc`）、pnpm 12（`package.json` の `packageManager`）。
 
@@ -47,31 +49,37 @@ pnpm build        # dist/ に静的サイトを出力
 pnpm check        # 整形・lint・型検査・単体テスト
 ```
 
-スライド用のツール:
+サイトの検査:
 
 ```sh
-pnpm deck:build                                   # 単体版 index.html と claude.ai Artifact 用の断片を出力
-node tools/check.mjs --url=http://localhost:4321/claude-code-deep-dive/ja/deck/
-node tools/lint.mjs --html dist/ja/deck/index.html --only=privacy,coverage,sources
+pnpm build && pnpm lint:site    # 個人情報・付録の網羅・出典・内部リンク
+CCDD_RESEARCH=/path/to/research node tools/lint.mjs --site dist   # 識別子の照合も行う
 ```
 
 識別子の照合（`--only=ids`）とデータ抽出（`tools/extract.mjs`）には、公式ドキュメントを写したローカルの調査資料（`CCDD_RESEARCH`）が必要です。調査資料はコミットしません。
 
 ## 構成
 
-| パス                                      | 内容                                                                   |
-| ----------------------------------------- | ---------------------------------------------------------------------- |
-| `src/chapters/`                           | 日本語版スライドのソース（1 章 1 ファイル）                            |
-| `src/deck.css`                            | reveal.js の `white` テーマに重ねるデザイン                            |
-| `src/pages/`、`src/layouts/`、`src/i18n/` | Astro のページ（英語のトップ、日本語のトップ、日本語版スライド）       |
-| `data/`                                   | 付録の表（名前、日本語の要約、ステータス、ドキュメントのアンカー）     |
-| `tools/`                                  | スライドのレンダラー、単体ビルド、lint、レイアウト検査、データ用ツール |
-| `docs/`                                   | 設計書、計画、執筆ガイド、共有の事実台帳                               |
+| パス                             | 内容                                                                          |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| `src/content/docs/`              | Starlight のページ（ルートに英語のトップ、`ja/` に日本語版。1 章 1 つの MDX） |
+| `src/components/DataTable.astro` | `data/` から生成する表（付録、コマンドカタログ）                              |
+| `src/styles/site.css`            | Starlight に重ねるデザイン                                                    |
+| `data/`                          | 付録の表（名前、日本語の要約、ステータス、ドキュメントのアンカー）            |
+| `tools/`                         | サイトの lint、データの抽出と日本語化のツール                                 |
+| `docs/`                          | 執筆と確認のガイド、共有の事実台帳、当初の設計書と計画                        |
 
 ## デプロイ
 
 `.github/workflows/deploy.yml` が Astro でビルドし、GitHub Pages にデプロイします。
 リポジトリ変数 `DEPLOY_PAGES` を `true` にするまで、デプロイは動きません。
+
+## ライセンス
+
+本リポジトリは用途ごとに 2 つのライセンスを適用します。
+
+- ソースコード（コンポーネント・スクリプト・設定）: [MIT License](LICENSE)
+- 文章コンテンツ（リファレンス本文・付録のデータ・ドキュメント）: [CC BY 4.0](LICENSE-content)。本文には、Anthropic が公開している Claude Code のドキュメントの要約・翻訳・引用を含みます。その部分には Anthropic の条件が適用されます。
 
 ## 免責
 

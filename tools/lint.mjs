@@ -11,10 +11,12 @@ import {
   checkPrivacy,
   checkCoverage,
   checkSources,
+  checkLinks,
+  checkSiteLinks,
 } from "./lib/lint-rules.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const CHECKS = ["ids", "privacy", "coverage", "sources"];
+const CHECKS = ["ids", "privacy", "coverage", "sources", "links"];
 const PRIVACY_FILE = join(root, "tools/privacy-patterns.local.json");
 
 class UsageError extends Error {}
@@ -89,7 +91,7 @@ function lineCol(text, index) {
 function parseOptions(argv) {
   const { values } = parseArgs({
     args: argv,
-    options: { html: { type: "string" }, only: { type: "string" } },
+    options: { html: { type: "string" }, only: { type: "string" }, site: { type: "string" } },
   });
   const only = values.only
     ? values.only
@@ -100,16 +102,62 @@ function parseOptions(argv) {
   const unknown = only.filter((c) => !CHECKS.includes(c));
   if (unknown.length)
     throw new UsageError(`unknown check: ${unknown.join(", ")} (expected ${CHECKS.join(",")})`);
-  return { html: values.html ? resolve(values.html) : join(root, "index.html"), only };
+  return {
+    html: values.html ? resolve(values.html) : join(root, "index.html"),
+    site: values.site ? resolve(values.site) : "",
+    only,
+  };
+}
+
+const SITE_BASE = "/claude-code-deep-dive";
+
+/** Read every built page of a site directory as [site path, html] pairs. */
+function readSite(dir) {
+  return listFiles(dir, true)
+    .filter((f) => f.endsWith(".html") && !f.includes(join(dir, "pagefind")))
+    .map((f) => {
+      const rel = relative(dir, f).split("\\").join("/");
+      const path = `/${rel.replace(/(^|\/)index\.html$/, "$1")}`;
+      return [path, readFileSync(f, "utf8")];
+    });
+}
+
+/**
+ * Turn a built documentation site into one document of <section>s, one per h2 section, so the
+ * slide-oriented checks (ids, privacy, coverage, sources) apply unchanged. Only chapter pages
+ * (/ja/<part>/<chapter>/) need a source line per section; every other chunk is exempt.
+ */
+function siteAsSections(pages) {
+  return pages
+    .map(([path, html]) => {
+      const chapter = /^\/ja\/[^/]+\/[^/]+\/$/.test(path) && !path.startsWith("/ja/appendix/");
+      return html
+        .split(/(?=<div class="sl-heading-wrapper level-h2")/)
+        .map((chunk, i) => {
+          const exempt = i === 0 || !chapter ? ' class="part-divider"' : "";
+          return `<section id="${path}#${i}"${exempt}>${chunk}</section>`;
+        })
+        .join("\n");
+    })
+    .join("\n");
 }
 
 function run(argv) {
   const opts = parseOptions(argv);
-  if (!existsSync(opts.html))
-    throw new UsageError(`${opts.html} not found; run node tools/build.mjs first`);
+  const source = opts.site || opts.html;
+  if (!existsSync(source)) throw new UsageError(`${source} not found; build first`);
+  const pages = opts.site ? readSite(opts.site) : [];
   // <wbr> hints split identifiers in generated tables; drop them before matching.
-  const html = readFileSync(opts.html, "utf8").replace(/<wbr>/g, "");
-  const lines = [`lint: ${relative(process.cwd(), opts.html) || opts.html}`];
+  // Expressive Code renders each code line as its own <div>; keep the line breaks so tokens on
+  // adjacent lines do not merge. The repository's own GitHub URLs are public by design.
+  const html = (opts.site ? siteAsSections(pages) : readFileSync(opts.html, "utf8"))
+    .replace(/<wbr>/g, "")
+    .replace(/(<div class="ec-line)/g, "\n$1")
+    .replaceAll("github.com/seijikohara/", "github.com/OWNER/")
+    .replaceAll("seijikohara.github.io", "OWNER.github.io");
+  const lines = [
+    `lint: ${relative(process.cwd(), source) || source}${opts.site ? ` (${pages.length} pages)` : ""}`,
+  ];
   let findings = 0;
   const report = (title, items) => {
     findings += items.length;
@@ -166,6 +214,11 @@ function run(argv) {
   if (opts.only.includes("sources")) {
     const missing = checkSources(html);
     report(`sources: ${missing.length} content slides without .src`, missing);
+  }
+
+  if (opts.only.includes("links")) {
+    const broken = opts.site ? checkSiteLinks(pages, SITE_BASE) : checkLinks(html);
+    report(`links: ${broken.length} internal links without a target slide`, broken);
   }
 
   lines.push(findings === 0 ? "OK: no findings" : `FAIL: ${findings} findings`);

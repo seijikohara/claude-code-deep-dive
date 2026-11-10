@@ -1,0 +1,147 @@
+---
+title: "ネットワークとゲートウェイ"
+description: "企業ネットワークで Claude Code を動かすための設定を扱います。プロキシ・CA・mTLS、ストリームの監視タイマーと許可するホスト、corporate launcher、Anthropic の Claude apps gateway と他の LLM ゲートウェイ、ゲートウェイが満たすべきプロトコル要件を説明します。"
+sidebar:
+  order: 60
+---
+
+企業ネットワークで Claude Code を動かすための設定を扱います。プロキシ・CA・mTLS、ストリームの監視タイマーと許可するホスト、corporate launcher、Anthropic の Claude apps gateway と他の LLM ゲートウェイ、ゲートウェイが満たすべきプロトコル要件を説明します。
+
+<span id="ch60-proxy-tls" />
+
+## プロキシ・CA 証明書・mTLS
+
+```bash
+export HTTPS_PROXY=https://proxy.example.com:8080
+export NO_PROXY="localhost,192.168.1.1,example.com,.example.com"
+export NODE_EXTRA_CA_CERTS=/path/to/ca-cert.pem
+export CLAUDE_CODE_CLIENT_CERT=/path/to/client-cert.pem
+export CLAUDE_CODE_CLIENT_KEY=/path/to/client-key.pem
+export CLAUDE_CODE_CLIENT_KEY_PASSPHRASE="your-passphrase"
+```
+
+- 小文字の変数も使え、`https_proxy`・`HTTPS_PROXY`・`http_proxy`・`HTTP_PROXY` の順で最初のものを使います。`NO_PROXY` は空白区切りも可、`"*"` で全除外です。
+- Basic 認証は URL に埋め込みます。SOCKS は非対応で、NTLM・Kerberos が要るなら LLM ゲートウェイを使います。ループバックへの WebSocket はプロキシを通しません。
+- 起動時に検査するのはプロキシ URL だけです（`http://` の無い値などで起動を止める）。他は後のリクエストの失敗で分かります。
+
+* **CA**: 既定で同梱の Mozilla CA と OS の証明書ストアを信頼します（`CLAUDE_CODE_CERT_STORE=bundled,system`。npm 版の OS ストアは Node 22.15 以降）。TLS 検査プロキシは、ルートが OS ストアにあれば設定不要です。
+* `NODE_EXTRA_CA_CERTS` を一部しか読めないと `Claude Code used only the certificates that it could read in full…` の警告が出ます。
+* **mTLS の更新**: 同じパスで置き換えます。設定の再適用時と、接続リセット・TLS 失敗時（v2.1.232 以降）に読み直し、HTTP エラーでは読み直しません。OTLP exporter は再起動が要ります。
+* 確認: `claude --debug` のログの `CA certs: Appended extra certificates…`・`mTLS: Loaded client certificate…`、`/status` の **Proxy** 行と **mTLS client cert** 行（後者は読めたときだけ表示）。
+* バックグラウンドエージェントの supervisor は、最初に起動したシェルの環境を継ぎます。これらの変数はシェルではなく `~/.claude/settings.json` か managed の `env` に書きます。
+
+<div class="src">
+  出典: [network-config#proxy-configuration](https://code.claude.com/docs/en/network-config#proxy-configuration) · [#ca-certificate-store](https://code.claude.com/docs/en/network-config#ca-certificate-store) · [#mtls-authentication](https://code.claude.com/docs/en/network-config#mtls-authentication) · [#verify-your-configuration](https://code.claude.com/docs/en/network-config#verify-your-configuration) · [#apply-network-settings-to-background-agents](https://code.claude.com/docs/en/network-config#apply-network-settings-to-background-agents)
+</div>
+
+<span id="ch60-allowlist" />
+
+## ストリームの監視タイマーと、許可するホスト
+
+| タイマー   | 動く接続                                                                                                | 既定                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| first-byte | Anthropic API 直結と Platform on AWS（gateway 経由を除く）。apps gateway・Bedrock は opt-in             | 180 秒（Platform on AWS・Bedrock は 300 秒）＋32KB ごと 1 秒 |
+| event 単位 | 全プロバイダ                                                                                            | 300 秒                                                       |
+| byte 単位  | 直結、Platform on AWS、gateway・`ANTHROPIC_BASE_URL`。Bedrock は opt-in。Agent Platform・Foundry は無し | 180 秒（それ以外は 300 秒）                                  |
+| body idle  | 直結・Platform on AWS・opt-in した Bedrock 以外                                                         | 5 分                                                         |
+
+- 調整: `CLAUDE_STREAM_IDLE_TIMEOUT_MS`、`CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS`、`CLAUDE_ENABLE_BYTE_WATCHDOG_BEDROCK=1`、`API_TIMEOUT_MS`（ヘッダー待ち）。
+
+* **必須**: `api.anthropic.com`、`claude.ai`・`claude.com`、`platform.claude.com`（両アカウントの OAuth トークン交換）、SSO 組織は `sso.claude.com`。
+* **配布・拡張**: `downloads.claude.ai`（インストーラー、自動更新、プラグイン実行ファイル）、`registry.npmjs.org`、`github.com`、`raw.githubusercontent.com`（`/release-notes`）、`storage.googleapis.com`、`formulae.brew.sh`（Homebrew のみ）。
+* **機能別**: `mcp-proxy.anthropic.com`（claude.ai コネクタ）、`bridge.claudeusercontent.com`（Chrome）、`*.frame.claudeusercontent.com`（Artifacts）、`code.claude.com`（docs 参照）。
+* **テレメトリ**: `http-intake.logs.us5.datadoghq.com`、`browser-intake-us5-datadoghq.com`。`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` で両方止まり、サードパーティプロバイダでは送りません。
+* クラウドプロバイダや gateway でも、WebFetch は `api.anthropic.com` に安全確認を送ります（`skipWebFetchPreflight` で無効）。
+
+<div class="src">
+  出典: [network-config#streaming-idle-watchdogs](https://code.claude.com/docs/en/network-config#streaming-idle-watchdogs) · [#network-access-requirements](https://code.claude.com/docs/en/network-config#network-access-requirements) · [#cloud-provider-and-llm-gateway-routing](https://code.claude.com/docs/en/network-config#cloud-provider-and-llm-gateway-routing)
+</div>
+
+<span id="ch60-launcher" />
+
+## corporate launcher: `CLAUDE_CODE_PROCESS_WRAPPER`
+
+```bash
+#!/bin/sh
+# Your organization's setup: enter the sandbox, apply
+# network controls, or inject credentials.
+exec "$@"
+```
+
+- Claude Code が自分のバイナリから起動するプロセスを、必ず launcher 経由にします。対象は supervisor、agent view の各セッションと待機中の予備、再起動、更新後の再起動、Remote Control のセッション、agent teams の分割ペイン（後の 2 つは v2.1.210 以降）です。`PATH` のラッパーではこれらを捕まえられません。
+- 設定の `env` に `"CLAUDE_CODE_PROCESS_WRAPPER": "/opt/corp/launcher"` と書きます（v2.1.208 以降）。キー `processWrapper`（v2.1.210 以降）も同じ値を取り、両方あれば変数が勝ちます。managed の値は user 設定とシェルに優先し、project・local では無視します。
+- 配布後は `claude daemon stop --any` を実行し、セッションを再起動します。`/status` の Self-exec と `claude daemon status` で確認します。
+
+* **契約**: 最後は `exec "$@"`。引数を並べ替えたり足したりしない（自分の引数は先頭から外す）。継いだ環境変数を全部渡す（追加は可）。約 3 秒以内に `exec` する。入れ子の起動に耐える。`exec` 前に標準出力へ書かない。標準入力を読まない。開始ディレクトリで `exec` する。外部コマンドは絶対パスで呼ぶ。
+* launcher が動かないと、そのプロセスは起動しません（fail closed）。
+* 値は引数リストです。空白区切りで、二重引用符でまとめ、`[` で始まれば JSON 配列（`["/opt/corp/launcher", "--profile", "cc"]`）。`;`・`|`・`&`・`$(` は設定エラーです。
+* **対象外**: Windows（`exec` が無く無視）、ターミナルで自分で起動したセッション（`PATH` の前方に `claude` スクリプトを置く）、`claude-cli://` ディープリンク、`--worktree --tmux` の再起動、Chrome のネイティブメッセージングホスト。
+* `CLAUDE_CODE_SHELL_PREFIX` は別物で、Bash ツールなどのコマンドを 1 つの文字列として `$1` で包みます。agent view 自体を止めるなら `disableAgentView` です。
+
+<div class="src">
+  出典: [corporate-launcher#what-the-launcher-covers](https://code.claude.com/docs/en/corporate-launcher#what-the-launcher-covers) · [#set-up-the-launcher](https://code.claude.com/docs/en/corporate-launcher#set-up-the-launcher) · [#the-launcher-contract](https://code.claude.com/docs/en/corporate-launcher#the-launcher-contract) · [#format-of-the-launcher-value](https://code.claude.com/docs/en/corporate-launcher#format-of-the-launcher-value) · [admin-setup](https://code.claude.com/docs/en/admin-setup)
+</div>
+
+<span id="ch60-gateways" />
+
+## ゲートウェイの選び方と、LLM ゲートウェイへの接続
+
+- ゲートウェイは組織が運用するプロキシで、開発者ごとの資格情報と、ゲートウェイが持つプロバイダ資格情報を使います。
+- **Claude apps gateway**: `claude` バイナリに入った Anthropic のセルフホスト型。CLI と同時にリリースされるため、`anthropic-beta` の転送リストを保守する必要がありません。
+- **他の LLM ゲートウェイ**: 対応する API 形式があれば使えます。Anthropic は推奨・保守・監査をせず、Claude 以外のモデルへの振り分けもサポートしません。
+- **課金**: ゲートウェイの資格情報（`ANTHROPIC_AUTH_TOKEN` など、または apps gateway の `/login`）を使うと、そのセッションではサブスクリプションを使わず API 単価で課金されます。例外は `ANTHROPIC_BASE_URL` だけを設定した場合で、保存済みの claude.ai ログインが使われます。
+
+* 接続: `env` に `ANTHROPIC_BASE_URL` と資格情報を書きます。ヘッダーは `ANTHROPIC_AUTH_TOKEN` は `Authorization: Bearer`、`ANTHROPIC_API_KEY` は `x-api-key`、`apiKeyHelper` は両方。変数を間違えると `401` です。迷ったら `ANTHROPIC_AUTH_TOKEN`。
+* プロバイダ形式で通すなら `ANTHROPIC_BEDROCK_BASE_URL` と `CLAUDE_CODE_SKIP_BEDROCK_AUTH=1` のように base URL と skip-auth を組にします（Vertex・Platform on AWS も同様、Foundry は `ANTHROPIC_FOUNDRY_API_KEY`）。`AWS_BEARER_TOKEN_BEDROCK` があるとゲートウェイのトークンより優先します。
+* 追加ヘッダーは `ANTHROPIC_CUSTOM_HEADERS`、モデル一覧の取り込みは `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` です。
+* gateway しか出られないネットワークでは `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` を併用します（自動更新も止まる）。
+* `forceLoginMethod`・`forceLoginOrgUUID` と併用するとセッションがブロックされます。
+
+<div class="src">
+  出典: [gateways](https://code.claude.com/docs/en/gateways) · [llm-gateway-connect#set-the-credential-variable](https://code.claude.com/docs/en/llm-gateway-connect#set-the-credential-variable) · [#route-to-a-cloud-provider-through-a-gateway](https://code.claude.com/docs/en/llm-gateway-connect#route-to-a-cloud-provider-through-a-gateway) · [#turn-off-traffic-outside-the-gateway-path](https://code.claude.com/docs/en/llm-gateway-connect#turn-off-traffic-outside-the-gateway-path) · [llm-gateway-rollout](https://code.claude.com/docs/en/llm-gateway-rollout)
+</div>
+
+<span id="ch60-apps-gateway" />
+
+## Claude apps gateway
+
+- `claude gateway --config gateway.yaml` でサーバーとして動きます。上流は Bedrock、Claude Platform on AWS、Agent Platform、Foundry、Anthropic API で、フェイルオーバーできます。上流に Anthropic API を選ばない限り、データプレーンは Anthropic に何も送りません。
+- 要件: サーバーと開発者の両方が v2.1.195 以降、OIDC の IdP（SAML・LDAP 不可）、PostgreSQL 11 以降、HTTPS、Linux サーバー。
+- アドレスは **プライベート** である必要があります（RFC 1918、リンクローカル、CGNAT、ULA、ループバック）。gateway は開発者のマシンでコマンドを動かす設定を配れるためです。自社所有の公開アドレス帯は `gatewayInternalNetworks` で宣言します。
+- 各マシンの managed ファイルに `forceLoginMethod: "gateway"`、`forceLoginGatewayUrl`、`parentSettingsBehavior: "merge"` を配ると、`/login` が gateway 画面で開きます。
+- 初回接続で TLS 証明書の SHA-256 をホストごとに固定し、`/login` で先頭 16 文字を表示します。プロキシ経由だと固定の検査を飛ばすので、ホストを `NO_PROXY` に入れます。
+
+* **強制されること**: 許可されないモデルは `400`、`/model` は IdP グループの `availableModels` に絞られます。managed settings は IdP グループ単位で配られ、1 時間ごとに更新されます。gateway トークンが唯一の資格情報です。gateway に届かないと約 10 秒で起動を中止します。IdP で無効化すると `ttl_hours` 以内に失効します。
+* `/login` した CLI は既定で OTLP/HTTP のエクスポートを gateway へ送り、gateway が `telemetry.forward_to` へ中継します。プロンプトと応答は記録しません。
+* **使えないもの**: サーバー側 WebSearch、Remote Control、`/design-sync`・`/design-login`、feature flag が要る機能（`/import` など）、OTLP/gRPC、複数 issuer、Helm chart。CI 向けのサービストークンはありません。
+* 利用者・グループ単位の支出上限を管理 API で設定でき、超えると `429` です。
+* server-managed settings（claude.ai）は gateway セッションに届かないので、gateway の `managed` ブロックで配ります。そこに `forceLoginMethod`・`forceLoginOrgUUID` は入れません。
+
+<div class="src">
+  出典: [claude-apps-gateway#prerequisites](https://code.claude.com/docs/en/claude-apps-gateway#prerequisites) · [#connect-developers](https://code.claude.com/docs/en/claude-apps-gateway#connect-developers) · [#whats-enforced-on-developers](https://code.claude.com/docs/en/claude-apps-gateway#whats-enforced-on-developers) · [#availability-and-limitations](https://code.claude.com/docs/en/claude-apps-gateway#availability-and-limitations) · [claude-apps-gateway-spend-limits](https://code.claude.com/docs/en/claude-apps-gateway-spend-limits)
+</div>
+
+<span id="ch60-protocol" />
+
+## ゲートウェイのプロトコル要件
+
+| 形式                      | 選ぶ変数                     | エンドポイントと、そのまま転送するもの                                                              |
+| ------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| Anthropic Messages        | `ANTHROPIC_BASE_URL`         | `/v1/messages`、`/v1/messages/count_tokens`（任意）。`anthropic-beta`・`anthropic-version` ヘッダー |
+| Bedrock InvokeModel       | `ANTHROPIC_BEDROCK_BASE_URL` | `/model/{model}/invoke-with-response-stream` など。本文の `anthropic_beta`・`anthropic_version`     |
+| Agent Platform rawPredict | `ANTHROPIC_VERTEX_BASE_URL`  | `:rawPredict`・`:streamRawPredict`。Messages と同じヘッダーと本文の `anthropic_version`             |
+
+- Foundry と Platform on AWS は Messages 形式です（後者は `anthropic-workspace-id` も転送）。推論は `/v1/messages?beta=true` に POST します。
+- ストリームはバッファせず、`message_stop` まで全イベントと SSE の `ping` を渡します。Bedrock 形式は `application/vnd.amazon.eventstream` のままです。
+- ヘッダーと本文は開いたリストとして扱い、`anthropic-beta` を許可リストで絞りません。ヘッダーだけ消して本文を残すと `400` です。
+
+* リクエストの識別: `x-claude-code-session-id`、`x-claude-code-agent-id`、`x-claude-code-parent-agent-id`。
+* ヒントヘッダー（v2.1.273 以降）: `x-claude-code-request-class`（`main`・`subagent`・`workflow`・`compaction`・`auxiliary`）、`x-claude-code-agent-type`、`x-claude-code-compaction`、`x-claude-code-prev-tool-durations`、`x-claude-code-prompt-id`（v2.1.283 以降）。独自 base URL では `CLAUDE_CODE_GATEWAY_HINT_HEADERS=1` のときだけ送ります。
+* 応答: `retry-after` は整数秒（60 超で再試行を止める）、`x-should-retry` と `anthropic-ratelimit-unified-*` はそのまま、エラー本文は改変しません。
+* system 配列の先頭の帰属ブロックは位置で取り除かれるので、配列を並べ替えません。書き換えるなら `CLAUDE_CODE_ATTRIBUTION_HEADER=0`。
+* 非対応の上流には `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` を使います。
+* WAF の本文検査から外します（XSS 規則で `403`）。`Retry-After` を守る最大 10 回の再試行を見込んで流量を決めます。
+
+<div class="src">
+  出典: [llm-gateway-protocol#api-formats](https://code.claude.com/docs/en/llm-gateway-protocol#api-formats) · [#request-headers](https://code.claude.com/docs/en/llm-gateway-protocol#request-headers) · [#gateway-hint-headers](https://code.claude.com/docs/en/llm-gateway-protocol#gateway-hint-headers) · [#response-headers](https://code.claude.com/docs/en/llm-gateway-protocol#response-headers) · [#feature-pass-through](https://code.claude.com/docs/en/llm-gateway-protocol#feature-pass-through) · [llm-gateway-rollout](https://code.claude.com/docs/en/llm-gateway-rollout)
+</div>

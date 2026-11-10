@@ -1,0 +1,356 @@
+---
+title: "セッション"
+description: "セッションは、プロジェクトのディレクトリに紐づいて保存される会話です。この章では、トランスクリプトの実体、再開の入口と復元される状態、ピッカーと命名、分岐、保持と永続化の制御、ヘッドレスで使えるコマンド、そして /goal の使い方と内部動作を扱います。"
+sidebar:
+  order: 7
+---
+
+セッションは、プロジェクトのディレクトリに紐づいて保存される会話です。この章では、トランスクリプトの実体、再開の入口と復元される状態、ピッカーと命名、分岐、保持と永続化の制御、ヘッドレスで使えるコマンド、そして `/goal` の使い方と内部動作を扱います。
+
+<span id="ch07-transcript" />
+
+## トランスクリプトの実体と格納場所
+
+- 既定の保存先は `~/.claude/projects/<project>/<session-id>.jsonl` です。`<project>` は作業ディレクトリのパスの英数字以外を `-` に置き換えた名前で、200 文字を超えると 200 文字で切ってパス全体のハッシュを付けます。
+- 1 行が 1 つの JSON です。メッセージ、ツールの呼び出しと結果、モデルへ送ったリクエストの記録、メタデータが入ります。2.1.300 からは各リクエストのシステムプロンプト・ツール・パラメータも記録します。
+- 形式は内部仕様で、リリースごとに変わります。スクリプトから直接解析せず、`/export` か下の手段を使います。
+- 同じディレクトリの `<session>/subagents/` にサブエージェントのトランスクリプト、`<session>/tool-results/` に大きなツール出力が入ります。
+- 暗号化はされず、OS のファイル権限だけが保護です。ツールが読んだ `.env` の値も書き込まれます。
+
+| 用途                       | 手段                                                                                |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| 人が読む                   | `/export [filename]`。引数なしはクリップボードかファイルを選ぶメニュー              |
+| 1 回の実行を構造化して取る | `claude -p --output-format json` または `stream-json`                               |
+| 既存セッションに質問する   | `claude -p --resume <session-id>`                                                   |
+| イベントに反応する         | フックとステータスラインが受け取る `transcript_path`。SessionEnd フックで保存できる |
+| アプリに組み込む           | Agent SDK                                                                           |
+
+```bash
+claude -p --resume <session-id> --output-format json \
+  "summarize what we changed" | jq -r '.result'
+```
+
+- Bash・フック・stdio の MCP サーバーには `CLAUDE_CODE_SESSION_ID` が渡ります。
+- `CLAUDE_CONFIG_DIR` と一緒に `CLAUDE_CODE_PROJECT_DIR_NAME`（英数字・`-`・`_` の 1〜64 文字、起動時の環境のみ、v2.1.234 以降）を設定すると、`<project>` の名前を固定できます。
+
+<div class="src">
+  出典: [sessions#export-and-locate-session-data](https://code.claude.com/docs/en/sessions#export-and-locate-session-data) · [claude-directory#plaintext-storage](https://code.claude.com/docs/en/claude-directory#plaintext-storage) · [env-vars](https://code.claude.com/docs/en/env-vars) · [changelog 2.1.300](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch07-resume-entry" />
+
+## 再開の入口
+
+| コマンド                            | 動作                                                           |
+| ----------------------------------- | -------------------------------------------------------------- |
+| `claude --continue`（`-c`）         | 現在のディレクトリで最も新しいセッションを開く                 |
+| `claude --resume`（`-r`）           | セッションピッカーを開く                                       |
+| `claude --resume <name>`            | 名前の付いたセッションを直接再開する                           |
+| `claude --resume <transcript-path>` | 絶対パスの `.jsonl` から再開する                               |
+| `claude --from-pr <number>`         | その PR に紐づくセッションに絞ったピッカー。PR・MR の URL も可 |
+| `/resume`（`/continue`）            | セッション内から別のセッションへ切り替える                     |
+
+- `--continue` は `-p`・SDK のセッションと、最初のプロンプトが `/loop` のセッションを飛ばします。`claude -p --continue` はそれらも含めます。
+- ID での検索は、現在のプロジェクトとその worktree、次に他のすべてのプロジェクトの順です。他のプロジェクトでは一致が 1 つのときだけ解決します（v2.1.223 以降）。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --resume <session-id> "/context"   # 存在しない ID
+No conversation found with session ID: <session-id>
+                                                → exit 1
+
+$ claude -p --resume no-such-name-xyz "/context"
+Error: --resume requires a valid session ID or session title
+when used with --print. Usage: claude -p --resume
+<session-id|title>. Provided value "no-such-name-xyz" is not
+a UUID and does not match any session title.   → exit 1
+
+$ claude -p --session-id not-a-uuid "/context"
+Error: Invalid session ID. Must be a valid UUID. → exit 1
+```
+
+`-p` では、一致しない名前はピッカーを開かずにエラーで終了する。ID は伏せ字にした
+
+- 名前が一意でないとき、`claude --resume <name>` は名前を検索語にしたピッカーを開き、`/resume <name>` はエラーにします。
+- <span class="badge preview">Preview</span> 実行中の背景セッションを再開すると、`claude attach` でそのセッションに接続します（[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)）。
+
+<div class="src">
+  出典: [sessions#resume-a-session](https://code.claude.com/docs/en/sessions#resume-a-session) · [#resume-by-session-id-or-name](https://code.claude.com/docs/en/sessions#resume-by-session-id-or-name) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · [commands](https://code.claude.com/docs/en/commands) · 実機確認 2.1.321
+</div>
+
+<span id="ch07-resume-restore" />
+
+## 再開で復元されるもの・されないもの
+
+### 復元される
+
+- **会話履歴**: 圧縮済みなら `Conversation compacted` の行から開きます。最後の要約、要約されなかったメッセージ、その後のメッセージだけを読み込みます。
+- **モデル**: 使っていたモデルで続けます（例外は [Ch2](/claude-code-deep-dive/ja/fundamentals/models/)）。
+- **エージェント**: `--agent` か `agent` 設定で始めたセッションは、そのエージェントのツール制限とモデルを保ちます。元のディレクトリ（信頼済みの場合）、次に再開したディレクトリの順に定義を探し、見つからなければ既定のツールで警告付きで再開します。
+- **権限モード**: 経路によります（次の節）。
+- **有効な `/goal`**: 条件を引き継ぎ、ターン数・経過時間・トークン量はリセットします。
+- **期限内のセッションスコープの予定タスク**。背景の Bash と monitor は戻りません。
+
+### 復元されない
+
+- 中断したツール呼び出しは再実行されません。
+- 前のプロセスと一緒に終わった背景サブエージェント・背景 Bash・workflow は「完了しなかった」という注記になります。注記からターンは始まりません。
+- 起動フラグの `--mcp-config`、`--settings`、`--plugin-dir`、`--fallback-model`、`--add-dir`、セッション中の `/add-dir` は再指定が必要です。`settings.json` などの設定ファイルは起動時に読み直します。
+- `--system-prompt`・`--append-system-prompt` を変えても、記録済みのプロンプトを圧縮まで使い続けます（`--system-prompt-snapshot off` で毎回作り直す）。
+
+### "Resume this conversation?" ダイアログ
+
+Pro・Max・Ultra で、長い中断の後や別モデルで長い会話を再開すると出ます。見積もりは、保存済みの会話だけで 5 時間の利用上限の何割を使うかです。消費は **Resume** を選んだ時点ではなく、最初のメッセージを送った時点です。
+
+<div class="src">
+  出典: [sessions#what-a-resumed-session-restores](https://code.claude.com/docs/en/sessions#what-a-resumed-session-restores) · [sessions](https://code.claude.com/docs/en/sessions) · [cli-reference#system-prompt-flags-in-resumed-conversations](https://code.claude.com/docs/en/cli-reference#system-prompt-flags-in-resumed-conversations)
+</div>
+
+<span id="ch07-resume-mode" />
+
+## 再開したときの権限モード
+
+| 再開の経路                                                         | 権限モード                                                                                                                                                    |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ターミナル: `--continue`、`--resume <id>`、一意な名前（`-p` なし） | 終了時のモードを復元する（この節の別の表の例外あり）。`--permission-mode` か `--dangerously-skip-permissions` で上書きできる                                  |
+| `claude -p --resume` / `--continue`                                | 新しい `-p` 実行と同じモード。plan だけ条件付きで復元                                                                                                         |
+| 起動時のピッカー                                                   | 同じコマンドラインで新規に始めたときのモード。plan だけは復元（`--permission-mode`・`--dangerously-skip-permissions`・`--fork-session` を付けると復元しない） |
+| セッション内の `/resume`                                           | 現在のモードを引き継ぐ。plan で終わった会話は plan。この実行中に一度開いた会話は現在のモード                                                                  |
+
+deny ルールで `ExitPlanMode` が消えていると、plan は復元しません。開始時のモードの決まり方は [Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)。
+
+| 終了時（ターミナル） | 再開後                                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `bypassPermissions`  | 新規セッションのモード。再び使うには起動フラグか、user・`--settings`・managed の `permissions.defaultMode` で指定する |
+| `plan`               | plan。`--fork-session` 付きなら新規セッションのモード                                                                 |
+| `auto`               | アカウントが auto mode の要件を満たす場合だけ `auto`                                                                  |
+| Manual               | 組み込みの既定で auto から始まる環境なら Manual。設定ファイルの `defaultMode` が効く場合はそのモード                  |
+
+`-p` の再開が plan を復元する条件（すべて、v2.1.246 以降）:
+
+- `--permission-prompt-tool` を渡し、`--permission-prompts none` を渡さない
+- `--permission-mode`・`--dangerously-skip-permissions`・`--fork-session` を渡さない
+- channels 経由の実行ではなく、`ExitPlanMode` が deny されていない
+
+<div class="src">
+  出典: [sessions#permission-mode-on-resume](https://code.claude.com/docs/en/sessions#permission-mode-on-resume) · [#resume-in-plan-mode-with-p](https://code.claude.com/docs/en/sessions#resume-in-plan-mode-with-p)
+</div>
+
+<span id="ch07-picker" />
+
+## ピッカー・名前・`/rename`
+
+| キー                                                        | 動作                                                     |
+| ----------------------------------------------------------- | -------------------------------------------------------- |
+| <kbd>↑</kbd>/<kbd>↓</kbd>、<kbd>k</kbd>/<kbd>j</kbd>        | 移動                                                     |
+| <kbd>→</kbd>/<kbd>←</kbd>                                   | グループの展開・折りたたみ                               |
+| <kbd>Enter</kbd>、<kbd>1</kbd>〜<kbd>9</kbd>                | 選択中、またはその位置のセッションを再開                 |
+| <kbd>Space</kbd>（<kbd>Ctrl</kbd>+<kbd>V</kbd>）            | 内容のプレビュー                                         |
+| <kbd>Ctrl</kbd>+<kbd>R</kbd>                                | 名前の変更                                               |
+| <kbd>/</kbd> か文字入力                                     | 検索。PR・MR の URL を貼るとそれを作ったセッションを探す |
+| <kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>Ctrl</kbd>+<kbd>W</kbd> | 全プロジェクト / リポジトリの全 worktree へ広げる        |
+| <kbd>Ctrl</kbd>+<kbd>B</kbd>                                | 現在の git ブランチに絞る                                |
+
+既定の表示範囲は現在の worktree（背景セッションは `bg` 印）と、`/add-dir` でこのディレクトリを加えたセッションです。`/branch` や `--fork-session` の分岐は別の行に出ます。同じセッションの項目が複数あると 1 行にまとまり、<kbd>→</kbd> で展開します。
+
+- 名前の付け方: 起動時 `claude -n auth-refactor`、実行中 `/rename auth-refactor`、ピッカーの <kbd>Ctrl</kbd>+<kbd>R</kbd>、plan の承認、claude.ai（Remote Control、v2.1.221 以降）、Desktop。
+- `/rename` は引数なしなら履歴から名前を生成します。`-p` でも使えます。制御文字と不可視文字は空白に置き換え、200 文字で切ります（v2.1.221 以降）。
+- 名前のないセッションにも既定の表示名（例: `my-app-3f`）が付きますが、実行中の一覧用で、再開には使えません。
+- 生成タイトルは最初のプロンプトを small/fast モデルが要約したもので、再開に使えます。シェルから直接起動した `claude -p` には付きません。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --output-format json "/rename lab-ctx-name"
+"result": "Session renamed to: lab-ctx-name"
+$ claude -p -n lab-start-name --output-format json "/rename"
+"result": "Could not generate a name: no conversation
+context yet. Usage: /rename <name>"
+```
+
+<div class="src">
+  出典: [sessions#use-the-session-picker](https://code.claude.com/docs/en/sessions#use-the-session-picker) · [#name-your-sessions](https://code.claude.com/docs/en/sessions#name-your-sessions) · [commands](https://code.claude.com/docs/en/commands) · 実機確認 2.1.321
+</div>
+
+<span id="ch07-branch" />
+
+## 分岐: `/branch`・`--fork-session`・`/fork`・`/subtask`
+
+| 手段                                                                     | 結果                                                                                                                | 引き継ぐもの・注意                                                                                                                                                              |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/branch [name]`                                                         | 現時点までの会話をコピーし、コピー側へ切り替える。元はそのまま残り `/resume` で戻れる。名前の既定は最初のプロンプト | 同じプロセスなので「このセッションで許可」を保つ。実行中の背景サブエージェントと背景 Bash の出力は分岐側に出る。Remote Control も追従する                                       |
+| `claude --continue --fork-session` `claude --resume <id> --fork-session` | 新しいセッション ID で再開する。元のトランスクリプトは変わらない                                                    | 別プロセスなので許可は引き継がず、承認し直す。plan mode も復元しない。`--session-id <uuid>` を併用すると分岐の ID を指定できる                                                  |
+| `/fork [prompt]` <span class="badge preview">Preview</span>              | 会話を新しい背景セッションへコピーし、自分はこのまま作業を続ける（2.1.212 から）                                    | コピーは自分の worktree を作るよう指示される（v2.1.221 以降）。agent view が off なら fork サブエージェントを起動する（[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)） |
+| `/subtask <task>`                                                        | 会話全体を引き継ぐ背景の fork サブエージェントに作業を渡す                                                          | 結果はこの会話に返る。agent view が off だと使えない（[Ch37](/claude-code-deep-dive/ja/parallel/subagents/)）                                                                   |
+
+- `/fork` は 2.1.77 で `/branch` に改名され、2.1.212 で背景セッションへのコピーとして再定義されました。それまで `/fork` が起動していた会話内のサブエージェントは `/subtask` になりました。
+- 分岐で始まったセッションでは、SessionStart の source が `fork` です。フォークせずに同じセッションを 2 つのターミナルで再開すると、両方のメッセージが 1 つのトランスクリプトに混ざります。
+- <span class="undocumented">`--fork-session` を `--resume`・`--continue` なしで渡しても、エラーにならず新規セッションとして動きました。 <span class="badge undocumented">Undocumented</span></span>
+
+<div class="src">
+  出典: [sessions#branch-a-session](https://code.claude.com/docs/en/sessions#branch-a-session) · [commands](https://code.claude.com/docs/en/commands) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · [hooks#sessionstart](https://code.claude.com/docs/en/hooks#sessionstart) · [changelog 2.0.73, 2.1.77, 2.1.212, 2.1.221](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch07-retention" />
+
+## 保持期間と永続化の制御
+
+| 目的                             | 設定                                                                                           |
+| -------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 保存場所を移す                   | `CLAUDE_CONFIG_DIR`（環境変数）                                                                |
+| 30 日の保持期間を変える          | `cleanupPeriodDays`（整数、最小 `1`）                                                          |
+| Desktop・Cowork の期限           | `desktopSessionCleanupPeriodDays`（user・managed・`--settings`、v2.1.248 以降）                |
+| `-p`・SDK のファイル肥大を抑える | `CLAUDE_CODE_TRANSCRIPT_LOCAL_GC=1`                                                            |
+| どのモードでも書かない           | `CLAUDE_CODE_SKIP_PROMPT_HISTORY=1`                                                            |
+| 1 回の `-p` だけ書かない         | `--no-session-persistence`。TypeScript SDK は `persistSession: false`（Python SDK に相当なし） |
+
+```json
+{
+  "cleanupPeriodDays": 20
+}
+```
+
+- `CLAUDE_CODE_SKIP_PROMPT_HISTORY` を付けたセッションは、`--resume`・`--continue`・<kbd>↑</kbd> の履歴に出ません。
+- <span class="badge preview">Preview</span> 背景セッションを `claude rm <id>` で消しても、トランスクリプトは残ります。ディレクトリ全体の一覧は [Ch10](/claude-code-deep-dive/ja/fundamentals/claude-dir/)。
+
+* 削除はセッション開始後の背景 sweep で、通知なしに行います。期限切れのセッションは `/resume` に出なくなります。
+* `cleanupPeriodDays: 0` は 2.1.89 から検証エラーです（以前は永続化を黙って止めていた）。長く残すなら `3650` などを設定します。
+* `--bare` の `-p` では sweep を走らせません。期間を安全に決められないときは sweep を止めます。原因が設定ファイルの読み込み・解析の失敗などなら `/status` に警告を出します。
+* `CLAUDE_CODE_TRANSCRIPT_LOCAL_GC`（v2.1.287 以降、起動時の環境のみ）: 圧縮のたびに、ファイルが 5 MB を超えていれば圧縮前の履歴を消します。縮小が 10% 未満なら消しません（v2.1.296 以降）。再開時の会話は変わりません。
+* すぐ消すなら `claude purge [path]`（`--dry-run`、`-y`、`-i`、`--all`）。トランスクリプト、auto memory、`tasks/`・`debug/`・`file-history/`、`history.jsonl` の該当行、`~/.claude.json` の項目を消します。2.1.288 より前は `claude project purge` でした。
+
+<div class="src">
+  出典: [sessions#where-transcripts-are-stored](https://code.claude.com/docs/en/sessions#where-transcripts-are-stored) · [settings-reference#cleanupperioddays](https://code.claude.com/docs/en/settings-reference#cleanupperioddays) · [claude-directory](https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically) · [env-vars](https://code.claude.com/docs/en/env-vars) · [agent-sdk/sessions](https://code.claude.com/docs/en/agent-sdk/sessions) · [changelog 2.1.89, 2.1.288](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch07-headless" />
+
+## ヘッドレスで使えるセッション系コマンド
+
+| コマンド                                                                                     | `-p` での結果                                  |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `/context`、`/autocompact`                                                                   | モデルを呼ばずに結果を返す                     |
+| `/compact`、`/clear`                                                                         | 実行される。新規セッションでは結果が空         |
+| `/rename <name>`                                                                             | `Session renamed to: …`                        |
+| `/goal`、`/goal clear`                                                                       | 状態の表示と解除（右）                         |
+| `/rewind` `/checkpoint` `/undo` `/branch` `/fork` `/subtask` `/resume` `/continue` `/export` | `/<name> isn't available in this environment.` |
+
+この表示は「このセッションでは使えない組み込みコマンド」を意味し、対話専用である証明にはなりません（[Ch12](/claude-code-deep-dive/ja/operation/commands/)）。`-p` では代わりに `--resume`・`--continue`・`--fork-session`、`--output-format json`、SDK の `rewindFiles()` を使います（[Ch44](/claude-code-deep-dive/ja/automation/headless/)）。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --output-format json "/rewind"
+"result": "/rewind isn't available in this environment."
+$ claude -p --output-format json "/branch"
+"result": "/branch isn't available in this environment."
+$ claude -p --output-format json "/goal"
+"result": "No goal set. Usage: `/goal <condition>`"
+$ claude -p --output-format json "/goal clear"
+"result": "No goal set"
+$ claude -p --output-format json "/clear"
+"result": "", "num_turns": 0, "local_command": "clear"
+$ claude -p --output-format json "/context"
+"num_turns": 0, "total_cost_usd": 0
+```
+
+safe mode の init の `slash_commands` にも `clear`・`compact`・`context`・`autocompact`・`goal`・`rename`・`recap` はあり、`rewind`・`branch`・`fork`・`resume`・`export` は無い
+
+<div class="src">
+  出典: [agent-sdk/skills](https://code.claude.com/docs/en/agent-sdk/skills) · [commands](https://code.claude.com/docs/en/commands) · 実機確認 2.1.321
+</div>
+
+<span id="ch07-goal" />
+
+## `/goal` の使い方
+
+```text
+/goal all tests in test/auth pass and the lint step is clean
+/goal         # 状態を表示
+/goal clear   # 早めに解除
+```
+
+- 条件を設定すると、条件そのものを指示としてすぐにターンが始まります。実行中は `◎ /goal active` が表示され、<kbd>Ctrl</kbd>+<kbd>O</kbd> で評価の理由を読めます。
+- 引数なしは条件・経過時間・評価したターン数・トークン量・直近の理由を表示します。`clear` の別名は `stop`・`off`・`reset`・`none`・`cancel`。
+- 1 セッションに 1 つです。新しい `/goal` は置き換え、`/clear` は消します。条件は 4,000 文字まで。
+- 良い条件は、測れる終了状態、証明の方法（例: `npm test` が exit 0）、変えてはいけないものを含みます。評価モデルはコマンドもファイルも見ません。上限も条件に書きます（例: `or stop after 20 turns`）。
+- 権限モードは変わりません。無人で回すには auto mode と組み合わせます。
+
+```bash
+claude -p \
+  "/goal CHANGELOG.md has an entry for every PR merged this week"
+```
+
+`-p` は 1 回の起動でループを完了まで回します。途中経過は `--output-format stream-json --verbose` で見ます。<kbd>Ctrl</kbd>+<kbd>C</kbd> で中断できます。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "/goal the file done.txt exists … or stop
+  after 4 turns"
+Goal set: the file done.txt exists in the current directory
+and contains the single word DONE; prove it by running cat
+done.txt, or stop after 4 turns
+```
+
+Claude が done.txt を作って cat で示し、評価 1 回で達成した
+
+- 再開ではどの経路でも有効な goal を戻します（ピッカーは v2.1.239 以降）。達成済み・解除済みは戻りません。
+- フックと同じワークスペース信頼が必要です。`disableAllHooks: true` や managed の `allowManagedHooksOnly` では使えず、理由を表示します。
+
+<div class="src">
+  出典: [goal#set-a-goal](https://code.claude.com/docs/en/goal#set-a-goal) · [#run-non-interactively](https://code.claude.com/docs/en/goal#run-non-interactively) · [#requirements](https://code.claude.com/docs/en/goal#requirements) · 実機確認 2.1.321
+</div>
+
+<span id="ch07-goal-internals" />
+
+## `/goal` の内部動作
+
+`/goal` はセッションスコープの prompt 型 Stop フックの包みです。ターンが終わるたびに、条件と会話を small fast モデルへ送り、理由付きの判定を受け取ります。
+
+| 判定            | 動作                                  |
+| --------------- | ------------------------------------- |
+| **Not yet met** | 理由を指針に次のターンへ              |
+| **Met**         | goal を消し、達成エントリを記録       |
+| **Impossible**  | goal を消し、失敗エントリと理由を記録 |
+
+- 数ターン続けてツールを使わずに評価へ答えるだけになると、警告を出して止まります。goal は残ります。
+- 直すまで治らないエラー（自前の認証の失敗、クレジット切れ、自動圧縮で解消できない context overflow、使えないモデル）は goal を消し、`Goal cleared after an unrecoverable error` で始まる警告を出します。
+- それ以外のエラーでは goal を残します。v2.1.269 以降の対話セッションでは、一時的なエラーは `Goal still active` で 3 回まで再試行し、rate limit・利用上限・フックが終えたターンは `Goal paused` で止まります。
+
+```text title="実測 2.1.321" frame="terminal"
+（トランスクリプトの isMeta ユーザーメッセージ）
+A session-scoped Stop hook is now active with condition:
+"the file done.txt exists … or stop after 4 turns". Briefly
+acknowledge the goal, then immediately start (or continue)
+working toward it — … The hook will block stopping until
+the condition holds. It auto-clears once the condition is
+met — …
+
+（評価後の attachment）
+{"type": "goal_status", "met": true, "condition": "…",
+ "reason": "…", "iterations": 1, "durationMs": 11881,
+ "tokens": 695}
+```
+
+<span class="undocumented">指示文と `goal_status` はドキュメントに記載がない <span class="badge undocumented">Undocumented</span></span>
+
+- 背景作業の実行中は評価を飛ばします。30 分で確認を入れ、以降 1 時間、その後 2 時間ごとです。間隔は `CLAUDE_CODE_GOAL_CHECKIN_MINUTES`（既定 30、最大 10080、`0` で確認と自動再試行を止める）。アイドル中の自発的な確認は対話セッションだけで、プロンプトの間に 3 回までです。
+- 評価モデルは `ANTHROPIC_DEFAULT_HAIKU_MODEL` で変わります（`haiku` エイリアスとタイトル生成にも効く）。
+
+<div class="src">
+  出典: [goal#how-evaluation-works](https://code.claude.com/docs/en/goal#how-evaluation-works) · [#background-work-defers-evaluation](https://code.claude.com/docs/en/goal#background-work-defers-evaluation) · [#evaluation-model-and-cost](https://code.claude.com/docs/en/goal#evaluation-model-and-cost) · [changelog 2.1.246, 2.1.269](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch07-goal-compare" />
+
+## `/goal`・`/loop`・Stop フックの使い分け
+
+| 手段        | 次のターンが始まる時                                                     | 止まる時                                                  | 置き場所と判定                                                                     |
+| ----------- | ------------------------------------------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `/goal`     | 前のターンの終了時。対話セッションではアイドル時の確認や自動再試行の時刻 | モデルが達成か不可能と判定、直すべきエラー、`/goal clear` | 現在のセッションだけ。small fast モデルが判定                                      |
+| `/loop`     | 指定した間隔が経過したとき                                               | ユーザーが止めるか、Claude が完了と判断                   | セッション内の予定タスク（[Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)） |
+| Stop フック | 前のターンの終了時                                                       | 自分のスクリプトかプロンプトが決める                      | 設定ファイル。そのスコープの全セッションに効く                                     |
+
+- `/goal` と Stop フックはどちらも毎ターン後に発火します。決定的な検査ならスクリプトの Stop フック、モデルに判定させるなら `type: "prompt"` の Stop フックか `/goal` です。
+- auto mode はターン内のツール確認を省き、`/goal` はターン間の確認を省きます。完了は作業中のモデルではなく、別の評価モデルが判定します。
+
+* prompt 型 Stop フックのモデルは JSON で答えます。`"ok": false` なら `reason` を Claude に返して作業を続けさせ、`"impossible": true` を添えると停止を許してターンを終えます。
+* Stop フックが、Claude のツール呼び出しを挟まずに 8 回続けてブロックすると、Claude Code はフックを無視して止めます。入力の `stop_hook_active` を見て早めに抜けます。
+
+<div class="src">
+  出典: [goal#compare-ways-to-keep-a-session-running](https://code.claude.com/docs/en/goal#compare-ways-to-keep-a-session-running) · [hooks-guide#prompt-based-hooks](https://code.claude.com/docs/en/hooks-guide#prompt-based-hooks) · [#stop-hook-hits-the-block-cap](https://code.claude.com/docs/en/hooks-guide#stop-hook-hits-the-block-cap)
+</div>

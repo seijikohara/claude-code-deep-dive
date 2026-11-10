@@ -1,0 +1,164 @@
+---
+title: "Remote Control とモバイル"
+description: "自分のマシンで動く Claude Code のセッションを、claude.ai/code や Claude モバイルアプリから操作する仕組みです。この章では、起動の 3 モード、サーバーモードのフラグ、名前と自動接続、セキュリティと Trusted Devices、モバイルから使えるコマンドを扱います。"
+sidebar:
+  order: 49
+---
+
+自分のマシンで動く Claude Code のセッションを、claude.ai/code や Claude モバイルアプリから操作する仕組みです。この章では、起動の 3 モード、サーバーモードのフラグ、名前と自動接続、セキュリティと Trusted Devices、モバイルから使えるコマンドを扱います。
+
+<span id="ch49-overview" />
+
+## 仕組みと要件
+
+- claude.ai/code や iOS・Android の Claude アプリを、自分のマシンで動くセッションにつなぎます。実行・ファイルシステム・MCP サーバー・プロジェクト設定はローカルに残ります。
+- Web とモバイルは、ローカルセッションを映す窓です。マシンの電源と `claude` プロセスが動き続けている必要があります。
+- 会話、サブエージェント、dynamic workflows の進行は、接続中のすべての端末で同期します。端末からバックグラウンドタスクを止めると、マシン上のタスクも止まります。
+- 端末から添付した写真は、Claude がそのまま見ます。写真は `~/.claude/uploads/` にも保存されます。その他のファイルはマシンにダウンロードされ、`@` 参照で渡されます。
+- スリープやネットワーク断のあとは、マシンが戻ると自動で再接続します。
+- 2.1.321 から、接続中のクライアントはセッションを別のフォルダへ移せません。
+
+### 要件
+
+- Pro・Max・Ultra・Team・Enterprise。API キーは使えません。Team・Enterprise では Owner が管理画面で **Remote Control** をオンにします（既定はオフ）。
+- Enterprise のカスタムロールでは、クラウドセッションと **Claude Code remote control** の両方の権限が必要です。
+- Bedrock・Agent Platform・Foundry、`api.anthropic.com` 以外を指す `ANTHROPIC_BASE_URL`、Claude apps gateway でのサインインでは使えません。
+- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` か `DISABLE_GROWTHBOOK` があると使えません。`DISABLE_TELEMETRY`・`DO_NOT_TRACK` だけなら v2.1.283 以降（Desktop は v2.1.304 以降）で使えます。ただし組織が Trusted Devices を要求する場合は使えません。
+- `claude setup-token` や `CLAUDE_CODE_OAUTH_TOKEN` のトークンでは接続できません。`claude auth login` でフルスコープのトークンを取得します。
+
+<div class="src">
+  出典: [remote-control#requirements](https://code.claude.com/docs/en/remote-control#requirements) · [remote-control#troubleshooting](https://code.claude.com/docs/en/remote-control#remote-control-requires-a-full-scope-login-token) · [mobile](https://code.claude.com/docs/en/mobile#continue-a-local-session-with-remote-control) · changelog 2.1.321
+</div>
+
+<span id="ch49-modes" />
+
+## 起動の 3 モードと、VS Code・Desktop からの起動
+
+| モード           | コマンド                                                     | 挙動                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| サーバーモード   | `claude remote-control`（別名 `claude rc`。`--help` 非表示） | ローカルの対話セッションを持たず、接続を待つサーバーとして常駐する。複数セッションを同時に受け付ける。スペースキーで QR コードを表示 |
+| 対話セッション   | `claude --remote-control ["名前"]`（別名 `--rc`）            | 通常の対話セッションを開き、同時に claude.ai とアプリからも操作できる                                                                |
+| 既存セッション   | `/remote-control [名前]`（別名 `/rc`）                       | 現在の会話履歴を引き継いで接続する。`--verbose` は使えない                                                                           |
+| VS Code 拡張     | `/remote-control` または `/rc`                               | フッターに **Remote Control** 表示。名前の引数と QR コードはない。もう一度実行すると切断                                             |
+| Desktop（Local） | `/remote-control` または `/rc`                               | 接続後は claude.ai/code の一覧に出る。もう一度実行すると切断                                                                         |
+
+- 初回は確認があります。サーバーモードは `Enable Remote Control? (y/n)`、`/remote-control` は **Enable Remote Control** ダイアログです。
+- 未信頼のディレクトリでは `Trust <directory>? [y/N]` を聞きます。ホームディレクトリの信頼は保存されません。端末がない場合は `Workspace not trusted` で終了します。
+- サインインがない場合、`claude remote-control` はエラーで終了し、`claude --remote-control` は起動後に失敗を通知します。
+- 対話セッションでは `/rc active` が表示されます。もう一度 `/remote-control` を実行すると、URL・QR コード・切断のパネルが開きます。
+
+<div class="src">
+  出典: [remote-control#start-a-remote-control-session](https://code.claude.com/docs/en/remote-control#start-a-remote-control-session) · [#check-connection-status](https://code.claude.com/docs/en/remote-control#check-connection-status) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · [commands](https://code.claude.com/docs/en/commands)
+</div>
+
+<span id="ch49-server-flags" />
+
+## サーバーモードのフラグ
+
+| フラグ                                 | 意味                                                                                                 |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `--name "My Project"`                  | claude.ai/code に出るセッション名                                                                    |
+| `--remote-control-session-name-prefix` | 自動命名の接頭辞。既定はホスト名                                                                     |
+| `--spawn same-dir\|worktree\|session`  | 共有ディレクトリ（既定）/ セッションごとの worktree / 1 セッションのみ。<kbd>w</kbd> で前 2 つを切替 |
+| `--capacity <N>`                       | 同時セッション数。既定 32。`session` とは併用不可                                                    |
+| `--[no-]create-session-in-dir`         | 起動時に 1 セッション作成（既定オン）                                                                |
+| `-c`, `--continue` / `--session-id`    | 停止後のセッションを戻す                                                                             |
+| `--permission-mode <mode>`             | 起動するセッションの権限モード                                                                       |
+| `--settings <file>`                    | セッションに適用する設定（右）                                                                       |
+| `--chrome` / `--no-chrome`             | Claude in Chrome（既定オフ）                                                                         |
+| `-d`・`--debug-file`・`-v`             | デバッグとログ                                                                                       |
+
+### `--settings <file>`（2.1.321）
+
+- 起動するすべてのセッションに設定ファイルを適用します。docs のフラグ表には未掲載で、changelog と `claude rc --help` に記載があります。
+- ファイルが変わると、サーバーを再起動するまで新しいセッションは始まりません（changelog）。<span class="undocumented">help は「起動時に 1 回だけ読む」「セッションが書き込めない場所に置く」とも記載しています。</span> <span class="badge undocumented">Undocumented</span>
+- <span class="undocumented">指定しない場合、claude.ai の Projects から起動したセッションでは、このマシンの設定より優先して auto-compact と auto mode が有効になります。指定するとこの上書きが止まります（help の記載）。</span> <span class="badge undocumented">Undocumented</span>
+- `remote-control` より**前**に置いたグローバルフラグは、起動するセッションへ渡りません。`--verbose`・`--model` などの無害なもの以外は、起動を拒否します（``Error: `--settings` before `remote-control` is not carried over…``）。
+- `--sandbox` / `--no-sandbox` は v2.1.300 で削除され、渡すとエラーになります。サンドボックスは設定ファイルで有効にします。
+
+<div class="src">
+  出典: [remote-control#start-a-remote-control-session](https://code.claude.com/docs/en/remote-control#start-a-remote-control-session) · [#set-the-default-spawn-mode-for-a-project](https://code.claude.com/docs/en/remote-control#set-the-default-spawn-mode-for-a-project) · [errors](https://code.claude.com/docs/en/errors#not-carried-over-to-the-sessions-remote-control-starts) · changelog 2.1.321 · 実機確認 2.1.321
+</div>
+
+<span id="ch49-naming" />
+
+## 名前・自動接続・停止後の再開
+
+### セッション名の優先順位
+
+1. `--name`、`--remote-control`、`/remote-control` に渡した名前
+2. `/rename` で付けた名前
+3. 既存の会話履歴の最後の意味のあるメッセージ
+4. `myhost-graceful-unicorn` 形式の自動名（接頭辞はホスト名か指定値）
+
+claude.ai やアプリで名前を変えると、`claude --resume` に出るローカルの名前も変わります。
+
+### 停止後の再開（約 4 時間以内、同じディレクトリで）
+
+- `claude remote-control`: サーバーが扱っていた全セッションを戻す。
+- `--continue`: 起動時のセッションだけを戻し、その終了で終わる。`--session-id <id>` は URL の `/code/` の後ろの ID を指定する。
+- `--remote-control`・`/remote-control` のセッションは `claude --continue`・`--resume` で戻します。
+
+### 自動接続と関連キー
+
+| キー                     | 挙動                                                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `remoteControlAtStartup` | 対話セッション開始時に自動接続。`/config` の **Enable Remote Control for all sessions**（`true`・`false`・`default`） |
+| `disableRemoteControl`   | `true` で全経路を拒否。MDM なら managed settings に置く                                                               |
+| `dialogExpiry`           | 転送ダイアログの期限。`"60s"`・`"5m"`（既定）・`"10m"`・`"never"`。権限確認と `AskUserQuestion` は対象外              |
+
+- project・local 設定の `remoteControlAtStartup` は `false` だけが効き、managed の `true` にも勝ちます。`true` は無視されます。
+- user 設定の `false` には managed の `true` が勝ちます。`--remote-control` は `false` でもそのセッションだけ有効にします。
+- 自動接続では、対話プロセスごとに 1 つのリモートセッションが登録されます。
+
+<div class="src">
+  出典: [remote-control#connect-from-another-device](https://code.claude.com/docs/en/remote-control#connect-from-another-device) · [#enable-remote-control-for-all-sessions](https://code.claude.com/docs/en/remote-control#enable-remote-control-for-all-sessions) · [#resume-sessions-after-stopping-the-server](https://code.claude.com/docs/en/remote-control#resume-sessions-after-stopping-the-server) · [settings-reference](https://code.claude.com/docs/en/settings-reference#remotecontrolatstartup)
+</div>
+
+<span id="ch49-security" />
+
+## 接続のセキュリティと Trusted Devices
+
+### 接続とデータ
+
+- ローカルのセッションは外向き HTTPS だけを使い、受信ポートを開きません。Anthropic API に登録してポーリングし、端末との間はストリーミング接続で中継されます。
+- 認証情報は複数の短命なもので、用途ごとに分かれ、個別に失効します。
+- 接続中は、トランスクリプト（メッセージ・応答・ツールの動作）が Anthropic のサーバーに保存されます。実行とファイルアクセスはマシンに残ります。
+- 自動接続は自分の claude.ai アカウントで行われ、他人にアクセスを与えません。
+- ZDR・HIPAA 構成の組織は有効にできません。開いているセッションは組織ポリシーを約 1 時間ごとに取得します。
+
+### Trusted Devices <span class="badge beta">Beta</span>
+
+- Remote Control のセッションを見る・操作する端末に、登録済みであることと 18 時間以内のサインインを求めます。
+- 期限切れは、Face ID・Touch ID・Windows Hello・パスキーで再確認します。生体情報は Anthropic に送られません。
+- 既定はオフです。Team・Enterprise は Owner が **Organization settings > Capabilities > Remote sessions** の **Require trusted devices** をオンにします。Pro・Max・Ultra は自分の設定でオンにします。
+- 有効化の前から動いているセッションには適用されません。チームやプロジェクト単位の設定はありません。
+- CLI を動かすマシンは、CLI のサインイン時に自動で認証情報を受け取ります。ターミナル側の登録手順はありません。
+- 登録済み端末は `claude.ai/settings/account` の **Trusted devices** で確認・削除します。
+
+<div class="src">
+  出典: [remote-control#connection-and-security](https://code.claude.com/docs/en/remote-control#connection-and-security) · [remote-control#trusted-devices](https://code.claude.com/docs/en/remote-control#trusted-devices) · [#troubleshooting](https://code.claude.com/docs/en/remote-control#remote-control-was-turned-off-by-your-organizations-policy)
+</div>
+
+<span id="ch49-mobile" />
+
+## モバイルアプリとリモートから使えるコマンド
+
+- Claude アプリは実行環境ではなくクライアントです。**Code** タブにクラウドセッションと Remote Control が並び、Projects もアプリから使えます。Dispatch はアプリからメッセージで送ります（Pro・Max・Ultra）。
+- `/mobile`（別名 `/ios`・`/android`）は、アプリストアへの QR コードを表示します。
+- アプリから選べる権限モードは、クラウドが Accept edits・Plan・Auto、Remote Control が Manual・Accept edits・Plan・Auto です。Bypass permissions は選べません。
+- プッシュ通知は `/config` の **Push when Claude decides**（`agentPushNotifEnabled`）と **Push when actions required**（`inputNeededNotifEnabled`）で有効にします。どちらも既定は `false` です。
+- 接続中のターミナルで入力中・フォーカス中は通知しません。`CLAUDE_CLIENT_PRESENCE_FILE` のファイルが存在する間も通知しません。
+
+### モバイル・Web から使えるコマンド
+
+- テキスト出力: `/compact` `/clear` `/context` `/usage` `/exit` `/usage-credits` `/recap` `/reload-plugins`
+- 引数で指定: `/model sonnet` `/effort high` `/fast` `/color` `/rename`
+- `/mcp`: アプリは状態の要約、Web はコネクタ一覧。`reconnect`・`enable`・`disable` も使える
+- `/config key=value`（アプリ）。Web では設定画面が開く
+- 版の条件付き: `/autocompact 500k`（v2.1.221）、`/advisor opus|off`（v2.1.260）、`/output-style`（v2.1.269、組み込みのみ）、`/focus on|off`（v2.1.281）
+- `/plugin`・`/resume` はローカル専用です。`/claude-api` も入力できません。`!` で始まる行はシェルではなくメッセージになります。
+
+<div class="src">
+  出典: [mobile](https://code.claude.com/docs/en/mobile) · [remote-control#mobile-push-notifications](https://code.claude.com/docs/en/remote-control#mobile-push-notifications) · [remote-control#limitations](https://code.claude.com/docs/en/remote-control#limitations) · [settings-reference](https://code.claude.com/docs/en/settings-reference#agentpushnotifenabled)
+</div>

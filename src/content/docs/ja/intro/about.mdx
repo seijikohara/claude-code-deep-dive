@@ -1,0 +1,41 @@
+---
+title: "この資料について"
+sidebar:
+  order: 0
+---
+
+<span id="intro-reading" />
+
+## この資料の読み方
+
+### 対象と情報源
+
+- 対象はインストール済みの `2.1.321` だけです。
+- 情報源は 2 つです。公式ドキュメント（code.claude.com/docs、英語版 228 ページ）と、実機での確認結果です。
+- 実機確認には `--help`、ヘッドレス実行（`-p`）、起動時の init イベントを使いました。
+- 記憶や推測による記述はありません。
+
+### 操作
+
+- 左のサイドバーで章を選び、ページ右の目次で節へ移動します。
+- ページ上部の検索欄（<kbd>⌘</kbd>+<kbd>K</kbd> または <kbd>Ctrl</kbd>+<kbd>K</kbd>）で、全章を全文検索できます。
+
+### ステータスの表記
+
+| 表記                                                 | 意味                                                 |
+| ---------------------------------------------------- | ---------------------------------------------------- |
+| （なし）                                             | 一般提供（GA）                                       |
+| <span class="badge beta">Beta</span>                 | ドキュメントが beta / public beta と明記             |
+| <span class="badge preview">Preview</span>           | ドキュメントが research preview / preview と明記     |
+| <span class="badge experimental">Experimental</span> | 実験的機能。多くは環境変数などで明示的に有効化が必要 |
+| <span class="badge undocumented">Undocumented</span> | 実機にあるが、ドキュメントに記載がない               |
+| <span class="badge deprecated">Deprecated</span>     | 非推奨                                               |
+| <span class="badge removed">Removed</span>           | 削除済み（経緯の説明のためだけに掲載）               |
+
+:::danger[食い違い]
+ドキュメント・changelog・実機の記述が食い違う箇所には、この枠を付けています。
+:::
+
+<div class="src">
+  出典: [Claude Code docs index](https://code.claude.com/docs/llms.txt) · [changelog](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>

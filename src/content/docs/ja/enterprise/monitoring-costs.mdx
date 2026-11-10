@@ -1,0 +1,168 @@
+---
+title: "監視・コスト・分析"
+description: "組織が Claude Code の利用を測る手段を扱います。OpenTelemetry のメトリクス・イベント・トレース（Beta）とプライバシー制御、Anthropic 向けテレメトリの止め方、/usage と modelPricing、組織の支出管理、analytics ダッシュボード、HIPAA 構成の要点を説明します。"
+sidebar:
+  order: 61
+---
+
+組織が Claude Code の利用を測る手段を扱います。OpenTelemetry のメトリクス・イベント・トレース（Beta）とプライバシー制御、Anthropic 向けテレメトリの止め方、`/usage` と `modelPricing`、組織の支出管理、analytics ダッシュボード、HIPAA 構成の要点を説明します。
+
+<span id="ch61-otel-setup" />
+
+## OpenTelemetry の有効化と、managed による送信先の固定
+
+```bash
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_METRICS_EXPORTER=otlp
+export OTEL_LOGS_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer your-token"
+export OTEL_METRIC_EXPORT_INTERVAL=10000
+export OTEL_LOGS_EXPORT_INTERVAL=5000
+```
+
+- 送信先は自社のバックエンドで、Anthropic の運用テレメトリとは別物です。全プロバイダで使えます。exporter はメトリクスが `otlp`・`prometheus`・`console`・`none`、ログが `otlp`・`console`・`none`、間隔の既定は 60000 ms と 5000 ms です。
+- `OTEL_EXPORTER_OTLP_PROTOCOL`（`grpc`・`http/json`・`http/protobuf`）には既定値がありません。`otlp` を選んだシグナルごとに必ず設定します。
+
+* 組織で配るなら managed の `env` に書きます。リポジトリの `.claude/settings.json`・`settings.local.json` では有効化・送信先・内容取得の変数を無視します（`none` で止めるのは可）。
+* **managed の固定**（v2.1.217 以降）: managed が `OTEL_EXPORTER_OTLP_ENDPOINT` を設定すると、開発者のシグナル別エンドポイントを起動時に外します。`..._PROTOCOL` も同様です。`..._HEADERS` やクライアント証明書を設定すると、開発者のエンドポイントもすべて外します。
+* exporter の選択は通常の優先順位なので開発者が `none` にできます。固定するなら managed にも書きます。
+* `OTEL_*` は Bash ツール・フック・MCP サーバーなどの子プロセスに渡しません。
+* 確認は `claude_code.session.count` か `claude_code.user_prompt` の到着です。届かなければ `--debug-file` のログで `[3P telemetry]` を探します。
+* `otelHeadersHelper` は JSON のヘッダーを出すスクリプトで、起動時と 29 分ごとに実行します（`http/*` のみ）。
+
+<div class="src">
+  出典: [monitoring-usage#quick-start](https://code.claude.com/docs/en/monitoring-usage#quick-start) · [#administrator-configuration](https://code.claude.com/docs/en/monitoring-usage#administrator-configuration) · [#how-managed-settings-lock-the-otlp-destination](https://code.claude.com/docs/en/monitoring-usage#how-managed-settings-lock-the-otlp-destination) · [#common-configuration-variables](https://code.claude.com/docs/en/monitoring-usage#common-configuration-variables) · [#dynamic-headers](https://code.claude.com/docs/en/monitoring-usage#dynamic-headers) · [costs#manage-costs-for-your-organization](https://code.claude.com/docs/en/costs#manage-costs-for-your-organization)
+</div>
+
+<span id="ch61-metrics" />
+
+## メトリクスと属性
+
+| メトリクス（単位）                               | 主な追加属性                                                                                                  |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `claude_code.session.count`                      | `start_type`: `fresh`・`resume`・`continue`・`agents_view`                                                    |
+| `claude_code.lines_of_code.count`                | `type`: `added`・`removed`、`model`                                                                           |
+| `claude_code.pull_request.count`・`commit.count` | 標準属性のみ                                                                                                  |
+| `claude_code.cost.usage`（USD）                  | `model`、`query_source`、`speed`、`effort`、`agent.name`、`skill.name`、`plugin.name`、`mcp_server.name` など |
+| `claude_code.token.usage`（tokens）              | `type`: `input`・`output`・`cacheRead`・`cacheCreation`、ほか cost と同じ                                     |
+| `claude_code.code_edit_tool.decision`            | `tool_name`、`decision`、`source`、`language`                                                                 |
+| `claude_code.active_time.total`（s）             | `type`: `user`・`cli`                                                                                         |
+
+実機（console exporter、haiku で 1 プロンプト）では `session.count`・`cost.usage`（`USD`）・`token.usage`（`tokens`）・`active_time.total`（`s`）が出て、resource の `service.name` は `claude-code`、meter は `com.anthropic.claude_code` でした。
+
+- 名前の伏せ字: 公式マーケットプレイス以外のプラグインとそのスキルは `"third-party"`、利用者定義のエージェントや MCP サーバーは `"custom"` になります。`OTEL_LOG_TOOL_DETAILS=1` で実名にします。
+- 標準属性: `session.id`、`app.version`、`organization.id`、`user.account_uuid`、`user.id`（`~/.claude.json` の乱数）、`user.email` など。gateway セッションは IdP の主体と `user.groups` を付けます。
+- カーディナリティ: `OTEL_METRICS_INCLUDE_SESSION_ID`（既定 true）、`_VERSION`（false）、`_ACCOUNT_UUID`（true）、`_ENTRYPOINT`（false）、`_RESOURCE_ATTRIBUTES`（true）、`_REPOSITORY`（false、v2.1.269 以降で `vcs.*`）。
+- チーム別集計は `OTEL_RESOURCE_ATTRIBUTES="department=engineering,team.id=platform"` のように付けます。
+- `prometheus` だけなら単位を外します。一時性は既定 `delta` です。
+
+<div class="src">
+  出典: [monitoring-usage#metrics](https://code.claude.com/docs/en/monitoring-usage#metrics) · [#cost-counter](https://code.claude.com/docs/en/monitoring-usage#cost-counter) · [#standard-attributes](https://code.claude.com/docs/en/monitoring-usage#standard-attributes) · [#metrics-cardinality-control](https://code.claude.com/docs/en/monitoring-usage#metrics-cardinality-control) · 実機確認 2.1.321
+</div>
+
+<span id="ch61-events-traces" />
+
+## イベントとトレース
+
+OTel のログとして送り、`prompt.id` で束ねます。
+
+`user_prompt` `assistant_response` `tool_result` `tool_decision` `api_request` `api_error` `api_refusal` `api_request_body` `api_response_body` `api_retries_exhausted` `permission_mode_changed` `auth` `mcp_server_connection` `internal_error` `plugin_installed` `plugin_loaded` `skill_activated` `at_mention` `hook_registered` `hook_execution_start` `hook_execution_complete` `hook_plugin_metrics` `compaction` `subagent_completed` `feedback_survey` `retention_sweep` `managed_settings_resolved`（いずれも接頭辞 `claude_code.`）
+
+:::danger[食い違い]
+`claude_code.safety_event` <span class="badge removed">Removed</span>: docs は v2.1.307 以降のイベントとして記載したまま。changelog 2.1.312 で送信を停止し、実機の deny ルール実行でも出なかった。
+:::
+
+### トレース <span class="badge beta">Beta</span>
+
+- `CLAUDE_CODE_ENABLE_TELEMETRY=1`、`CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1`、`OTEL_TRACES_EXPORTER` を設定します。間隔の既定は 5000 ms です。
+- スパン: プロンプトごとの `claude_code.interaction` の下に `claude_code.llm_request`、`claude_code.tool`（その下に `claude_code.tool.blocked_on_user` と `claude_code.tool.execution`）、詳細トレース時の `claude_code.hook`。
+- Bash・PowerShell の子プロセスは `TRACEPARENT` を継ぎます。API 直結では `traceparent` ヘッダーも送り、独自 base URL では `CLAUDE_CODE_PROPAGATE_TRACEPARENT=1` が要ります。
+- `-p` と SDK は呼び出し側の `TRACEPARENT` を読み、その子としてスパンを作ります。
+
+<div class="src">
+  出典: [monitoring-usage#events](https://code.claude.com/docs/en/monitoring-usage#events) · [#safety-event](https://code.claude.com/docs/en/monitoring-usage#safety-event) · [#traces-beta](https://code.claude.com/docs/en/monitoring-usage#traces-beta) · changelog 2.1.307, 2.1.312 · 実機確認 2.1.321
+</div>
+
+<span id="ch61-anthropic-telemetry" />
+
+## プライバシー制御と、Anthropic 向けテレメトリの停止
+
+| 変数（既定は無効）               | 追加で送るもの                                                       |
+| -------------------------------- | -------------------------------------------------------------------- |
+| `OTEL_LOG_USER_PROMPTS=1`        | `user_prompt` の `prompt`・`prompt_text`、`interaction` スパン       |
+| `OTEL_LOG_ASSISTANT_RESPONSES=1` | 応答本文。未設定なら上の値に従う                                     |
+| `OTEL_LOG_TOOL_DETAILS=1`        | Bash コマンドやパスなどの入力、実名の属性                            |
+| `OTEL_LOG_TOOL_CONTENT=1`        | ツール出力（トレースが必要、既定 60 KB で切る）                      |
+| `OTEL_LOG_RAW_API_BODIES`        | `1` で API の要求・応答 JSON 全体、`file:<dir>` で切らずにファイルへ |
+| `OTEL_LOG_MANAGED_SETTINGS=1`    | 伏せ字にした managed 設定と SHA-256（v2.1.274 以降）                 |
+
+- OTel とは別に、Anthropic へ運用メトリクスとエラー報告を送ります。4 つのクラウドプロバイダでは既定で無効です。
+- `DISABLE_TELEMETRY`: メトリクスを止め、feature flag の取得も止めます。`0`・`false` でも止まり、戻すには unset します。`DO_NOT_TRACK=1` も同じ効果です（こちらは `0` で有効のまま）。
+- `DISABLE_ERROR_REPORTING`: エラー報告を止めます（`0`・`false` でも止まる）。
+- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`: 自動更新、テレメトリ、エラー報告、`/feedback` などをまとめて止めます。feature flag が止まると Remote Control なども使えません（[Ch20](/claude-code-deep-dive/ja/settings/env-vars/#ch20-feature-flags)）。
+
+:::danger[食い違い]
+エラー報告を止める変数が食い違います。data-usage は `DISABLE_ERROR_REPORTING` だけ、network-config は `DISABLE_ERROR_REPORTING` か `DISABLE_TELEMETRY` と書きます。確実に止めるには、両ページが認める `DISABLE_ERROR_REPORTING` か `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` を使います。
+:::
+
+<div class="src">
+  出典: [monitoring-usage#security-and-privacy](https://code.claude.com/docs/en/monitoring-usage#security-and-privacy) · [#common-configuration-variables](https://code.claude.com/docs/en/monitoring-usage#common-configuration-variables) · [data-usage#telemetry-services](https://code.claude.com/docs/en/data-usage#telemetry-services) · [network-config#network-access-requirements](https://code.claude.com/docs/en/network-config#network-access-requirements) · [env-vars](https://code.claude.com/docs/en/env-vars)
+</div>
+
+<span id="ch61-costs" />
+
+## コスト: `/usage`・`modelPricing`・組織の支出管理
+
+- `/usage` はセッションのコスト、プラン上限、利用統計を表示します。`/cost` は別名、`/stats` は Stats タブで開く別名です。プランの内訳とおすすめ、gateway 経由の支出も出ます。
+- 金額はトークン数から定価で手元計算した推定です。`/clear` で $0 に戻ります（v2.1.211 以降）。
+- managed の `modelPricing`（`multiplier` と `overrides`、`multiplier` は 10 まで、1 超は v2.1.271 以降）で契約単価にすると、`Total cost` に `at your organization's configured rates` が付きます。ステータスライン、SDK の `total_cost_usd`、`--max-budget-usd` にも効きます。
+- `/usage-credits`（旧 `/extra-usage`）は usage credits の設定、Team・Enterprise の課金権限の無いメンバーは管理者への依頼です。`/rate-limit-options` は上限到達時の選択肢、`/insights` は直近セッションの HTML レポートです。
+- 目安: 平均は 1 人 1 稼働日あたり約 $13、月 $150〜250。90% の利用者は 1 稼働日あたり $30 未満です。
+
+| 形態               | 支出の確認と上限                                                                                                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Teams・Enterprise  | シートごとの枠（5 時間と週の 2 つの窓、chat・Cowork と共有）。usage credits を有効にすると組織・グループ・個人の上限。Enterprise は Enterprise Analytics API（`read:analytics`） |
+| Console            | Cost ページ、ワークスペースの支出上限。初回認証で作られる "Claude Code" ワークスペースで集計。Claude Code Analytics API                                                          |
+| クラウドプロバイダ | 各クラウドの請求と予算。利用者別は OTel、Claude apps gateway、LLM ゲートウェイ                                                                                                   |
+
+| 人数   | 1-5       | 5-20      | 20-50     | 50-100    | 100-500   | 500+      |
+| ------ | --------- | --------- | --------- | --------- | --------- | --------- |
+| TPM/人 | 200k-300k | 100k-150k | 50k-75k   | 25k-35k   | 15k-20k   | 10k-15k   |
+| RPM/人 | 5-7       | 2.5-3.5   | 1.25-1.75 | 0.62-0.87 | 0.37-0.47 | 0.25-0.35 |
+
+Console の推奨レート（組織全体の上限として設定）。
+
+<div class="src">
+  出典: [costs#using-the-/usage-command](https://code.claude.com/docs/en/costs#using-the-/usage-command) · [#manage-costs-for-your-organization](https://code.claude.com/docs/en/costs#manage-costs-for-your-organization) · [#rate-limit-recommendations](https://code.claude.com/docs/en/costs#rate-limit-recommendations) · [settings-reference#modelpricing](https://code.claude.com/docs/en/settings-reference#modelpricing) · [commands](https://code.claude.com/docs/en/commands)
+</div>
+
+<span id="ch61-analytics-hipaa" />
+
+## analytics ダッシュボードと HIPAA 構成
+
+- Teams・Enterprise は `claude.ai/analytics/claude-code`（Admin と Owner）で、受け入れ行数・受け入れ率・アクティブ利用者・リーダーボード・CSV 出力があります。
+- Console は `platform.claude.com/claude-code`（UsageView 権限）で、支出と利用者別の表があります。
+- クラウドプロバイダの利用と、`DISABLE_TELEMETRY` を設定した開発者のデータは含みません。
+
+### contribution metrics <span class="badge beta">Beta</span>
+
+- claude.ai 組織の利用だけを数えます。Owner が **GitHub analytics** を有効にし、GitHub 管理者が Claude GitHub app を入れます。約 24 時間後から日次更新です。
+- マージされた PR の追加行を、21 日前から 2 日後までのセッションと照合し、`claude-code-assisted` ラベルを付けます。ZDR の組織と GHES では使えません。
+
+### ZDR
+
+- 資格のある Enterprise 向けで、標準プランに含まれず、管理画面からは有効にできません（[Ch26](/claude-code-deep-dive/ja/settings/security/#ch26-data)）。
+
+### HIPAA 構成（local mode）
+
+- BAA を結んだ Enterprise の組織設定で、Primary Owner が適用します。対象はターミナル、Code タブ、Cowork で、IDE 拡張は BAA の対象外です。
+- 効くのは Enterprise アカウントで Claude API に直接つないだセッションだけで、クラウドプロバイダ・gateway・独自 `ANTHROPIC_BASE_URL`・Console キーは対象外です。v2.1.285 以降が必要です。
+- 推奨 managed 設定: `forceLoginMethod: "claudeai"`、`forceLoginOrgUUID`、`allowedProviders: ["anthropic"]`、`cleanupPeriodDays`。
+- 確認: フッターの `HIPAA configured` と、`/status` の `Organization configuration` 行の `HIPAA`。
+- 変わること: WebFetch・`/feedback`・Artifact の公開・MCP tool search が無効、`--cloud`・`/teleport`・Remote Control を拒否、子プロセスから Anthropic の資格情報を除去。
+
+<div class="src">
+  出典: [analytics](https://code.claude.com/docs/en/analytics) · [analytics#enable-contribution-metrics](https://code.claude.com/docs/en/analytics#enable-contribution-metrics) · [#pr-attribution](https://code.claude.com/docs/en/analytics#pr-attribution) · [hipaa-setup](https://code.claude.com/docs/en/hipaa-setup) · [zero-data-retention](https://code.claude.com/docs/en/zero-data-retention) · [managed-settings#turn-telemetry-off-for-your-organization](https://code.claude.com/docs/en/managed-settings#turn-telemetry-off-for-your-organization) · [costs#cloud-providers](https://code.claude.com/docs/en/costs#cloud-providers)
+</div>

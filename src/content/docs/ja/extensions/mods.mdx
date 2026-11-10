@@ -1,0 +1,173 @@
+---
+title: "Mods"
+description: "JavaScript か TypeScript のイベントハンドラーで、Claude Code の動作と画面を内側から変えるプラグインです。この章では、プラグインや設定フックとの違い、イベントと実行順、mods API と描画、テストと組織での管理を扱います。"
+sidebar:
+  order: 33
+---
+
+JavaScript か TypeScript のイベントハンドラーで、Claude Code の動作と画面を内側から変えるプラグインです。この章では、プラグインや設定フックとの違い、イベントと実行順、mods API と描画、テストと組織での管理を扱います。
+
+<span id="ch33-overview" />
+
+## Mods とは: プラグイン・設定フックとの違い
+
+- Mod は、`hooks/hooks.json` の `modules` にフックモジュールを 1 つ書いたプラグインです。インストールと配布は普通のプラグインと同じです（[Ch31](/claude-code-deep-dive/ja/extensions/plugins/)）。
+- フック（ハンドラー）はイベントを観察する、書き換える、自分で応答する、のどれかをします。ファイル・プロセス・ネットワーク・描画には mods API `$` を通してだけ触れます。
+- 既定で有効です。ターミナルは v2.1.287 以降、Desktop は v2.1.286 以降です。
+- 止め方: 1 つなら `/plugin` で無効化、1 セッションなら `--safe-mode`、常に全部なら `"disableAllHooks": true`（設定フックとステータスラインも止まる）。
+- サンドボックスはありません。ユーザーとしてファイル・プロセス・ネットワークに触れ、プロンプトやツール呼び出しを書き換え、承認もできます。権限プロンプトの表示だけは変えられません。
+- フックはプラグインが読み込まれる全セッション（Bedrock などの全プロバイダー、`-p`、SDK、クラウドセッション）で動きます。描画はターミナル、Desktop、VS Code 拡張（2.1.299 以降）だけです。
+
+|                | Mod                                                | 設定フック                                     |
+| -------------- | -------------------------------------------------- | ---------------------------------------------- |
+| 実体           | Claude Code のプロセス内で呼ばれる関数             | イベントで動くシェルコマンド、HTTP、プロンプト |
+| 変えられるもの | ツール呼び出し、プロンプト、コマンド、ターン、画面 | 実行の可否、ツールの引数と結果、追加 context   |
+| 描画           | できる                                             | できない                                       |
+| 書くもの       | JavaScript・TypeScript                             | スクリプトと `settings.json`                   |
+
+内蔵の Mod は `cc-plugin-agents-md`・`cc-plugin-diff`・`cc-plugin-plugin-authoring`・`cc-plugin-sec-default`・`cc-plugin-telemetry`・`cc-plugin-you-should-know` です。`disableAllHooks`・`--bare`・`--safe-mode` では止まりません。
+
+<span class="undocumented">`-p` の init の `plugins` には、docs に無い `cc-plugin-privacy@builtin` も出ます。 <span class="badge undocumented">Undocumented</span></span>
+
+<div class="src">
+  出典: [plugins/mods/overview](https://code.claude.com/docs/en/plugins/mods/overview) · [#where-mods-run](https://code.claude.com/docs/en/plugins/mods/overview#where-mods-run) · [#mods-built-into-claude-code](https://code.claude.com/docs/en/plugins/mods/overview#mods-built-into-claude-code) · 実機確認 2.1.321
+</div>
+
+<span id="ch33-anatomy" />
+
+## Mod の構成とフック関数
+
+```javascript
+// The count, shared by the two hooks below
+let calls = 0
+
+// Claude Code calls this once when the mod loads
+export function register(on) {
+  // Runs each time Claude is about to use a tool
+  on('tool.call', async ($, e, next) => {
+    calls += 1
+    // Ask Claude Code to draw the interface again, so the new count shows
+    $.ui.invalidate('ui.render')
+    // Let the tool run as usual
+    return next(e)
+  })
+
+  // Runs each time Claude Code draws the spinner
+  on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
+    // Keep Claude Code's spinner, with the count added after its word
+    return next({ ...e, props: { ...e.props, suffix: ' · tool calls: ' + calls + '…' } })
+  })
+}
+```
+
+- ファイルは `.claude-plugin/plugin.json`、`hooks/hooks.json`（`"modules": ["./register.js"]`）、フックモジュールの 3 つです。
+- モジュールは ES module で、`register(on, options)` を export します。`options` は `userConfig` の値です。
+- `e` は凍結されたデータです。変えるときは複製を `next` に渡します。
+- `next(e)` はミドルウェアの次段です。呼ばずに値を返すと、その場で応答したことになります。
+- matcher は値・配列・正規表現で絞ります。`'*'` は telemetry 以外の全イベントです。
+
+<div class="src">
+  出典: [plugins/mods/overview#how-a-mod-works](https://code.claude.com/docs/en/plugins/mods/overview#how-a-mod-works) · [plugins/mods/reference#files](https://code.claude.com/docs/en/plugins/mods/reference#files) · [#the-hook-function](https://code.claude.com/docs/en/plugins/mods/reference#the-hook-function) · [plugins/mods/events#filter-which-events-a-hook-handles](https://code.claude.com/docs/en/plugins/mods/events#filter-which-events-a-hook-handles)
+</div>
+
+<span id="ch33-events" />
+
+## イベントと実行順
+
+| 分類             | イベント（返せるもの）                                                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| ツール           | `tool.call`（`{ deny }`・`{ result }`）、`tool.check`（`{ decision }`）、`tool.describe`                                      |
+| プロンプト       | `prompt.submit`（`{ drop }`）、`prompt.section`、`prompt.context`、`prompt.attachment`、`prompt.mention`、`skill.prompt` ほか |
+| コマンド・設定   | `command.run`（`{ text }`）、`config.set`、`settings.read`                                                                    |
+| ターン           | `turn.start`、`turn.step`（`model`・`effort` を差し替え）、`turn.complete`                                                    |
+| セッション       | `session.start`、`session.end`、`session.compact`（`{ skip }`）、`session.append`                                             |
+| サブエージェント | `agent.offer`、`agent.spawn`（`{ deny }`）                                                                                    |
+| 画面             | `ui.render`、`ui.press`、`ui.input`、`ui.select`、`ui.close` ほか                                                             |
+| 他の Mod         | `plugin.register`（`{ refuse }`）、`engine.create`                                                                            |
+| その他           | `classic.<Event>`（設定フック）、`$` の各メソッド（`fs.read` など）                                                           |
+
+1. 内蔵ガード `sec-default@builtin`（読み込まれる場合）と managed の `prependPlugins`
+2. ユーザーがインストールした Mod（依存先より先に動く）
+3. managed の `appendPlugins`
+4. その他の内蔵 Mod、最後に Claude Code 本体
+
+- 先頭ほど外側で、後ろの Mod が見るかどうかを決めます。managed の `PreToolUse` は最初の `tool.call` より前、他の `PreToolUse` は最後の `next` の後に動きます。
+- `tool.check` は `PreToolUse` の後、権限プロンプト・auto mode の分類器・`PermissionRequest` の前に発火します。
+- `.catch` の無いフックが例外かタイムアウトになると飛ばされ、`my-mod: tool.call hook skipped: threw Error: boom` と記録されます。止める側に倒すなら `.catch` で拒否を返します。
+- changelog だけにある追加: `prompt.change` フック（2.1.300）、`tool.check` の `decider: "person"`（2.1.304）。
+
+<div class="src">
+  出典: [plugins/mods/reference#events](https://code.claude.com/docs/en/plugins/mods/reference#events) · [plugins/mods/events#the-order-mods-run-in](https://code.claude.com/docs/en/plugins/mods/events#the-order-mods-run-in) · [#handle-a-hook-that-fails](https://code.claude.com/docs/en/plugins/mods/events#handle-a-hook-that-fails) · changelog 2.1.300, 2.1.304（リファレンス未掲載）
+</div>
+
+<span id="ch33-api" />
+
+## mods API と描画
+
+| 名前空間                | 主なメソッドと上限                                                          |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `$.ui`                  | `open`・`invalidate`・`place`・`toast`・`status`・`log`・`ask`・`view` ほか |
+| `$.command`・`$.tool`   | `register`・`run`・`call`・`list`。登録したツールは `mcp__<plugin>__<name>` |
+| `$.model`               | `complete`（`maxTokens` 既定 1024）・`fork`・`classify`                     |
+| `$.prompt`・`$.session` | `submit`（`asUser: true`）、`messages`・`usage` ほか                        |
+| `$.fs`・`$.process`     | 1 ファイル 4 MiB。`run` はシェルなしで 30 秒（最大 10 分）                  |
+| `$.http`・`$.mcp`       | `fetch` は 30 秒・リダイレクト 5 回。`call`・`connect`                      |
+| `$.store`・`$.state`    | 端末共通の KV（4 MiB）、リアクティブな状態                                  |
+
+モジュールには Node.js API も `setTimeout` もありません（`$.clock.after` を使う）。フックの実行時間は 10 秒、`prompt.edit` は 50 ms、`.catch` は 1 秒までです。
+
+- 描画先は `Pane`（`$.ui.open`）、`AbovePrompt`（帯）、`Placed`（ターミナル）、`Backdrop`（Desktop・モバイル）と、`Spinner`・`ToolUse` など本体の部品です。
+- 要素は `$.ui.resolve(e)` から得る `Box`・`Text`・`Button`・`Input`・`Select`・`Markdown`・`Code` などです。木は 20,000 要素・深さ 32 まで、再描画は毎秒 10 回（ターミナルの表示中のペインなどは 30 回）までです。
+- changelog だけにある追加: `$.ui.view({ agentId })`（2.1.300。reference の `$.ui` 行にはメソッド名 `view` だけがある）、`virtualText`（2.1.300）。
+
+:::danger[食い違い]
+
+- **changelog 2.1.321**: Mod 自身の `$.tool.call`・`$.mcp.call` は、自分の ask ルール、`dontAsk`、`-p` でも確認を出さない。deny ルールと組織ポリシーは効く。
+- **mods/admin**: `$.mcp.call` は「セッションの権限ルールの下で」MCP ツールを呼ぶ。
+
+本資料は新しい changelog の記述を 2.1.321 の動作とします。
+:::
+
+<div class="src">
+  出典: [mods/reference](https://code.claude.com/docs/en/plugins/mods/reference#mods-api-methods) · [mods/api](https://code.claude.com/docs/en/plugins/mods/api) · [mods/admin](https://code.claude.com/docs/en/plugins/mods/admin#review-what-a-mod-can-do) · changelog 2.1.300（`virtualText` などはリファレンス未掲載）· changelog 2.1.321
+</div>
+
+<span id="ch33-test-admin" />
+
+## テスト・作成・組織での管理
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude plugin validate ./lab-mod
+…
+  ❯ ./register.js hooks: session.start, tool.call, command.run{…}
+  ❯ ./register.js answers its own command: command.run{…}
+  ❯ ./register.js gating hook without .catch: tool.call
+  ❯ ./register.js calls: $.command.register
+…
+✔ Validation passed
+
+$ claude plugin test ./lab-mod
+tests/lab-mod.test.ts:
+(pass) /labtally counts tool calls [37.03ms]
+
+ 1 pass
+ 0 fail
+Ran 1 test across 1 file. [0.36s]
+```
+
+- キットは `claude-code/testing` です。セッション・サインイン・ネットワークは不要で、失敗すると exit 1 です。
+- Mod の無いディレクトリで実行すると、Mod を読み込めるか分かります（`no hooks module to load` なら可。実機は exit 1）。
+
+* Claude に頼むと内蔵 Skill `plugin-authoring` が使われ、`~/.claude/dev-mods/` の下に書かれます。
+* 組織: managed settings か `managed-mcp.json` があるか、Team・Enterprise の `/login` なら内蔵ガードが先頭で動き、ユーザーの Mod は deny・ask ルールを越えて承認できません。`$.fs`・`$.process` は権限ルールの対象外です。
+* ユーザーの Mod を止めるのは `pluginConfigs` の `cc-plugin-sec-default@builtin` にある `allowManagedModsOnly` です。組織の Mod の順序は `prependPlugins`・`appendPlugins` で決めます。
+
+:::danger[食い違い]
+
+- **changelog 2.1.321**: Claude が書いた Mod は auto と bypass モードでは確認なしで有効になり、`dontAsk` では読み込まれない。headless でも `.claude/skills` の Mod を変更時に再読み込みする（`CLAUDE_CODE_PLUGIN_DIR_WATCH=0` で停止）。
+- **docs**: mods/create は hot reload を有効にするか確認すると記載。env-vars は、`--plugin-dir` の Mod を非対話で再読み込みするには `1` が必要と記載。
+  :::
+
+<div class="src">
+  出典: [plugins/mods/test](https://code.claude.com/docs/en/plugins/mods/test) · [mods/troubleshoot](https://code.claude.com/docs/en/plugins/mods/troubleshoot#check-whether-mods-can-load) · [mods/create](https://code.claude.com/docs/en/plugins/mods/create#ask-claude-for-a-mod) · [mods/admin](https://code.claude.com/docs/en/plugins/mods/admin) · [env-vars](https://code.claude.com/docs/en/env-vars) · changelog 2.1.321 · 実機確認 2.1.321
+</div>
