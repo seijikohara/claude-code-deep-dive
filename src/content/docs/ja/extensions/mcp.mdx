@@ -5,6 +5,8 @@ sidebar:
   order: 30
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 Model Context Protocol（MCP）で外部のツールやデータを Claude Code につなぐ仕組みです。この章では、トランスポートとスコープ、承認と認証、タイムアウトと出力上限、tool search、claude.ai コネクタ、組織による管理を扱います。
 
 <span id="ch30-overview" />
@@ -396,7 +398,7 @@ wall-clock の上限は progress 通知では延びません。サーバーの `
 
 <span id="ch30-tasks" />
 
-## MCP tasks: サーバー側で動く長いジョブ <span class="badge beta">Beta</span>
+## MCP tasks: サーバー側で動く長いジョブ <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - サーバーが `tools/call` に task で応答すると、呼び出しはすぐ戻り、Claude は作業を続けます。フッターに `1 MCP task` のような件数が出ます。
 - 終わると `MCP task <server task id> (<server>/<tool>) completed.` が出ます。結果は Claude に渡るので、Claude に尋ねます。
@@ -639,7 +641,7 @@ MCP config file not found: <cwd>/Reply with OK
 | denylist のみ    | `deniedMcpServers`                                        |
 | 制限なし         | 何も配備しない                                            |
 
-```json
+```json title="managed-mcp.json"
 {
   "mcpServers": {}
 }

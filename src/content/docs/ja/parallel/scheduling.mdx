@@ -5,6 +5,8 @@ sidebar:
   order: 43
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 プロンプトを繰り返し、または決まった時刻に実行する 3 つの仕組みを扱います。セッション内の `/loop` と Cron ツール、クラウドのスケジュールタスク（旧 routines）、Desktop のローカルのスケジュールタスクです。この章では、それぞれの書式・タイミング・上限・停止方法と、3 つの比較を扱います。
 
 <span id="ch43-loop" />
@@ -48,7 +50,7 @@ sidebar:
 | 自己ペース | 待機中に <kbd>Esc</kbd>。アイドル時の <kbd>Ctrl</kbd>+<kbd>C</kbd> でも止まる（接続中の背景セッションを除く）。`Pending wakeup cancelled` と出る |
 | 固定間隔   | <kbd>Esc</kbd>・<kbd>Ctrl</kbd>+<kbd>C</kbd> では止まらない。`cancel the deploy check loop` のように頼む。止めなければ 7 日で終わる              |
 
-- <span class="badge preview">Preview</span> 接続中の背景セッションでは、空のプロンプトで <kbd>Ctrl</kbd>+<kbd>C</kbd> を 2 回押すと、自己ペースのループを残したまま切り離します（v2.1.295 以降）。止めるなら先に <kbd>Esc</kbd> です。
+- <Badge text="Preview" variant="tip" size="small" class="badge preview" /> 接続中の背景セッションでは、空のプロンプトで <kbd>Ctrl</kbd>+<kbd>C</kbd> を 2 回押すと、自己ペースのループを残したまま切り離します（v2.1.295 以降）。止めるなら先に <kbd>Esc</kbd> です。
 - 2.1.319 から、自己ペースのループは、再予約も停止もせずにターンを終えると終了します。以前の動作に戻すには `CLAUDE_CODE_LOOP_KEEPALIVE=1` を設定します。
 
 :::danger[食い違い]
@@ -59,7 +61,7 @@ scheduled-tasks ページは、再予約も停止もしなかった回の後に�
 - 発火するのは Claude Code が動いていてアイドルのときだけです。忙しい間に過ぎた回は、まとめて 1 回だけ実行します。
 - `--resume`・`--continue` は `CronCreate` のタスクを戻します。期限切れの繰り返しタスクと、時刻を過ぎた 1 回限りのタスクは除きます。止まっていた間の回は埋め合わせません。
 - 自己ペースの `/loop` は再開で戻りません。`/loop` を実行し直します。背景の Bash やモニターも再起動しません。
-- <span class="badge preview">Preview</span> <kbd>←</kbd> や `/bg` で背景に送ると、`/loop` のタスクも移ります。プロセスが落ちている間に次回が来た自己ペースのループは止まります。
+- <Badge text="Preview" variant="tip" size="small" class="badge preview" /> <kbd>←</kbd> や `/bg` で背景に送ると、`/loop` のタスクも移ります。プロセスが落ちている間に次回が来た自己ペースのループは止まります。
 - クラウドセッションでは、タイマーがコンテナと一緒に止まることを `/loop` の確認メッセージが伝えます（2.1.319）。
 - `/usage` にはループごとの回数・合計トークン・1 回あたりのトークン・最終実行を示す Loops 内訳があります（2.1.243）。
 
@@ -104,7 +106,7 @@ type CronCreateInput = {
 
 <span id="ch43-cloud" />
 
-## クラウドのスケジュールタスク（旧 routines） <span class="badge preview">Preview</span>
+## クラウドのスケジュールタスク（旧 routines） <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 ```bash
 curl -X POST https://api.anthropic.com/v1/claude_code/routines/trig_01ABCDEFGHJKLMNOPQRSTUVW/fire \
@@ -132,7 +134,7 @@ curl -X POST https://api.anthropic.com/v1/claude_code/routines/trig_01ABCDEFGHJK
 
 ## `/loop`・Desktop・クラウドの比較
 
-|                  | クラウド <span class="badge preview">Preview</span> | Desktop                             | `/loop`                       |
+|                  | クラウド <Badge text="Preview" variant="tip" size="small" class="badge preview" /> | Desktop                             | `/loop`                       |
 | ---------------- | --------------------------------------------------- | ----------------------------------- | ----------------------------- |
 | 実行場所         | クラウド（既定は Anthropic 管理）                   | 自分のマシン                        | 自分のマシン                  |
 | マシン起動       | 不要                                                | 必要                                | 必要                          |

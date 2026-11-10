@@ -5,6 +5,8 @@ sidebar:
   order: 6
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 会話がウィンドウを埋めていくときの制御を扱います。`/clear`・`/compact`・自動圧縮・アイドル圧縮の違い、auto-compact window の設定と優先順位、圧縮で残るもの、圧縮フックの発火順、プロンプトキャッシュの層・TTL・無効化条件を、実測を交えて説明します。
 
 <span id="ch06-compare" />
@@ -57,7 +59,7 @@ $ claude -p --input-format stream-json \
 {"type":"result",…,"num_turns":0,…,"local_command":"compact",…}
 ```
 
-この要約リクエストは約 15.0k トークンをキャッシュから読み、5 分バケットに 4,180 トークンを書いた（result の `modelUsage` の差分）。SDK の型定義にある `compact_metadata` は `trigger` と `pre_tokens` だけで、<span class="undocumented">`post_tokens`・`cumulative_dropped_tokens`・`duration_ms`</span> は記載がない <span class="badge undocumented">Undocumented</span>
+この要約リクエストは約 15.0k トークンをキャッシュから読み、5 分バケットに 4,180 トークンを書いた（result の `modelUsage` の差分）。SDK の型定義にある `compact_metadata` は `trigger` と `pre_tokens` だけで、<span class="undocumented">`post_tokens`・`cumulative_dropped_tokens`・`duration_ms`</span> は記載がない <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" />
 
 <div class="src">
   出典: [prompt-caching](https://code.claude.com/docs/en/prompt-caching#compacting-the-conversation) · [costs](https://code.claude.com/docs/en/costs#reduce-token-usage) · [hooks](https://code.claude.com/docs/en/hooks#precompact) · [monitoring-usage](https://code.claude.com/docs/en/monitoring-usage) · [agent-sdk/typescript](https://code.claude.com/docs/en/agent-sdk/typescript) · [changelog 2.1.198, 2.1.282, 2.1.314](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
@@ -117,7 +119,7 @@ $ claude -p --settings '{"autoCompactWindow":300000,
 | `is too large, so Claude Code treats it as the 1M maximum`          | 1,000,000 とモデルのウィンドウの小さい方 |
 | `isn't a usable size, so Claude Code ignores it`                    | フラグ・コマンド・設定の値。無ければ既定 |
 
-<span class="undocumented">`--settings` の `autoCompactWindow` に範囲外の `50000` を渡すと、警告なしで無視され、window は 1m のままでした。 <span class="badge undocumented">Undocumented</span></span>
+<span class="undocumented">`--settings` の `autoCompactWindow` に範囲外の `50000` を渡すと、警告なしで無視され、window は 1m のままでした。 <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /></span>
 
 ```text title="実測 2.1.321" frame="terminal"
 $ claude -p --autocompact 200 "/context"
@@ -408,7 +410,7 @@ git 管理外の空ディレクトリで続けて実行。2 回目は別プロ�
 | Skill とコマンドの呼び出し                                                 | 指示をユーザーメッセージとして追記する                 |
 | `/recap`・`/rewind`                                                        | rewind はキャッシュ済みの以前の prefix に戻る          |
 | サブエージェントの起動                                                     | 親の prefix は不変。fork は親のキャッシュを読む        |
-| `/advisor` の切り替え <span class="badge experimental">Experimental</span> | 定義がキャッシュ境界の後ろにある                       |
+| `/advisor` の切り替え <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> | 定義がキャッシュ境界の後ろにある                       |
 
 <div class="src">
   出典: [prompt-caching#actions-that-invalidate-the-cache](https://code.claude.com/docs/en/prompt-caching#actions-that-invalidate-the-cache) · [#actions-that-keep-the-cache](https://code.claude.com/docs/en/prompt-caching#actions-that-keep-the-cache) · [#subagents-and-the-cache](https://code.claude.com/docs/en/prompt-caching#subagents-and-the-cache)

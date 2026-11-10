@@ -1,0 +1,64 @@
+---
+title: "設定と安全"
+description: "設定ファイルの優先順位、設定キーと環境変数、組み込みツール、権限ルール、パーミッションモード、Auto mode、サンドボックス、セキュリティ、診断を扱います。"
+sidebar:
+  label: 概要
+  order: 0
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+設定ファイルの優先順位、設定キーと環境変数、組み込みツール、権限ルール、パーミッションモード、Auto mode、サンドボックス、セキュリティ、診断を扱います。
+
+<CardGrid>
+  <LinkCard
+    title="設定ファイル"
+    href="/claude-code-deep-dive/ja/settings/settings-files/"
+    description="Claude Code が読む設定ファイルの場所、優先順位、マージの規則を扱います。"
+  />
+  <LinkCard
+    title="設定キー早見表"
+    href="/claude-code-deep-dive/ja/settings/settings-keys/"
+    description="249 個の設定キーから、日常の調整でよく触るものを分野別に抜き出しました。"
+  />
+  <LinkCard
+    title="環境変数"
+    href="/claude-code-deep-dive/ja/settings/env-vars/"
+    description="env-vars リファレンスに載る 402 個の環境変数から、上級者がよく使うものを分野別に抜き出します。"
+  />
+  <LinkCard
+    title="組み込みツール"
+    href="/claude-code-deep-dive/ja/settings/tools/"
+    description="tools-reference に載る 46 ツール（現行 45 ＋削除済み TaskOutput）を用途別に並べ、主な上限、-p の init に出る 24 ツールとの差、起動モードとフラグによるツールセットの違いを扱います。"
+  />
+  <LinkCard
+    title="権限ルール"
+    href="/claude-code-deep-dive/ja/settings/permission-rules/"
+    description="allow・ask・deny の権限ルールを扱います。"
+  />
+  <LinkCard
+    title="パーミッションモード"
+    href="/claude-code-deep-dive/ja/settings/permission-modes/"
+    description="セッションが確認なしで実行できる範囲を決める 6 つのモードを扱います。"
+  />
+  <LinkCard
+    title="Auto mode"
+    href="/claude-code-deep-dive/ja/settings/auto-mode/"
+    description="確認の代わりに別の分類器モデルが操作を審査するモードです。"
+  />
+  <LinkCard
+    title="サンドボックス"
+    href="/claude-code-deep-dive/ja/settings/sandbox/"
+    description="Bash・PowerShell・Monitor のコマンドと子プロセスに、OS がファイルとネットワークの境界を強制する仕組みです。"
+  />
+  <LinkCard
+    title="セキュリティ"
+    href="/claude-code-deep-dive/ja/settings/security/"
+    description="Claude Code が組み込みで持つ保護とプロンプトインジェクション対策、評価ハーネス向けの --restricted、dev container と security-guidance プラグイン、データの学習・保持と ZDR を扱います。"
+  />
+  <LinkCard
+    title="診断"
+    href="/claude-code-deep-dive/ja/settings/diagnostics/"
+    description="設定が効かないとき、何が読み込まれ、どの値が勝ったかを確かめる手段をまとめます。"
+  />
+</CardGrid>

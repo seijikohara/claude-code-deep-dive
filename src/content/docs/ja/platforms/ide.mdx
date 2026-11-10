@@ -5,6 +5,8 @@ sidebar:
   order: 53
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 VS Code 拡張と JetBrains プラグイン、そして CLI が IDE とつながる仕組みです。この章では、VS Code の要件と開始時の権限モード、選択範囲と差分、`claudeCode.*` 設定とショートカット、JetBrains、IDE MCP サーバーと `/ide`・`--ide` を扱います。
 
 <span id="ch53-vscode" />
@@ -90,7 +92,7 @@ VS Code 拡張と JetBrains プラグイン、そして CLI が IDE とつなが
 
 <span id="ch53-jetbrains" />
 
-## JetBrains プラグイン <span class="badge beta">Beta</span>
+## JetBrains プラグイン <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - IntelliJ IDEA・PyCharm・Android Studio・WebStorm・PhpStorm・GoLand などで動きます。プラグイン名と設定画面は **Claude Code \[Beta]** です。
 - プラグインは IDE の統合ターミナルで `claude` を起動して接続します。CLI を同梱しないため、CLI を別途インストールします（PATH になければ `Cannot launch Claude Code`）。

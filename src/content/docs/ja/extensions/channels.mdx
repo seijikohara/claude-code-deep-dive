@@ -5,14 +5,16 @@ sidebar:
   order: 34
   badge:
     text: "Preview"
-    variant: note
+    variant: tip
 ---
+
+import { Badge } from "@astrojs/starlight/components";
 
 MCP サーバーから、実行中のローカルセッションへイベントを push する仕組みです。この章では、`--channels` と公式チャンネル、チャンネルサーバーの作り方と通知の形式、返信とパーミッションリレー、開発用フラグと管理者制御を扱います。
 
 <span id="ch34-overview" />
 
-## Channels とは <span class="badge preview">Preview</span>
+## Channels とは <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 - チャンネルは、実行中の Claude Code セッションへイベントを push する MCP サーバーです。端末から離れている間の出来事に、Claude が反応できます。
 - 一方向（アラート、webhook、監視）と双方向（返信ツールを持つチャットブリッジ）があります。双方向のチャンネルは、権限の確認をリモートの端末へ中継することもできます。
@@ -38,7 +40,7 @@ MCP サーバーから、実行中のローカルセッションへイベント�
 
 <span id="ch34-usage" />
 
-## `--channels` と公式チャンネル <span class="badge preview">Preview</span>
+## `--channels` と公式チャンネル <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 ```bash
 claude --channels plugin:fakechat@claude-plugins-official
@@ -66,7 +68,7 @@ claude --channels plugin:fakechat@claude-plugins-official
 
 <span id="ch34-build" />
 
-## チャンネルサーバーの作り方と通知の形式 <span class="badge preview">Preview</span>
+## チャンネルサーバーの作り方と通知の形式 <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 要件は `@modelcontextprotocol/sdk` と Node 互換のランタイム（Bun・Node・Deno）、stdio トランスポートです。`Server` コンストラクタに次を設定します。
 
@@ -106,7 +108,7 @@ build failed on main: https://ci.example.com/run/1234
 
 <span id="ch34-relay" />
 
-## 双方向チャンネルとパーミッションリレー <span class="badge preview">Preview</span>
+## 双方向チャンネルとパーミッションリレー <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 ### 返信ツールと送信者の制限
 
@@ -134,7 +136,7 @@ build failed on main: https://ci.example.com/run/1234
 
 <span id="ch34-dev-admin" />
 
-## 開発用フラグと管理者制御 <span class="badge preview">Preview</span>
+## 開発用フラグと管理者制御 <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 ### 開発中のチャンネルを試す
 

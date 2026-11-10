@@ -5,6 +5,8 @@ sidebar:
   order: 31
 ---
 
+import { Badge, FileTree } from "@astrojs/starlight/components";
+
 Skill・エージェント・フック・MCP サーバーなどを 1 つのディレクトリにまとめ、1 単位で配布・有効化する仕組みです。この章では、構成とマニフェスト、パス変数と userConfig、読み込みと名前の衝突、有効化の優先順位とキャッシュ、バージョンと依存関係、`claude plugin` コマンド、コストの測り方と eval を扱います。
 
 <span id="ch31-structure" />
@@ -25,30 +27,32 @@ Skill・エージェント・フック・MCP サーバーなどを 1 つのデ�
   - MCP サーバーがセッションと並んで動き、フックがイベントで発火する
   - プラグインが動かすものは、すべてユーザーの権限で動く
 
-```text
-deploy-tools/
-├── .claude-plugin/
-│   └── plugin.json
-├── skills/
-│   └── deploy/
-│       └── SKILL.md
-├── commands/
-│   └── status.md
-├── agents/
-│   └── reviewer.md
-├── hooks/
-│   └── hooks.json
-├── monitors/
-│   └── monitors.json
-├── …
-├── bin/
-│   └── deploy-tool
-├── scripts/
-│   └── format.sh
-├── settings.json
-├── .mcp.json
-└── .lsp.json
-```
+<FileTree>
+
+- deploy-tools/
+  - .claude-plugin/
+    - plugin.json
+  - skills/
+    - deploy/
+      - SKILL.md
+  - commands/
+    - status.md
+  - agents/
+    - reviewer.md
+  - hooks/
+    - hooks.json
+  - monitors/
+    - monitors.json
+  - …
+  - bin/
+    - deploy-tool
+  - scripts/
+    - format.sh
+  - settings.json
+  - .mcp.json
+  - .lsp.json
+
+</FileTree>
 
 docs の標準レイアウト例（抜粋）
 
@@ -85,7 +89,7 @@ docs の標準レイアウト例（抜粋）
 
 ## `plugin.json`: docs の主要キー例と、メタデータの規則
 
-```json
+```json title="plugin.json"
 {
   "name": "deploy-tools",
   "displayName": "Deploy Tools",
@@ -121,7 +125,7 @@ docs の標準レイアウト例（抜粋）
 
 ## `plugin.json`: コンポーネントキーと検証規則
 
-```json
+```json title="plugin.json"
   "commands": {
     "status": {
       "source": "./commands/status.md",
@@ -142,7 +146,7 @@ docs の標準レイアウト例（抜粋）
   },
 ```
 
-```json
+```json title="plugin.json"
   "lspServers": "./.lsp.json",
   "outputStyles": "./styles/",
   "experimental": {
@@ -483,7 +487,7 @@ manifest の `version`、エントリの `version` の順に使います。ど�
 | `marketplace`                 | `add`・`list`・`update`・`remove`（`rm`）                                                                        | [Ch32](/claude-code-deep-dive/ja/extensions/marketplaces/#ch32-marketplace-sources)           |
 
 - stdin か stdout が TTY でなく、`-y` も `--accept-command` も無いと、コマンドを表示するだけで exit 1 になります。Claude の Bash ツールやフックから実行した場合、`-y` は無視されます。
-- <span class="undocumented">`install --registry <url>` は `<package>@npm` の取得元の npm レジストリを指定します。`--help` にだけあり、docs にはありません。 <span class="badge undocumented">Undocumented</span></span>
+- <span class="undocumented">`install --registry <url>` は `<package>@npm` の取得元の npm レジストリを指定します。`--help` にだけあり、docs にはありません。 <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /></span>
 
 <div class="src">
   出典: [plugins/cli-reference#claude-plugin-commands](https://code.claude.com/docs/en/plugins/cli-reference#claude-plugin-commands) · changelog 2.1.321（`restore-set-aside` はリファレンス未掲載）· 実機確認 2.1.321（`--help`）
@@ -523,7 +527,7 @@ Plugin directory checks for …/lab-plugin. …
 would refuse a submission of this plugin)          → exit 1
 ```
 
-<span class="undocumented">`--profile directory` と「Plugin directory checks」は docs にありません。フラグなしでもこの検査結果は表示されますが、判定は `Validation passed`（exit 0）のままです。 <span class="badge undocumented">Undocumented</span></span>
+<span class="undocumented">`--profile directory` と「Plugin directory checks」は docs にありません。フラグなしでもこの検査結果は表示されますが、判定は `Validation passed`（exit 0）のままです。 <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /></span>
 
 <div class="src">
   出典: [plugins/cli-reference#plugin-validate](https://code.claude.com/docs/en/plugins/cli-reference#plugin-validate) · [#plugin-json-result](https://code.claude.com/docs/en/plugins/cli-reference#plugin-json-result) · 実機確認 2.1.321
@@ -602,21 +606,25 @@ Per-component (rounded)
 
 ## Plugin evals: ケース・grader・ベースライン
 
-```text
-my-plugin/
-├── .claude-plugin/plugin.json
-├── skills/...
-└── evals/
-    ├── first-case/
-    │   ├── prompt.md
-    │   ├── graders/
-    │   │   ├── criteria.md
-    │   │   └── skill-fired.md
-    │   └── case.yaml
-    ├── ignores-unrelated-request/
-    │   └── ...
-    └── results/
-```
+<FileTree>
+
+- my-plugin/
+  - .claude-plugin/
+    - plugin.json
+  - skills/
+    - ...
+  - evals/
+    - first-case/
+      - prompt.md
+      - graders/
+        - criteria.md
+        - skill-fired.md
+      - case.yaml
+    - ignores-unrelated-request/
+      - ...
+    - results/
+
+</FileTree>
 
 - `prompt.md` は frontmatter に設定、本文にプロンプトを書きます。`graders/` は 1 ファイル 1 grader で、`case.yaml` は任意です。
 - `claude plugin eval`（v2.1.269 以降）は、各ケースを隔離した `claude -p` で既定 3 回実行し、プラグインなしでも同じ回数実行します。結果は `WITH`・`W/OUT`・`Δ` です。

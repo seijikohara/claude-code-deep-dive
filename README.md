@@ -60,14 +60,14 @@ The identifier check (`--only=ids`) and data extraction (`tools/extract.mjs`) ne
 
 ## Repository layout
 
-| Path                             | Contents                                                                                                      |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `src/content/docs/`              | Starlight pages: the English home at the root, and the Japanese edition under `ja/`, one MDX file per chapter |
-| `src/components/DataTable.astro` | Renders the generated tables (appendix, command catalog) from `data/`                                         |
-| `src/styles/site.css`            | Site theme on top of Starlight                                                                                |
-| `data/`                          | Appendix tables (names, Japanese summaries, statuses, docs anchors)                                           |
-| `tools/`                         | Site lint, and the data extraction and translation tools                                                      |
-| `docs/`                          | Authoring and review guides, the shared fact ledger, and the original design and plan                         |
+| Path                             | Contents                                                                                                                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/content/docs/`              | Starlight pages: the English home at the root, and the Japanese edition under `ja/`: one directory per part, an overview page (`index.mdx`) and one MDX file per chapter |
+| `src/components/DataTable.astro` | Renders the generated tables (appendix, command catalog) from `data/`                                                                                                    |
+| `src/styles/site.css`            | Site theme on top of Starlight                                                                                                                                           |
+| `data/`                          | Appendix tables (names, Japanese summaries, statuses, docs anchors)                                                                                                      |
+| `tools/`                         | Site lint, and the data extraction and translation tools                                                                                                                 |
+| `docs/`                          | Authoring and review guides, the shared fact ledger, and the original design and plan                                                                                    |
 
 ## Deployment
 

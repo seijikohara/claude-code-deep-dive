@@ -5,6 +5,8 @@ sidebar:
   order: 2
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 セッションがどのモデルで動くかは、エイリアスの解決、指定元の優先順位、許可リスト、自動の切り替えで決まります。この章では、エイリアスとモデル ID、プロバイダ差、価格、優先順位と再開時の扱い、ピン留めと上書き、`opusplan`、サブエージェント、フォールバック、Fable と 1M コンテキストを扱います。
 
 <span id="ch02-overview" />
@@ -72,7 +74,7 @@ fable[1m]  model= claude-fable-5-2 …
 
 - `default` → `claude-opus-5-5` は Anthropic API・サブスクリプションの場合です（他の種別は次の節）。`opusplan` は plan mode 外のため Sonnet です。
 - `best` は 2.1.321 から `opus` と同じです。それより前は `fable` と同じモデルでした（docs の版履歴）。
-- `[1m]` は効果のないモデルでは ID から外れます（2.1.311）。<span class="undocumented">`fable[1m]` も受け付けますが効果はありません</span> <span class="badge undocumented">Undocumented</span>
+- `[1m]` は効果のないモデルでは ID から外れます（2.1.311）。<span class="undocumented">`fable[1m]` も受け付けますが効果はありません</span> <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" />
 
 <div class="src">
   出典: [model-config#model-aliases](https://code.claude.com/docs/en/model-config#model-aliases) · [#version-history](https://code.claude.com/docs/en/model-config#version-history) · changelog 2.1.311 · 実機確認 2.1.321

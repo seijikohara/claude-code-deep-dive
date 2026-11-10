@@ -5,6 +5,8 @@ sidebar:
   order: 50
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 Claude Code をクラウドの VM で動かし、手元のマシンを閉じても作業を続ける仕組みです。この章では、CLI からの起動と追送、バンドル送信、Teleport、GitHub の接続、クラウド環境（ネットワーク・変数・シークレット・セットアップスクリプト）、VM の制限と Auto-fix を扱います。
 
 <span id="ch50-overview" />
@@ -310,7 +312,7 @@ https://claude.ai/code?prompt=Fix%20the%20login%20bug&repositories=acme/webapp
 - VM は Ubuntu 24.04 x86_64 で、目安は 4 vCPU・16 GB RAM・30 GB ディスクです。Python・Node 20/21/22・Ruby・PHP・Java 21・Go・Rust・Docker・PostgreSQL 16・Redis 7.0・Chrome for Testing などが入っています（`check-tools` で確認）。シェルには入れず、Claude がすべて実行します。
 - Bash は既定 2 分・最大 10 分で、超えるとバックグラウンドへ移って最大 30 分続きます。`BASH_DEFAULT_TIMEOUT_MS`・`BASH_MAX_TIMEOUT_MS` で延ばせます。SessionStart フックは 600 秒です。
 - 数分アイドルで VM は一時停止し、後で回収されることがあります（Environment expired）。再開すると会話は戻りますが、シェル・サブエージェント・セッション内のスケジュールタスクは戻りません。
-- 権限モードは Auto・Accept edits・Plan です。`/model`・`/effort`・`/color`・`/rename` は引数で指定し、`/fast` は v2.1.271 以降で使えます。Agent Teams <span class="badge experimental">Experimental</span> は `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` で有効にします。
+- 権限モードは Auto・Accept edits・Plan です。`/model`・`/effort`・`/color`・`/rename` は引数で指定し、`/fast` は v2.1.271 以降で使えます。Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> は `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` で有効にします。
 - レート制限は他の利用と共有です。組織の IP 許可リストがあると、Anthropic ホストのセッションは認証エラーになります。
 
 ### Auto-fix pull requests

@@ -8,11 +8,13 @@ sidebar:
     variant: note
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 クラウドセッションを、Anthropic のインフラではなく自組織のネットワーク内で実行する仕組みです。この章では、環境・ランナー・セッションの関係、提供条件、ランナーの起動と主要フラグを扱います。
 
 <span id="ch51-overview" />
 
-## 仕組みと提供条件 <span class="badge beta">Beta</span>
+## 仕組みと提供条件 <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - **環境**: claude.ai の管理画面 **Cloud environments** で作るランナーのグループです。API・メトリクス上の名前は `pool`、ID は `ccpool_...` です。
 - **ランナー**: 自組織のホストで動く常駐プロセスです。`claude` 本体に `claude self-hosted-runner` として含まれます（`--help` 非表示）。
@@ -36,7 +38,7 @@ sidebar:
 
 <span id="ch51-runner" />
 
-## ランナーの起動・要件・停止の挙動 <span class="badge beta">Beta</span>
+## ランナーの起動・要件・停止の挙動 <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 ```bash
 # 対話ガイド（Owner でサインインしたホスト）
@@ -71,7 +73,7 @@ claude -p "Fix the login bug" \
 
 <span id="ch51-flags" />
 
-## ランナーの主要フラグ <span class="badge beta">Beta</span>
+## ランナーの主要フラグ <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 | フラグ                        | 既定         | 用途                                                                                 |
 | ----------------------------- | ------------ | ------------------------------------------------------------------------------------ |
@@ -89,7 +91,7 @@ claude -p "Fix the login bug" \
 | `--health-port`               | `8080`       | `/healthz` と `/metrics`（Prometheus）。`0` で無効                                   |
 
 - フラグは環境変数より優先されます。時間を表す環境変数は、フラグの単位にかかわらずミリ秒です（`_MS` で終わる名前）。
-- 2.1.321 の `--help` には docs の表にないフラグもあります。`--checkout-hook-timeout-min`（既定 30 分。changelog 2.1.307）と、<span class="undocumented">`--agent-proxy-url`・`--diff-finds-nested-repository`</span> <span class="badge undocumented">Undocumented</span> です。
+- 2.1.321 の `--help` には docs の表にないフラグもあります。`--checkout-hook-timeout-min`（既定 30 分。changelog 2.1.307）と、<span class="undocumented">`--agent-proxy-url`・`--diff-finds-nested-repository`</span> <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /> です。
 
 <div class="src">
   出典: [self-hosted-environments-reference#runner-cli-flags](https://code.claude.com/docs/en/self-hosted-environments-reference#runner-cli-flags) · changelog 2.1.307 · 実機確認 2.1.321（`claude self-hosted-runner --help`）

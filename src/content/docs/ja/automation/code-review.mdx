@@ -5,6 +5,8 @@ sidebar:
   order: 47
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 Claude Code のレビュー機能は 4 層です。セッション内の `/code-review`、クラウドで多数のエージェントが検証する ultrareview、GitHub の PR を自動でレビューする Code Review、脆弱性を深く探す Claude Security プラグインです。この章では、それぞれの書式、課金、制限、CI での使い方を扱います。
 
 <span id="ch47-local" />
@@ -39,7 +41,7 @@ Claude Code のレビュー機能は 4 層です。セッション内の `/code-
 
 <span id="ch47-ultrareview" />
 
-## ultrareview: 仕組み・料金・制限 <span class="badge preview">Preview</span>
+## ultrareview: 仕組み・料金・制限 <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 - クラウドセッションのサンドボックスで多数のレビューエージェントが動き、指摘はすべて独立に再現・検証されます。通常 5〜15 分かかり、バックグラウンドのタスクとして `/tasks` に出ます。
 - 起動は `/code-review ultra` だけです。利用できるアカウントでは `/ultrareview` がエイリアスです。Claude が自分から始めることはありません。
@@ -64,7 +66,7 @@ Claude Code のレビュー機能は 4 層です。セッション内の `/code-
 
 <span id="ch47-ultrareview-cli" />
 
-## ultrareview を CI から: `claude ultrareview` <span class="badge preview">Preview</span>
+## ultrareview を CI から: `claude ultrareview` <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 ```text title="実測 2.1.321" frame="terminal"
 $ claude ultrareview --help
@@ -153,7 +155,7 @@ gh api repos/OWNER/REPO/check-runs/CHECK_RUN_ID --jq '
 
 - usage credits でトークン量に応じて組織に課金し、Bedrock などの組織でも Anthropic の請求に載ります。1 回の定額はなく、試験運用で **Average cost** 列から見積もります。
 
-```markdown
+```markdown title="REVIEW.md"
 # Review instructions
 
 ## What Important means here

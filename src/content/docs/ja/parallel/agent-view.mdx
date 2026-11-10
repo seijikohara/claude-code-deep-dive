@@ -5,14 +5,16 @@ sidebar:
   order: 38
   badge:
     text: "Preview"
-    variant: note
+    variant: tip
 ---
+
+import { Badge } from "@astrojs/starlight/components";
 
 端末を占有しないバックグラウンドセッションを起動し、`claude agents` の 1 画面で状態を見て、必要なときだけ介入する仕組みです。この章では、画面と状態、dispatch の入力、キーとフィルタ、`claude --bg` とシェルからの管理、supervisor による永続化、worktree への隔離と削除規則、`claude agents --json` を扱います。
 
 <span id="ch38-overview" />
 
-## 画面と状態 <span class="badge preview">Preview</span>
+## 画面と状態 <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 - `claude agents` は端末全体を使う一覧を開きます。全プロジェクトのバックグラウンドセッションが並び、固定したものと入力待ちが上に来ます。
 - `claude agents --cwd ~/projects/my-app` はその配下で始まったセッションに絞ります。`.claude/worktrees/` へ移ったものも含みます。
@@ -39,7 +41,7 @@ sidebar:
 
 <span id="ch38-dispatch" />
 
-## dispatch の入力と、セッションを背景へ送る方法 <span class="badge preview">Preview</span>
+## dispatch の入力と、セッションを背景へ送る方法 <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 | 入力                    | 効果                                                                                                                 |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -69,7 +71,7 @@ claude agents --permission-mode plan --model opus --effort high
 
 <span id="ch38-keys" />
 
-## キー・フィルタ・peek と attach <span class="badge preview">Preview</span>
+## キー・フィルタ・peek と attach <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 | キー                                                       | 動作                                                                          |
 | ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -102,7 +104,7 @@ claude agents --permission-mode plan --model opus --effort high
 
 <span id="ch38-shell" />
 
-## `claude --bg` とシェルからの管理 <span class="badge preview">Preview</span>
+## `claude --bg` とシェルからの管理 <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 ```text
 $ claude --bg --name "flaky-test-fix" \
@@ -138,7 +140,7 @@ ID は `~/.claude/jobs/` 配下のディレクトリ名です。`--agent` の名
 
 <span id="ch38-hosting" />
 
-## supervisor・永続化・アイドル停止 <span class="badge preview">Preview</span>
+## supervisor・永続化・アイドル停止 <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 | 状況                                                  | プロセスの扱い                                                                                                                                                                    |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -154,7 +156,7 @@ ID は `~/.claude/jobs/` 配下のディレクトリ名です。`--agent` の名
 
 * `CLAUDE_CONFIG_DIR` を変えると、別の supervisor が別のセッション群を持ちます。
 * 各セッションが利用枠を個別に使います。10 本動かせば約 10 倍の速さで減ります。
-* 無効化は `disableAgentView: true` か `CLAUDE_CODE_DISABLE_AGENT_VIEW` です（managed で強制可）。<span class="undocumented">環境変数つきの `-p` の init では `claude` エージェントが消えます <span class="badge undocumented">Undocumented</span></span>
+* 無効化は `disableAgentView: true` か `CLAUDE_CODE_DISABLE_AGENT_VIEW` です（managed で強制可）。<span class="undocumented">環境変数つきの `-p` の init では `claude` エージェントが消えます <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /></span>
 
 <div class="src">
   出典: [agent-view#the-supervisor-process](https://code.claude.com/docs/en/agent-view#the-supervisor-process) · [#where-state-is-stored](https://code.claude.com/docs/en/agent-view#where-state-is-stored) · [#turn-off-agent-view](https://code.claude.com/docs/en/agent-view#turn-off-agent-view) · [#limitations](https://code.claude.com/docs/en/agent-view#limitations) · 実機確認 2.1.321
@@ -162,7 +164,7 @@ ID は `~/.claude/jobs/` 配下のディレクトリ名です。`--agent` の名
 
 <span id="ch38-worktree" />
 
-## worktree への隔離・削除規則・`claude agents --json` <span class="badge preview">Preview</span>
+## worktree への隔離・削除規則・`claude agents --json` <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 - dispatch と `claude --bg` のセッションは、編集の前に `.claude/worktrees/` の worktree へ移ります。子のサブエージェントも同じ worktree に書きます。
 - 移らない場合: <kbd>←</kbd>・`/background` で送ったセッション、既に linked worktree の中、編集先が linked worktree の中、`WorktreeCreate` フックのない非 git ディレクトリ、作業ディレクトリ外への書き込み。隔離自体を止めるには `{"worktree": {"bgIsolation": "none"}}` を書きます。

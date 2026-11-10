@@ -5,13 +5,15 @@ sidebar:
   order: 41
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 Claude が書いた JavaScript のスクリプトを、ランタイムがバックグラウンドで実行し、多数のサブエージェントを動かす仕組みです。この章では、他の手段との違い、opt-in の経路と承認、スクリプト API と保存、実行中の管理と再開、上限・サイズ目安・コスト・無効化を扱います。
 
 <span id="ch41-compare" />
 
 ## Workflows・サブエージェント・Skills・Agent Teams の違い
 
-|                  | サブエージェント          | Skills                     | Agent Teams <span class="badge experimental">Experimental</span> | Workflows                      |
+|                  | サブエージェント          | Skills                     | Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> | Workflows                      |
 | ---------------- | ------------------------- | -------------------------- | ---------------------------------------------------------------- | ------------------------------ |
 | 実体             | Claude が起動するワーカー | Claude が従う指示          | lead が同格のセッションを監督                                    | ランタイムが実行するスクリプト |
 | 次を決める者     | Claude（ターンごと）      | Claude（プロンプトに従う） | lead（ターンごと）                                               | スクリプト                     |

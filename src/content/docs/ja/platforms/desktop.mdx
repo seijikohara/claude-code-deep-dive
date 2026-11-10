@@ -5,6 +5,8 @@ sidebar:
   order: 52
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 Claude Desktop アプリの Code タブで Claude Code を使う形態です。この章では、アプリと同梱 CLI の 2 つのバージョン、CLI との行き来、権限モードと diff、PR 監視と Browser ペイン、並列セッション、SSH、管理キー、Computer use と Dispatch、iOS Simulator・Linux・WSL を扱います。
 
 <span id="ch52-overview" />
@@ -195,7 +197,7 @@ claude://code/new?ssh_host=dev%40build.example.com&ssh_port=2222&ssh_folder=/srv
 
 ## Computer use と Dispatch
 
-### Computer use <span class="badge preview">Preview</span>
+### Computer use <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 - Claude がアプリを開き、画面を操作します。macOS と Windows の research preview で、Pro・Max・Ultra だけです（Team・Enterprise 不可）。macOS は 14 以降が必要で、Linux 版にはありません。
 - 既定はオフです。**Settings** の **This computer > System**（なければ **Capabilities**）で **Enable computer use** をオンにします。macOS ではアクセシビリティと画面収録の許可も要ります。
@@ -230,14 +232,14 @@ CLI の Computer use は [Ch54](/claude-code-deep-dive/ja/platforms/chrome-compu
 
 Desktop の **Scheduled tasks** ページには、ローカルとクラウドのタスクが並びます。ローカルのタスクはアプリが開いていてマシンが起きている間だけ動きます。比較は [Ch43](/claude-code-deep-dive/ja/parallel/scheduling/) で扱います。
 
-### iOS Simulator ペイン <span class="badge beta">Beta</span>
+### iOS Simulator ペイン <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - Claude がアプリをビルド・起動すると、Apple の iOS Simulator の画面がペインに流れます。画面操作を使わないため Computer use は不要です。
 - macOS・Desktop v1.24012.0 以降・iOS プラットフォーム入りの Xcode が必要です。ローカルセッション専用で、HIPAA 構成の Enterprise 組織では使えません。
 - デバイスごとに初回だけ許可します。URL を開く、ビルド、インストールと起動は権限モードに従います。
 - Claude が起動したシミュレータは、アプリ終了時、セッションのアーカイブ時、または切り離しから 10 分後に停止します。
 
-### Linux 版 <span class="badge beta">Beta</span>
+### Linux 版 <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - Ubuntu 22.04 以降か Debian 12 以降、x86_64 か arm64 です。Anthropic の apt リポジトリから入れます。
 - Computer use と音声入力はまだありません。Fedora・RHEL は対象外です。Cowork には KVM と QEMU が必要です。

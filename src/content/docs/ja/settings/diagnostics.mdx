@@ -5,6 +5,8 @@ sidebar:
   order: 27
 ---
 
+import { Badge, Steps } from "@astrojs/starlight/components";
+
 設定が効かないとき、何が読み込まれ、どの値が勝ったかを確かめる手段をまとめます。`/status`、`claude doctor`、`--debug`、`--setting-sources` による切り分け、`--safe-mode` と clean-config による再現の順に扱います。
 
 <span id="ch27-status" />
@@ -45,7 +47,7 @@ sidebar:
 | 実行場所 | ターミナル。セッションを開始しない                                                                                                         | セッション内。Skill                                                         |
 | 動作     | 読み取り専用の診断                                                                                                                         | 修正を提案し、確認後に適用                                                  |
 | 対象     | インストール、自動更新、managed の取得、組織ポリシー、不正な設定、Remote Control                                                           | インストール、不正な設定、未使用の拡張、サブエージェント名の重複、CLAUDE.md |
-| 補足     | <span class="undocumented">カレントディレクトリの設定を trust の確認なしで読む <span class="badge undocumented">Undocumented</span></span> | 別名 `/checkup`。`DISABLE_DOCTOR_COMMAND=1` で隠せる                        |
+| 補足     | <span class="undocumented">カレントディレクトリの設定を trust の確認なしで読む <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /></span> | 別名 `/checkup`。`DISABLE_DOCTOR_COMMAND=1` で隠せる                        |
 
 - `-p` の実行が設定を捨てたときは、ターミナルで `claude doctor` を実行して何が落ちたかを確かめます。
 - 次の実測ブロックは不正な `defaultMode` を置いたディレクトリでの出力です。Suggested fix が挙げるモードは 4 つで、エラー文の 6 つより少なくなっています。プランなどを含む値は … にしました。
@@ -113,7 +115,7 @@ $ claude -p --setting-sources project \
 
 - `--debug=mcp` のログは 14 行、`--debug='!mcp'` は 135 行で、`[MCP]` の行はそれぞれ 2 行と 0 行でした。
 - `--debug=hooks` を付けた同じ実行では、ログファイルが作られませんでした。
-- <span class="undocumented">`--debug-file` は同じディレクトリに、最新のログを指す `latest` シンボリックリンクを作りました <span class="badge undocumented">Undocumented</span></span>
+- <span class="undocumented">`--debug-file` は同じディレクトリに、最新のログを指す `latest` シンボリックリンクを作りました <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /></span>
 
 <div class="src">
   出典: [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · [env-vars#variables](https://code.claude.com/docs/en/env-vars#variables) · [commands](https://code.claude.com/docs/en/commands)（`/debug`）· [debug-your-config#check-hooks](https://code.claude.com/docs/en/debug-your-config#check-hooks) · 実機確認 2.1.321
@@ -123,12 +125,16 @@ $ claude -p --setting-sources project \
 
 ## どの設定が勝ったかを突き止める
 
+<Steps>
+
 1. `/status` で、読まれたファイルと managed の経路を確かめる。
 2. settings-reference でキーの「Per-session overrides」行を読み、フラグや環境変数が上書きしていないかを確かめる（[Ch18](/claude-code-deep-dive/ja/settings/settings-files/#ch18-per-key)）。
 3. `claude doctor` で、不正として捨てられたファイルとエントリを確かめる。
 4. `--setting-sources` で読むファイルを 1 つずつ絞り、`-p --output-format stream-json --verbose` の init にある `model` や `permissionMode` を比べる。プロンプトを `/advisor` のようなローカルコマンドにすると、モデルへのリクエストは送られない（実測）。
 5. デバッグログで、どの設定パスが存在し、どれが無いかを確かめる。
 6. それでも分からなければ、次の節の clean-config で再現させる。
+
+</Steps>
 
 | コマンド         | 表示する内容                                                                                  |
 | ---------------- | --------------------------------------------------------------------------------------------- |

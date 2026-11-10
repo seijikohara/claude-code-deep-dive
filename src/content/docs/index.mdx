@@ -14,6 +14,8 @@ hero:
       variant: minimal
 ---
 
+import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
 ```console title="claude --version"
 $ claude --version
 2.1.321 (Claude Code)
@@ -21,8 +23,14 @@ $ claude --version
 
 ## Editions
 
-- **Japanese:** complete. 76 chapters, from the agent loop to enterprise operation, plus complete tables of all 249 settings keys, 402 environment variables, CLI flags and subcommands, 33 hook events, and 46 built-in tools.
-- **English:** in preparation.
+<CardGrid>
+  <LinkCard
+    title="Japanese edition"
+    href="/claude-code-deep-dive/ja/"
+    description="Complete. 76 chapters, from the agent loop to enterprise operation, plus complete tables of all 249 settings keys, 402 environment variables, CLI flags and subcommands, 33 hook events, and 46 built-in tools."
+  />
+  <Card title="English edition">In preparation.</Card>
+</CardGrid>
 
 ## How the reference is checked
 

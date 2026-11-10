@@ -1,0 +1,44 @@
+---
+title: "操作"
+description: "スラッシュコマンドの全件、キーボード操作と入力、キーバインド、ステータスライン、出力スタイル、表示とアクセシビリティを扱います。"
+sidebar:
+  label: 概要
+  order: 0
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+スラッシュコマンドの全件、キーボード操作と入力、キーバインド、ステータスライン、出力スタイル、表示とアクセシビリティを扱います。
+
+<CardGrid>
+  <LinkCard
+    title="スラッシュコマンド完全ガイド"
+    href="/claude-code-deep-dive/ja/operation/commands/"
+    description="公式一覧に載る現行コマンド名 116（組み込み 95 ＋バンドル 21）と、削除済み 3 件をすべて掲載します。"
+  />
+  <LinkCard
+    title="キーボードと入力"
+    href="/claude-code-deep-dive/ja/operation/keyboard/"
+    description="対話セッションのプロンプトで使うキーと入力の仕組みです。"
+  />
+  <LinkCard
+    title="キーバインド"
+    href="/claude-code-deep-dive/ja/operation/keybindings/"
+    description="~/.claude/keybindings.json で、UI のコンテキストごとにキーとアクションの対応を変える仕組みです。"
+  />
+  <LinkCard
+    title="ステータスライン"
+    href="/claude-code-deep-dive/ja/operation/statusline/"
+    description="任意のシェルコマンドに JSON でセッション情報を渡し、その標準出力をフッターの上に表示する仕組みです。"
+  />
+  <LinkCard
+    title="出力スタイル"
+    href="/claude-code-deep-dive/ja/operation/output-styles/"
+    description="セッション全体の応答の役割・口調・形式を、システムプロンプトへの指示で切り替える仕組みです。"
+  />
+  <LinkCard
+    title="表示とアクセシビリティ"
+    href="/claude-code-deep-dive/ja/operation/display/"
+    description="CLI の描画方式と端末まわりの設定です。"
+  />
+</CardGrid>

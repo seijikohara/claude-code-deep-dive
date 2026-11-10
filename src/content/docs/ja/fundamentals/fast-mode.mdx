@@ -5,6 +5,8 @@ sidebar:
   order: 4
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 同じモデルを、速度優先の API 設定で動かすモードです。この章では、対応モデルと各モデルのステータス、料金と課金先、設定の持続とモデル切り替え時の挙動、組織設定とゲートウェイ環境での可用性チェック、レート制限と廃止予定を扱います。
 
 <span id="ch04-basics" />
@@ -27,9 +29,9 @@ sidebar:
 | --------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | Fable 5.2             | GA                                               | v2.1.321 以降                                                                      |
 | Opus 5.5              | GA                                               | `/fast` の既定の切り替え先。2.1.304 でダイアログの「(research preview)」表記を削除 |
-| Opus 5                | <span class="badge preview">Preview</span>       | Console 組織は利用枠のプロビジョニングが必要                                       |
-| Opus 4.8              | <span class="badge deprecated">Deprecated</span> | 2026-10-30 に非推奨、2026-11-30 に削除予定                                         |
-| Opus 4.7              | <span class="badge removed">Removed</span>       | 2026-07-24 に削除。切り替えると fast mode は OFF                                   |
+| Opus 5                | <Badge text="Preview" variant="tip" size="small" class="badge preview" />       | Console 組織は利用枠のプロビジョニングが必要                                       |
+| Opus 4.8              | <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> | 2026-10-30 に非推奨、2026-11-30 に削除予定                                         |
+| Opus 4.7              | <Badge text="Removed" variant="danger" size="small" class="badge removed" />       | 2026-07-24 に削除。切り替えると fast mode は OFF                                   |
 | Sonnet・Haiku・その他 | 非対応                                           | —                                                                                  |
 
 ページ冒頭の注記は Opus 5 と Opus 4.8 を research preview としています。Opus 4.8 は同じページの警告で非推奨と明記されているため、ここでは Deprecated と表示します。
@@ -166,14 +168,14 @@ fast mode のレート制限は標準速度とは別枠です。制限に達す�
 - 対話: `Fast mode disabled · Out of usage credits` を表示して OFF にします。保存済みの設定は残ります。
 - `-p` の `stream-json` と SDK: 同じ文面を `system` / `notification` メッセージでターンごとに 1 回出し、ON のままです（v2.1.221 以降）。
 
-### Opus 4.8 の fast mode <span class="badge deprecated">Deprecated</span>
+### Opus 4.8 の fast mode <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" />
 
 - 2026-10-30 に非推奨となり、2026-11-30 に削除されます。
 - 削除後も Opus 4.8 で fast mode が ON のままだと、API がリクエストを拒否します。標準速度の Opus 4.8 へのフォールバックはありません。
 - fast mode を続けるには、`/model` で Opus 5.5（v2.1.280 以降）へ切り替えます。fast mode は ON のまま残ります。
 - Opus 4.8 を標準速度で使い続けるには `/fast off` を実行します。
 
-Opus 4.7 の fast mode は 2026-06-25 に非推奨、2026-07-24 に削除済みです <span class="badge removed">Removed</span>。
+Opus 4.7 の fast mode は 2026-06-25 に非推奨、2026-07-24 に削除済みです <Badge text="Removed" variant="danger" size="small" class="badge removed" />。
 
 2.1.321 では、fast serving がレート制限・過負荷・失敗のときに、まず同じモデルの標準速度で再試行するよう修正されています。
 

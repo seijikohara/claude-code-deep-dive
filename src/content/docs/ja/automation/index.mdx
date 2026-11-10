@@ -1,0 +1,34 @@
+---
+title: "自動化"
+description: "ヘッドレス実行（-p）、Agent SDK、CI/CD、コードレビューを扱います。"
+sidebar:
+  label: 概要
+  order: 0
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+ヘッドレス実行（`-p`）、Agent SDK、CI/CD、コードレビューを扱います。
+
+<CardGrid>
+  <LinkCard
+    title="ヘッドレス実行"
+    href="/claude-code-deep-dive/ja/automation/headless/"
+    description="claude -p でスクリプトや CI から Claude Code を動かす方法です。"
+  />
+  <LinkCard
+    title="Agent SDK"
+    href="/claude-code-deep-dive/ja/automation/agent-sdk/"
+    description="Claude Code をライブラリとして TypeScript と Python から使う SDK です。"
+  />
+  <LinkCard
+    title="CI/CD"
+    href="/claude-code-deep-dive/ja/automation/cicd/"
+    description="GitHub Actions（anthropics/claude-code-action@v1）と GitLab CI/CD から Claude Code を動かす方法です。"
+  />
+  <LinkCard
+    title="コードレビュー"
+    href="/claude-code-deep-dive/ja/automation/code-review/"
+    description="Claude Code のレビュー機能は 4 層です。"
+  />
+</CardGrid>

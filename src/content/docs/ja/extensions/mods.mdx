@@ -5,6 +5,8 @@ sidebar:
   order: 33
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 JavaScript か TypeScript のイベントハンドラーで、Claude Code の動作と画面を内側から変えるプラグインです。この章では、プラグインや設定フックとの違い、イベントと実行順、mods API と描画、テストと組織での管理を扱います。
 
 <span id="ch33-overview" />
@@ -27,7 +29,7 @@ JavaScript か TypeScript のイベントハンドラーで、Claude Code の動
 
 内蔵の Mod は `cc-plugin-agents-md`・`cc-plugin-diff`・`cc-plugin-plugin-authoring`・`cc-plugin-sec-default`・`cc-plugin-telemetry`・`cc-plugin-you-should-know` です。`disableAllHooks`・`--bare`・`--safe-mode` では止まりません。
 
-<span class="undocumented">`-p` の init の `plugins` には、docs に無い `cc-plugin-privacy@builtin` も出ます。 <span class="badge undocumented">Undocumented</span></span>
+<span class="undocumented">`-p` の init の `plugins` には、docs に無い `cc-plugin-privacy@builtin` も出ます。 <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /></span>
 
 <div class="src">
   出典: [plugins/mods/overview](https://code.claude.com/docs/en/plugins/mods/overview) · [#where-mods-run](https://code.claude.com/docs/en/plugins/mods/overview#where-mods-run) · [#mods-built-into-claude-code](https://code.claude.com/docs/en/plugins/mods/overview#mods-built-into-claude-code) · 実機確認 2.1.321

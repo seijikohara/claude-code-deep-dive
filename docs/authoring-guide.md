@@ -5,9 +5,10 @@ Read `docs/ledger.md` (canonical facts, status labels, conflict rulings) before 
 
 ## Page structure
 
-- Frontmatter: `title`, `description` (the chapter summary), and `sidebar.order` (the chapter number). A chapter whose whole feature is not generally available adds `sidebar.badge`.
+- Each part directory has an `index.mdx` overview (`sidebar.label: 概要`, `sidebar.order: 0`): the part summary and a `<CardGrid>` with one `<LinkCard>` per chapter. Add a card when you add a chapter.
+- Frontmatter: `title`, `description` (the chapter summary), and `sidebar.order` (the chapter number). A chapter whose whole feature is not generally available adds `sidebar.badge` with the variant from the status table below.
 - The page opens with the chapter summary, then one `##` section per topic.
-- Each section starts with an anchor that other pages link to: `<span id="ch05-enable" />`. Keep existing ids; links across the site use them.
+- Each section starts with an anchor that other pages link to: `<span id="ch05-enable" />`. Keep existing ids; links across the site use them. When two sections merge, keep both anchors.
 - Each section ends with its source line:
 
   ```mdx
@@ -19,15 +20,39 @@ Read `docs/ledger.md` (canonical facts, status labels, conflict rulings) before 
 
 ## Components and conventions
 
-| Need                            | Markup                                                                                                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status of a non-GA feature      | `<span class="badge experimental">Experimental</span>` (also `beta`, `preview`, `undocumented`, `deprecated`, `removed`). Use the ledger's label. |
-| Note, warning, conflict         | `:::note[補足]`, `:::caution[注意]`, `:::danger[食い違い]` … `:::`. A conflict quotes both readings and their sources.                            |
-| Output observed on the binary   | A code block with `title="実測 2.1.321" frame="terminal"`. Quote real output only; redact paths and IDs.                                          |
-| Keys                            | `<kbd>Ctrl</kbd>+<kbd>O</kbd>`                                                                                                                    |
-| An item seen only in the binary | `<span class="undocumented">…</span>` with an Undocumented badge                                                                                  |
-| A generated table               | `<DataTable spec={{ data: "env", columns: [...] }} />` (see `src/components/DataTable.astro`)                                                     |
-| A link to another chapter       | `/claude-code-deep-dive/ja/<part>/<chapter>/#<section id>`                                                                                        |
+Import Starlight components once per page, right after the frontmatter:
+
+```mdx
+import { Badge, Steps } from "@astrojs/starlight/components";
+```
+
+| Need                              | Markup                                                                                                                     |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Status of a non-GA feature        | `<Badge text="Experimental" variant="caution" size="small" class="badge experimental" />`. Use the ledger's label.         |
+| Note, warning, conflict           | `:::note[補足]`, `:::caution[注意]`, `:::danger[食い違い]` … `:::`. A conflict quotes both readings and their sources.     |
+| A procedure the reader performs   | `<Steps>` around an ordered list. Precedence and evaluation orders stay plain ordered lists: they are rankings, not steps. |
+| A directory layout                | `<FileTree>` around a nested list. Text after the name is a comment; `…` is a placeholder. Escape `<` as `&lt;`.           |
+| The same example in two languages | `<Tabs syncKey="sdk-lang">` with one `<TabItem label="Python">` per language, so the reader's choice carries across pages. |
+| Links to the chapters of a part   | `<CardGrid>` with `<LinkCard title description href />` (part overview pages and the landing page)                         |
+| The contents of a named file      | A code block with `title="<path as the prose names it>"`                                                                   |
+| Output observed on the binary     | A code block with `title="実測 2.1.321" frame="terminal"`. Quote real output only; redact paths and IDs.                   |
+| Keys                              | `<kbd>Ctrl</kbd>+<kbd>O</kbd>`                                                                                             |
+| An item seen only in the binary   | `<span class="undocumented">…</span>` with an Undocumented badge                                                           |
+| A generated table                 | `<DataTable spec={{ data: "env", columns: [...] }} />` (see `src/components/DataTable.astro`)                              |
+| A link to another chapter         | `/claude-code-deep-dive/ja/<part>/<chapter>/#<section id>`                                                                 |
+
+Status labels and badge variants:
+
+| Label        | `variant` | `class`              |
+| ------------ | --------- | -------------------- |
+| Beta         | `note`    | `badge beta`         |
+| Preview      | `tip`     | `badge preview`      |
+| Experimental | `caution` | `badge experimental` |
+| Undocumented | `default` | `badge undocumented` |
+| Deprecated   | `danger`  | `badge deprecated`   |
+| Removed      | `danger`  | `badge removed`      |
+
+The `class` keeps the site's status style (a colored square and a word) and lets `tools/lint.mjs` find Undocumented items.
 
 ## Writing rules
 

@@ -5,6 +5,8 @@ sidebar:
   order: 37
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 1 つのセッションの中で、独立したコンテキストを持つワーカーに作業を委譲する仕組みです。この章では、起動時に渡るもの、組み込みエージェント、定義ファイルのスコープと frontmatter、`--agents` と `--agent`、ツール・権限の決まり方、バックグラウンド実行、ネストと同時実行の上限、再開とフック、フォークを扱います。
 
 <span id="ch37-isolation" />
@@ -43,7 +45,7 @@ sidebar:
 | `general-purpose`                                                | 他で決まらなければ `CLAUDE_CODE_SUBAGENT_MODEL`、なければメイン                                                                                                           | 使える全ツール。探索と変更を伴う多段作業                                  |
 | `claude`                                                         | 固有のモデルなし（解決順に従う）                                                                                                                                          | 全ツールの受け皿。Agent View で起動するセッションの既定                   |
 | `statusline-setup` / `claude-code-guide`                         | Sonnet / Haiku                                                                                                                                                            | `/statusline` の実行時 / Claude Code についての質問                       |
-| `web-fetch` <span class="badge undocumented">Undocumented</span> | —                                                                                                                                                                         | docs に記載なし。`-p` の init に出る                                      |
+| `web-fetch` <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /> | —                                                                                                                                                                         | docs に記載なし。`-p` の init に出る                                      |
 
 ```text title="実測 2.1.321" frame="terminal"
 $ claude -p --safe-mode --setting-sources project \
@@ -92,7 +94,7 @@ init の一部。`--safe-mode` では `statusline-setup` が消え、`claude-cod
 
 ## frontmatter: 書式と基本フィールド
 
-```markdown
+```markdown title=".claude/agents/code-reviewer.md"
 ---
 name: code-reviewer
 description: Reviews code for quality and best practices

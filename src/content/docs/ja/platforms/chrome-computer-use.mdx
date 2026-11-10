@@ -5,6 +5,8 @@ sidebar:
   order: 54
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 Claude Code がブラウザとデスクトップを直接操作する 2 つの仕組みです。この章では、Claude in Chrome の有効化・権限・組織による制御と、CLI の Computer use（research preview）の有効化と安全策を扱います。
 
 <span id="ch54-chrome" />
@@ -64,7 +66,7 @@ claude --no-chrome    # このセッションで無効
 
 <span id="ch54-computer-use" />
 
-## CLI の Computer use <span class="badge preview">Preview</span>
+## CLI の Computer use <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 - macOS の research preview で、Pro・Max・Ultra のみです（Team・Enterprise 不可）。対話セッション専用で、`-p` では使えません。
 - 組み込みの MCP サーバー `computer-use` です。`/mcp` で選んで **Enable** にします。設定はプロジェクトごとに保存されます。

@@ -57,8 +57,14 @@ export default defineConfig({
       sidebar: parts.map(([dir, en, ja]) => ({
         label: en,
         translations: { ja },
+        // Eleven parts and about 90 pages: start each part collapsed; Starlight opens the current one.
+        collapsed: true,
         items: [{ autogenerate: { directory: dir } }],
       })),
+      // Each page links to its MDX source so readers can report or fix an error in place.
+      editLink: {
+        baseUrl: "https://github.com/seijikohara/claude-code-deep-dive/edit/main/",
+      },
       lastUpdated: false,
     }),
   ],

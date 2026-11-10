@@ -1,0 +1,54 @@
+---
+title: "拡張"
+description: "Hooks、Skills、MCP、プラグインとマーケットプレイス、Mods、Channels、Artifacts を扱います。"
+sidebar:
+  label: 概要
+  order: 0
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Hooks、Skills、MCP、プラグインとマーケットプレイス、Mods、Channels、Artifacts を扱います。
+
+<CardGrid>
+  <LinkCard
+    title="Hooks"
+    href="/claude-code-deep-dive/ja/extensions/hooks/"
+    description="33 イベントの設定・入出力・決定制御・非同期実行・安全性を扱います（全件表は 付録 D）。"
+  />
+  <LinkCard
+    title="Skills"
+    href="/claude-code-deep-dive/ja/extensions/skills/"
+    description="SKILL.md で Claude に手順や知識を足す仕組みです。"
+  />
+  <LinkCard
+    title="MCP"
+    href="/claude-code-deep-dive/ja/extensions/mcp/"
+    description="Model Context Protocol（MCP）で外部のツールやデータを Claude Code につなぐ仕組みです。"
+  />
+  <LinkCard
+    title="プラグイン"
+    href="/claude-code-deep-dive/ja/extensions/plugins/"
+    description="Skill・エージェント・フック・MCP サーバーなどを 1 つのディレクトリにまとめ、1 単位で配布・有効化する仕組みです。"
+  />
+  <LinkCard
+    title="マーケットプレイス"
+    href="/claude-code-deep-dive/ja/extensions/marketplaces/"
+    description="プラグインのカタログである marketplace.json と、その配布・管理の仕組みです。"
+  />
+  <LinkCard
+    title="Mods"
+    href="/claude-code-deep-dive/ja/extensions/mods/"
+    description="JavaScript か TypeScript のイベントハンドラーで、Claude Code の動作と画面を内側から変えるプラグインです。"
+  />
+  <LinkCard
+    title="Channels"
+    href="/claude-code-deep-dive/ja/extensions/channels/"
+    description="MCP サーバーから、実行中のローカルセッションへイベントを push する仕組みです。"
+  />
+  <LinkCard
+    title="Artifacts"
+    href="/claude-code-deep-dive/ja/extensions/artifacts/"
+    description="セッションの出力を claude.ai 上のライブな Web ページとして公開する機能です。"
+  />
+</CardGrid>

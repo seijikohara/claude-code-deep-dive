@@ -5,6 +5,8 @@ sidebar:
   order: 35
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 セッションの出力を claude.ai 上のライブな Web ページとして公開する機能です。この章では、作成と公開前の確認、更新・共有・コメント、ライブデータとテンプレート、ページの制約・提供範囲・無効化を扱います。
 
 <span id="ch35-overview" />
@@ -91,7 +93,7 @@ sidebar:
 - コネクタに無いツール名を呼ぶ部分は、全員に対して空になります。v2.1.265 以降、一致する名前が 1 つもない公開は拒否されます。
 - ダウンロードはランタイム機能として宣言します。通常のリンクや `data:`・`blob:` の URL は閲覧画面が遮断します。
 
-### テンプレート <span class="badge beta">Beta</span>
+### テンプレート <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - Claude Slides（プレゼン）、Claude Design（ビジュアルデザイン）、Claude Docs（人が読んで編集する文書）から始められます。
 - `/slides [brief]`・`/design [brief]` でも始められます。どちらも v2.1.265 以降と、artifacts が使えるセッションが必要です。

@@ -5,6 +5,8 @@ sidebar:
   order: 21
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 tools-reference に載る 46 ツール（現行 45 ＋削除済み `TaskOutput`）を用途別に並べ、主な上限、`-p` の init に出る 24 ツールとの差、起動モードとフラグによるツールセットの違いを扱います。ツール名は権限ルール、サブエージェントの `tools`、フックの `matcher` にそのまま書く文字列です。全件の説明は [付録 E](/claude-code-deep-dive/ja/appendix/tools/) にあります。
 
 <span id="ch21-list-1" />
@@ -20,7 +22,7 @@ tools-reference に載る 46 ツール（現行 45 ＋削除済み `TaskOutput`�
 | `Glob`         | ファイル名の検索                                      | 不要 | —    |
 | `Grep`         | ファイル内容の検索                                    | 不要 | —    |
 | `Bash`         | シェルコマンド                                        | 要   | あり |
-| `PowerShell`   | PowerShell <span class="badge preview">Preview</span> | 要   | —    |
+| `PowerShell`   | PowerShell <Badge text="Preview" variant="tip" size="small" class="badge preview" /> | 要   | —    |
 | `Monitor`      | 背景コマンドの出力を監視                              | 要   | あり |
 | `LSP`          | 定義・参照・型エラー                                  | 不要 | —    |
 
@@ -36,7 +38,7 @@ tools-reference に載る 46 ツール（現行 45 ＋削除済み `TaskOutput`�
 | `Workflow`                                        | workflow の実行                                    | 要   | あり   |
 | `TaskCreate`・`TaskGet`・`TaskList`・`TaskUpdate` | タスクリスト                                       | 不要 | —      |
 | `TodoWrite`                                       | 旧チェックリスト                                   | 不要 | —      |
-| `TaskOutput`                                      | <span class="badge removed">Removed</span> 2.1.277 | —    | —      |
+| `TaskOutput`                                      | <Badge text="Removed" variant="danger" size="small" class="badge removed" /> 2.1.277 | —    | —      |
 
 権限: Manual モードで作業ディレクトリ内のパスに確認が出るか。init: `-p` の init の `tools` に出たか。
 
@@ -66,7 +68,7 @@ tools-reference に載る 46 ツール（現行 45 ＋削除済み `TaskOutput`�
 | -------------------------------------- | --------------------------------------------------------------- | ---- | ---- |
 | `CronCreate`・`CronDelete`・`CronList` | セッション内の定期実行                                          | 不要 | あり |
 | `ScheduleWakeup`                       | `/loop` の次回を決める                                          | 不要 | あり |
-| `RemoteTrigger`                        | クラウドの定期タスク <span class="badge preview">Preview</span> | 不要 | あり |
+| `RemoteTrigger`                        | クラウドの定期タスク <Badge text="Preview" variant="tip" size="small" class="badge preview" /> | 不要 | あり |
 | `PushNotification`                     | 通知とプッシュ                                                  | 不要 | あり |
 | `SendUserFile`                         | ファイルをユーザーへ送る                                        | 不要 | —    |
 | `ShareOnboardingGuide`                 | `ONBOARDING.md` の共有                                          | 要   | —    |
@@ -104,7 +106,7 @@ Linux と WSL では `CLAUDE_CODE_TOOL_MEMORY_LIMIT`（例 `4G`）で `Bash`・`
 
 ## `-p` の init（24）と docs（46）の差
 
-- init の 24 は、docs の現行 45 のうち 23 と、docs に無い `DesignSync` <span class="badge undocumented">Undocumented</span> です。docs の 22 ツールが init に出ません。
+- init の 24 は、docs の現行 45 のうち 23 と、docs に無い `DesignSync` <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /> です。docs の 22 ツールが init に出ません。
 - MCP サーバーが接続されたセッションでは、`ReadMcpResourceDirTool` も出ました。このツールは tools-reference に無く、SDK リファレンスのみ記載です。
 - ツール名は `Agent` です。2.1.63 で `Task` から改名され、`Task(...)` は別名として今も効きます。`-p` の init は `Task` と表示します。
 

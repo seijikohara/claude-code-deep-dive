@@ -11,7 +11,7 @@ sidebar:
 
 ## `marketplace.json`: 例とトップレベルのフィールド
 
-```json
+```json title=".claude-plugin/marketplace.json"
 {
   "name": "my-marketplace",
   "description": "Plugins for my team",
@@ -141,7 +141,7 @@ sidebar:
 - **チャネル**: Claude Code にチャネルの概念はありません。別の `name` を持つ 2 つの marketplace（例 `stable-tools` と `latest-tools`）で別の ref を指します。
 - **自動更新**: 自作の marketplace は既定で無効です。`marketplace.json` に有効化のフィールドはなく、利用者か管理者が有効にします。
 
-```json
+```json title="marketplace.json"
 {
   "name": "your-marketplace",
   "owner": { "name": "Your Org" },

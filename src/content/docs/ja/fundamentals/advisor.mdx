@@ -8,11 +8,13 @@ sidebar:
     variant: caution
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 作業中のメインモデルが、判断の要所だけ別のモデルに相談する仕組みです。この章では、有効化の経路、モデルの組み合わせ制約、セッション中の表示、コストとキャッシュ、他の手段との使い分けを扱います。
 
 <span id="ch05-overview" />
 
-## Advisor とは <span class="badge experimental">Experimental</span>
+## Advisor とは <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />
 
 - メインモデルが作業中に、別のモデル（advisor）へ相談するサーバー側ツールです。
 - advisor は、ツール呼び出しと結果を含む会話全体を受け取ります。

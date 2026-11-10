@@ -1,0 +1,54 @@
+---
+title: "まとめ"
+description: "実験的機能とプレビューの一覧、未公開の実験フラグ候補、2.1.x のタイムラインと直近 25 リリース、改名と削除、ドキュメントと実機の食い違い、アップグレードチェックリスト、参考資料をまとめます。"
+sidebar:
+  label: 概要
+  order: 0
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+実験的機能とプレビューの一覧、未公開の実験フラグ候補、2.1.x のタイムラインと直近 25 リリース、改名と削除、ドキュメントと実機の食い違い、アップグレードチェックリスト、参考資料をまとめます。
+
+<CardGrid>
+  <LinkCard
+    title="実験的・プレビュー機能一覧"
+    href="/claude-code-deep-dive/ja/summary/status-board/"
+    description="2.1.321 時点で一般提供（GA）でない機能を、ステータス別に一覧します。"
+  />
+  <LinkCard
+    title="未公開の実験フラグ候補"
+    href="/claude-code-deep-dive/ja/summary/candidates/"
+    description="2.1.321 のバイナリの文字列にだけ現れる環境変数名を、名前だけ掲載します。"
+  />
+  <LinkCard
+    title="タイムライン"
+    href="/claude-code-deep-dive/ja/summary/timeline/"
+    description="2.1.0（2026-01-07）から 2.1.321（2026-11-09）までの 260 リリースから、大きな追加と変更を月ごとに版付きで並べます。"
+  />
+  <LinkCard
+    title="直近 25 リリース"
+    href="/claude-code-deep-dive/ja/summary/recent/"
+    description="2.1.292（2026-10-06）から 2.1.321（2026-11-09）までの 25 リリースを、追加・動作の変更・削除と修正に分けて読みます。"
+  />
+  <LinkCard
+    title="改名・廃止・削除"
+    href="/claude-code-deep-dive/ja/summary/renames/"
+    description="2.1.x の間に名前が変わったもの、非推奨になったもの、削除されたものを版付きで一覧します。"
+  />
+  <LinkCard
+    title="ドキュメントと実機の食い違い"
+    href="/claude-code-deep-dive/ja/summary/conflicts/"
+    description="ドキュメント、changelog、実機（--help・init イベント・実行結果）の記述が一致しなかった項目と、本資料での判定の一覧です。"
+  />
+  <LinkCard
+    title="アップグレードチェックリスト"
+    href="/claude-code-deep-dive/ja/summary/upgrade/"
+    description="2.1.292 より前の版から 2.1.321 に上げるときに、スクリプト・設定・監視が影響を受けうる変更を changelog から拾った確認リストです。"
+  />
+  <LinkCard
+    title="参考資料"
+    href="/claude-code-deep-dive/ja/summary/references/"
+    description="本資料の情報源と調査方法、各節の出典表記の読み方をまとめます。"
+  />
+</CardGrid>

@@ -1,0 +1,54 @@
+---
+title: "プラットフォーム"
+description: "CLI 以外のサーフェス（Desktop、クラウドセッション、セルフホスト環境、IDE、Chrome と Computer use、Projects・Slack・Claude Tag）と、Remote Control とモバイルを扱います。"
+sidebar:
+  label: 概要
+  order: 0
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+CLI 以外のサーフェス（Desktop、クラウドセッション、セルフホスト環境、IDE、Chrome と Computer use、Projects・Slack・Claude Tag）と、Remote Control とモバイルを扱います。
+
+<CardGrid>
+  <LinkCard
+    title="サーフェス"
+    href="/claude-code-deep-dive/ja/platforms/surfaces/"
+    description="Claude Code は同じエンジンを CLI・Desktop・IDE・Web・モバイルで動かします。"
+  />
+  <LinkCard
+    title="Remote Control とモバイル"
+    href="/claude-code-deep-dive/ja/platforms/remote-control/"
+    description="自分のマシンで動く Claude Code のセッションを、claude.ai/code や Claude モバイルアプリから操作する仕組みです。"
+  />
+  <LinkCard
+    title="クラウドセッション"
+    href="/claude-code-deep-dive/ja/platforms/cloud/"
+    description="Claude Code をクラウドの VM で動かし、手元のマシンを閉じても作業を続ける仕組みです。"
+  />
+  <LinkCard
+    title="セルフホスト環境"
+    href="/claude-code-deep-dive/ja/platforms/self-hosted/"
+    description="クラウドセッションを、Anthropic のインフラではなく自組織のネットワーク内で実行する仕組みです。"
+  />
+  <LinkCard
+    title="Desktop"
+    href="/claude-code-deep-dive/ja/platforms/desktop/"
+    description="Claude Desktop アプリの Code タブで Claude Code を使う形態です。"
+  />
+  <LinkCard
+    title="IDE"
+    href="/claude-code-deep-dive/ja/platforms/ide/"
+    description="VS Code 拡張と JetBrains プラグイン、そして CLI が IDE とつながる仕組みです。"
+  />
+  <LinkCard
+    title="Chrome と Computer use"
+    href="/claude-code-deep-dive/ja/platforms/chrome-computer-use/"
+    description="Claude Code がブラウザとデスクトップを直接操作する 2 つの仕組みです。"
+  />
+  <LinkCard
+    title="Projects・Slack・Claude Tag"
+    href="/claude-code-deep-dive/ja/platforms/projects-slack-tag/"
+    description="複数のクラウドセッションをまとめて動かす Projects と、Slack から Claude Code を使う 2 つの形（旧来の Claude Code in Slack と、組織向けの Claude Tag）を扱います。"
+  />
+</CardGrid>

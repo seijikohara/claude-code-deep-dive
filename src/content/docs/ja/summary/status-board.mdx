@@ -5,13 +5,15 @@ sidebar:
   order: 62
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 2.1.321 時点で一般提供（GA）でない機能を、ステータス別に一覧します。ラベルは各機能のドキュメントページの現在の表記に従います。公開時のラベルから変わった機能も併記します。
 
 <span id="ch62-board-1" />
 
 ## Experimental・Preview・Deprecated・Removed
 
-### <span class="badge experimental">Experimental</span>
+### <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />
 
 - Advisor（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/)）。docs 上は Anthropic API のみ
 - Agent Teams（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）。既定で無効
@@ -19,12 +21,12 @@ sidebar:
 - agent フック `type: "agent"`（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）。prompt フックは GA
 - サンドボックスの `network.tlsTerminate`（[Ch25](/claude-code-deep-dive/ja/settings/sandbox/)）
 
-### <span class="badge deprecated">Deprecated</span>
+### <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" />
 
 - Opus 4.8 の fast mode（[Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）。2026-11-30 に削除予定
 - Claude Code in Slack（旧版）（[Ch55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)）
 
-### <span class="badge preview">Preview</span>
+### <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 - Agent view・バックグラウンドセッション（`claude agents`、`--bg`）、`/fork`（[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)）
 - Channels（[Ch34](/claude-code-deep-dive/ja/extensions/channels/)）
@@ -35,7 +37,7 @@ sidebar:
 - Opus 5 の fast mode（[Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）
 - PowerShell ツール（[Ch21](/claude-code-deep-dive/ja/settings/tools/)）
 
-### <span class="badge removed">Removed</span>
+### <Badge text="Removed" variant="danger" size="small" class="badge removed" />
 
 - Opus 4.7 の fast mode（2026-07-24）（[Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）
 - `/agents` ウィザード（2.1.198）（[Ch66](/claude-code-deep-dive/ja/summary/renames/)）
@@ -51,7 +53,7 @@ sidebar:
 
 ## Beta と、公開時のラベルから変わった機能
 
-### <span class="badge beta">Beta</span>
+### <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - MCP tasks（[Ch30](/claude-code-deep-dive/ja/extensions/mcp/)）
 - Artifact テンプレート（[Ch35](/claude-code-deep-dive/ja/extensions/artifacts/)）

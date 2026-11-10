@@ -5,6 +5,7 @@ sidebar:
   order: 12
 ---
 
+import { Badge } from "@astrojs/starlight/components";
 import DataTable from "../../../../components/DataTable.astro";
 
 公式一覧に載る現行コマンド名 116（組み込み 95 ＋バンドル 21）と、削除済み 3 件をすべて掲載します。
@@ -296,7 +297,7 @@ import DataTable from "../../../../components/DataTable.astro";
 | Skill（19）      | `deep-research` `design` `design-sync` `dataviz` `update-config` `verify` `debug` `code-review` `simplify` `batch` `fewer-permission-prompts` `doctor` `loop` `schedule` `claude-api` `workflow-authoring` `run` `run-skill-generator` `plugin-authoring`                                                                                                  |
 | コマンド（31）   | `advisor` `agents` `auto-mode-setup` `autocompact` `clear` `color` `compact` `config` `output-style` `context` `effort` `fast` `focus` `heapdump` `init` `mcp` `import` `model` `reload-plugins` `reload-skills` `rename` `ultrareview` `security-review` `usage-credits` `usage` `insights` `recap` `skill-doctor` `goal` `list-agents` `team-onboarding` |
 | 表記が違う（3）  | `extra-usage`（`/usage-credits` の旧名）、`design-consent` `design-revoke`（docs は `/design consent` と `/design revoke`）                                                                                                                                                                                                                                |
-| docs に無い（2） | <span class="undocumented">`__remote-workflow`</span> <span class="undocumented">`workflow-launch-exec`</span> <span class="badge undocumented">Undocumented</span>                                                                                                                                                                                        |
+| docs に無い（2） | <span class="undocumented">`__remote-workflow`</span> <span class="undocumented">`workflow-launch-exec`</span> <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" />                                                                                                                                                                                        |
 
 別名は init に出ませんが -p で動きます（例: `/cost` `/settings` `/peers`）。`--bare` の init は 51 件、`--disable-slash-commands` は 0 件です。N/A のメッセージは対話専用の証明になりません。削除済みの `/vim` も返します。
 
@@ -321,7 +322,7 @@ import DataTable from "../../../../components/DataTable.astro";
 - **binary の usage 行（実測）**: `/mcp [reconnect|enable|disable [<server>|all]]` と「With no server name, applies to all.」。`reconnect` でもサーバー名を省略できる読み方になります。
   :::
 
-### 公式一覧に無いのに認識される名前 <span class="badge undocumented">Undocumented</span>
+### 公式一覧に無いのに認識される名前 <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" />
 
 <span class="undocumented">`/loops`</span> <span class="undocumented">`/wellbeing`</span> <span class="undocumented">`/cloud-plugins`</span> <span class="undocumented">`/project`</span> <span class="undocumented">`/session`</span> <span class="undocumented">`/use-case`</span>
 

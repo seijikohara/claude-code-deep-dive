@@ -1,0 +1,69 @@
+---
+title: "基礎の深掘り"
+description: "エージェントループの仕組み、モデル選択、Effort と思考、Fast mode、Advisor、コンテキスト管理、セッション、チェックポイント、メモリ、.claude ディレクトリ、ベストプラクティスと大規模リポジトリを扱います。"
+sidebar:
+  label: 概要
+  order: 0
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+エージェントループの仕組み、モデル選択、Effort と思考、Fast mode、Advisor、コンテキスト管理、セッション、チェックポイント、メモリ、`.claude` ディレクトリ、ベストプラクティスと大規模リポジトリを扱います。
+
+<CardGrid>
+  <LinkCard
+    title="仕組み"
+    href="/claude-code-deep-dive/ja/fundamentals/how-it-works/"
+    description="Claude Code はモデルの外側でツールとコンテキストを管理する「ハーネス」です。"
+  />
+  <LinkCard
+    title="モデル選択"
+    href="/claude-code-deep-dive/ja/fundamentals/models/"
+    description="セッションがどのモデルで動くかは、エイリアスの解決、指定元の優先順位、許可リスト、自動の切り替えで決まります。"
+  />
+  <LinkCard
+    title="Effort と思考"
+    href="/claude-code-deep-dive/ja/fundamentals/effort/"
+    description="effort は、モデルが各ステップでどれだけ考えるかを決める設定です。"
+  />
+  <LinkCard
+    title="Fast mode"
+    href="/claude-code-deep-dive/ja/fundamentals/fast-mode/"
+    description="同じモデルを、速度優先の API 設定で動かすモードです。"
+  />
+  <LinkCard
+    title="Advisor"
+    href="/claude-code-deep-dive/ja/fundamentals/advisor/"
+    description="作業中のメインモデルが、判断の要所だけ別のモデルに相談する仕組みです。"
+  />
+  <LinkCard
+    title="コンテキスト管理"
+    href="/claude-code-deep-dive/ja/fundamentals/context/"
+    description="会話がウィンドウを埋めていくときの制御を扱います。"
+  />
+  <LinkCard
+    title="セッション"
+    href="/claude-code-deep-dive/ja/fundamentals/sessions/"
+    description="セッションは、プロジェクトのディレクトリに紐づいて保存される会話です。"
+  />
+  <LinkCard
+    title="チェックポイント"
+    href="/claude-code-deep-dive/ja/fundamentals/checkpoints/"
+    description="Claude がファイル編集ツールで変えたファイルを、プロンプトごとに自動で退避する仕組みです。"
+  />
+  <LinkCard
+    title="メモリ"
+    href="/claude-code-deep-dive/ja/fundamentals/memory/"
+    description="Claude Code は、自分で書く CLAUDE.md と Claude が書く auto memory の 2 系統で、セッションをまたいで知識を引き継ぎます。"
+  />
+  <LinkCard
+    title=".claude ディレクトリ"
+    href="/claude-code-deep-dive/ja/fundamentals/claude-dir/"
+    description="Claude Code は、プロジェクトの .claude/ とホームの ~/.claude/ から指示・設定・拡張を読み、~/.claude/ に作業中のデータを書きます。"
+  />
+  <LinkCard
+    title="ベストプラクティスと大規模リポジトリ"
+    href="/claude-code-deep-dive/ja/fundamentals/best-practices/"
+    description="公式ドキュメントの best-practices と large-codebases の 2 ページを、指示と設定の置き場所に絞って整理します。"
+  />
+</CardGrid>

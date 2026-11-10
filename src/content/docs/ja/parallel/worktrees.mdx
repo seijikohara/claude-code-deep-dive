@@ -5,6 +5,8 @@ sidebar:
   order: 42
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 セッションやサブエージェントを別々の git worktree で動かし、並列の編集が衝突しないようにする仕組みです。この章では、起動の方法、`worktree.*` 設定と `.worktreeinclude`、Claude Code が強制する分離チェック、後片付けとロック、再開を扱います。
 
 <span id="ch42-start" />
@@ -48,14 +50,14 @@ claude -w feature-auth --tmux
 | `worktree.baseRef`            | `"fresh"`（既定。`origin/<default-branch>` から）か `"head"`（ローカル HEAD。未 push のコミットを含む）。ブランチ名は不可             |
 | `worktree.symlinkDirectories` | メインから symlink するディレクトリ。例 `["node_modules", ".cache"]`                                                                  |
 | `worktree.sparsePaths`        | sparse-checkout するディレクトリ。`.claude` を含める。共有 `.git/config` で `extensions.worktreeConfig` が有効になる                  |
-| `worktree.bgIsolation`        | 背景セッションの隔離 <span class="badge preview">Preview</span>。[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/#ch38-worktree) |
+| `worktree.bgIsolation`        | 背景セッションの隔離 <Badge text="Preview" variant="tip" size="small" class="badge preview" />。[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/#ch38-worktree) |
 | `worktree.location`           | Desktop の SSH セッション専用。CLI は無視する                                                                                         |
 
 - `"fresh"` は、24 時間取得していなければ既定ブランチを取得します（上限 5 秒）。remote か `origin/HEAD` が無ければローカル HEAD を使います。
 - `"head"` は、worktree の中ではその worktree の HEAD を指します。
 - 既存の名前で開き直すと、`"fresh"` では変更なし・自分のブランチのまま・独自コミットなし（またはマージ済みで remote ブランチ削除済み）のときだけ既定ブランチへリセットします。
 
-```text
+```text title=".worktreeinclude"
 .env
 .env.local
 config/secrets.json
