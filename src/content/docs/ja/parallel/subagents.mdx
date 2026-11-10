@@ -28,7 +28,7 @@ import { Badge } from "@astrojs/starlight/components";
 
 * 親に戻るのは最終結果だけです。途中のツール呼び出しは親から見えません。
 * リクエストはメイン会話と同じ利用上限に計上されます。
-* 組み込み以外の `description` の合計が 15,000 トークンを超えると、起動時に警告が出ます（読み込みは続きます）。ツール名は `Agent` です（[Ch21](/claude-code-deep-dive/ja/settings/tools/)）。
+* 組み込み以外の `description` の合計が 15,000 トークンを超えると、起動時に警告が出ます（読み込みは続きます）。ツール名は `Agent` です（[組み込みツール](/claude-code-deep-dive/ja/settings/tools/)）。
 
 <div class="src">
   出典: [sub-agents#what-loads-at-startup](https://code.claude.com/docs/en/sub-agents#what-loads-at-startup) · [#write-subagent-files](https://code.claude.com/docs/en/sub-agents#write-subagent-files) · [tools-reference#agent-tool-behavior](https://code.claude.com/docs/en/tools-reference#agent-tool-behavior)
@@ -84,7 +84,7 @@ init の一部。`--safe-mode` では `statusline-setup` が消え、`claude-cod
 * プラグインではサブフォルダが ID に入ります。`my-plugin` の `agents/review/security.md` は `my-plugin:review:security` です。
 * プラグインのサブエージェントは `hooks`・`mcpServers`・`permissionMode` を無視します。
 * `~/.claude/agents/` と `.claude/agents/` は監視され、数秒で反映されます。再起動が必要なのは、開始時に `agents` ディレクトリがなかった場合、`--add-dir` 配下、`--disable-slash-commands` のセッションです。
-* `/agents` のウィザードは削除済みです（[Ch66](/claude-code-deep-dive/ja/summary/renames/)）。作成と編集は Claude に頼むか、ファイルを直接書きます。
+* `/agents` のウィザードは削除済みです（[改名・廃止・削除](/claude-code-deep-dive/ja/summary/renames/)）。作成と編集は Claude に頼むか、ファイルを直接書きます。
 
 <div class="src">
   出典: [sub-agents#choose-the-subagent-scope](https://code.claude.com/docs/en/sub-agents#choose-the-subagent-scope) · [#write-subagent-files](https://code.claude.com/docs/en/sub-agents#write-subagent-files) · changelog 2.1.198
@@ -131,7 +131,7 @@ specific, actionable feedback on quality, security, and best practices.
 
 | フィールド          | 値と効果                                                                                                                                                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `autoCompactWindow` | `100000`〜`1000000` の整数。自動圧縮の窓を下げるだけで、上げはしない。`200k` は 200 と読まれて範囲外になり、無視される（v2.1.296 以降）。環境変数との関係は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/) |
+| `autoCompactWindow` | `100000`〜`1000000` の整数。自動圧縮の窓を下げるだけで、上げはしない。`200k` は 200 と読まれて範囲外になり、無視される（v2.1.296 以降）。環境変数との関係は [コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/) |
 | `skills`            | 起動時に Skill の全文を注入する（重複しない先頭 32 個まで）。`disable-model-invocation: true` の Skill（`/verify` を含む）は不可。未指定でも Skill ツールで呼べる                                                  |
 | `mcpServers`        | 設定済みサーバー名（親の接続を共有）か、インライン定義（`stdio`・`http`・`sse`・`ws`）。インラインは起動時に接続し、終了時に切断する                                                                               |
 | `hooks`             | このサブエージェントの実行中だけ動くフック。`Stop` は `SubagentStop` に変換される                                                                                                                                  |
@@ -224,7 +224,7 @@ Error: --agents file not found: <cwd>/missing.json (a value that is not a JSON o
 
 ## モデル・effort・thinking の決まり方
 
-### 解決順（詳細は [Ch2](/claude-code-deep-dive/ja/fundamentals/models/#ch02-subagents)・[Ch3](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-subagents)）
+### 解決順（詳細は [モデル選択](/claude-code-deep-dive/ja/fundamentals/models/#ch02-subagents)・[Effort と思考](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-subagents)）
 
 - モデル: 呼び出し時の `model` → frontmatter の `model` → `CLAUDE_CODE_SUBAGENT_MODEL` → メイン会話のモデル。`CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` は前の 2 つを無視させます。
 - effort: frontmatter の `effort` → 呼び出し時の `effort`（v2.1.292 以降）→ `CLAUDE_CODE_EFFORT_LEVEL` の順に強くなります。
@@ -273,7 +273,7 @@ Error: --agents file not found: <cwd>/missing.json (a value that is not a JSON o
 | `default`（Manual）・`dontAsk`             | `permissionMode` のモードで動く。ただし `bypassPermissions`（v2.1.267 以降）と、使えない `auto` を指定した場合はメインのモードのまま       |
 | 未指定                                     | メイン会話のモードを継承する                                                                                                               |
 
-- 値は設定値で書きます。Manual は `default` です（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)）。
+- 値は設定値で書きます。Manual は `default` です（[パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/)）。
 - auto が使えない例: 設定の `disableAutoMode`、サブエージェントのモデルが auto mode 非対応。
 - Agent ツールの `mode` パラメータは非推奨で、無視されます。
 - 起動そのものは確認を求めません。サブエージェントのツール呼び出しが権限ルールで審査されます。
@@ -314,7 +314,7 @@ Error: --agents file not found: <cwd>/missing.json (a value that is not a JSON o
 - 設定後に `claude` を起動し直し、「run the reviewer subagent and wait for its report」のように頼みます。
 - `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` なら Claude はすべてのサブエージェントを待ちます。背景コマンドも止まり、<kbd>Ctrl</kbd>+<kbd>B</kbd> は効きません。
 - 背景のサブエージェントの権限確認はメインセッションに出て、どのサブエージェントかを示します。<kbd>Esc</kbd> はその 1 回だけを拒否します。セッション全体への許可はメイン会話にも効きます。
-- `context: fork` の Skill は、Skill 側の規則に従います（[Ch29](/claude-code-deep-dive/ja/extensions/skills/)）。
+- `context: fork` の Skill は、Skill 側の規則に従います（[Skills](/claude-code-deep-dive/ja/extensions/skills/)）。
 
 <div class="src">
   出典: [sub-agents#run-subagents-in-foreground-or-background](https://code.claude.com/docs/en/sub-agents#run-subagents-in-foreground-or-background) · [env-vars](https://code.claude.com/docs/en/env-vars) · changelog 2.1.302
@@ -382,7 +382,7 @@ Error: --agents file not found: <cwd>/missing.json (a value that is not a JSON o
 * エージェントからのメッセージは、権限確認への承認にも、権限・CLAUDE.md・設定の変更にもなりません。
 * トランスクリプトは `~/.claude/projects/{project}/{sessionId}/subagents/agent-{agentId}.jsonl` と `.meta.json` です。メインの圧縮の影響を受けず、`cleanupPeriodDays`（既定 30 日）で消えます。
 * サブエージェントは自分のウィンドウで自動圧縮し、`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` も効きます。
-* 名前付けとチームメイトは [Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)、別セッションへの送信は [Ch40](/claude-code-deep-dive/ja/parallel/messaging/) です。
+* 名前付けとチームメイトは [Agent Teams](/claude-code-deep-dive/ja/parallel/agent-teams/)、別セッションへの送信は [セッション間メッセージング](/claude-code-deep-dive/ja/parallel/messaging/) です。
 
 <div class="src">
   出典: [sub-agents#resume-subagents](https://code.claude.com/docs/en/sub-agents#resume-subagents) · [#auto-compaction](https://code.claude.com/docs/en/sub-agents#auto-compaction) · [#subagent-names](https://code.claude.com/docs/en/sub-agents#subagent-names)
@@ -414,7 +414,7 @@ Error: --agents file not found: <cwd>/missing.json (a value that is not a JSON o
 }
 ```
 
-`SubagentStop` の入力と判定は [Ch28](/claude-code-deep-dive/ja/extensions/hooks/#ch28-stop) にあります。
+`SubagentStop` の入力と判定は [Hooks](/claude-code-deep-dive/ja/extensions/hooks/#ch28-stop) にあります。
 
 <div class="src">
   出典: [sub-agents#define-hooks-for-subagents](https://code.claude.com/docs/en/sub-agents#define-hooks-for-subagents) · [hooks#subagentstart](https://code.claude.com/docs/en/hooks#subagentstart)
@@ -429,7 +429,7 @@ Error: --agents file not found: <cwd>/missing.json (a value that is not a JSON o
 - fork mode が on の間は、Claude も Agent ツール（`subagent_type: "fork"`）でフォークを起動します。既定で on で、対話ターミナルは v2.1.232、全環境は v2.1.302 からです。
 - フォークだけ止める: `permissions.deny` に `"Agent(fork)"`。fork mode を止める: `CLAUDE_CODE_FORK_SUBAGENT=0`。
 - フォークは `isolation: "worktree"` を渡せます。フォークからフォークは起動できません。
-- agent view が off なら `/subtask` は使えず、`/fork` がフォークを起動します（[Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-branch)）。
+- agent view が off なら `/subtask` は使えず、`/fork` がフォークを起動します（[セッション](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-branch)）。
 
 |                    | フォーク       | 通常のサブエージェント         |
 | ------------------ | -------------- | ------------------------------ |

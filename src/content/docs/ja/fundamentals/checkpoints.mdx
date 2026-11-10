@@ -52,7 +52,7 @@ Claude がファイル編集ツールで変えたファイルを、プロンプ�
 - 要約の方針は、矢印キーで Summarize を選び **add context (optional)** 行に入力して <kbd>Enter</kbd>。数字キーで選ぶと指示なしで即実行します。
 - 同じプロセスで `/clear` を実行していると、先頭に `/resume <session-id> (previous session)` が出ます。`/clear` 前の会話へ戻れます。
 - 巻き戻した直後に終了すると、消したメッセージが戻ることがあります。終了前に次のプロンプトを 1 つ送ります。
-- `DISABLE_COMPACT` を設定すると、Summarize の 2 つは表示されません（2.1.311）。キャッシュへの影響は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/#ch06-cache-breakers)。
+- `DISABLE_COMPACT` を設定すると、Summarize の 2 つは表示されません（2.1.311）。キャッシュへの影響は [コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/#ch06-cache-breakers)。
 
 <div class="src">
   出典: [checkpointing#rewind-and-summarize](https://code.claude.com/docs/en/checkpointing#rewind-and-summarize) · [commands](https://code.claude.com/docs/en/commands) · [prompt-caching#rewinding-the-conversation](https://code.claude.com/docs/en/prompt-caching#rewinding-the-conversation) · [changelog 2.1.108, 2.1.141, 2.1.191, 2.1.311](https://code.claude.com/docs/en/changelog)

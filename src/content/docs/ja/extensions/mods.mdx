@@ -13,7 +13,7 @@ JavaScript か TypeScript のイベントハンドラーで、Claude Code の動
 
 ## Mods とは: プラグイン・設定フックとの違い
 
-- Mod は、`hooks/hooks.json` の `modules` にフックモジュールを 1 つ書いたプラグインです。インストールと配布は普通のプラグインと同じです（[Ch31](/claude-code-deep-dive/ja/extensions/plugins/)）。
+- Mod は、`hooks/hooks.json` の `modules` にフックモジュールを 1 つ書いたプラグインです。インストールと配布は普通のプラグインと同じです（[プラグイン](/claude-code-deep-dive/ja/extensions/plugins/)）。
 - フック（ハンドラー）はイベントを観察する、書き換える、自分で応答する、のどれかをします。ファイル・プロセス・ネットワーク・描画には mods API `$` を通してだけ触れます。
 - 既定で有効です。ターミナルは v2.1.287 以降、Desktop は v2.1.286 以降です。
 - 止め方: 1 つなら `/plugin` で無効化、1 セッションなら `--safe-mode`、常に全部なら `"disableAllHooks": true`（設定フックとステータスラインも止まる）。

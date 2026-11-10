@@ -28,7 +28,7 @@ CLAUDE.md には、コードから分からないことだけを書きます。�
 
 * 例外が 1 つも許されない規則は、フック・deny ルール・managed settings に置きます。CLAUDE.md の規則は、Claude が「当てはまらない」と判断できるガイドラインです。
 * 強調を足しても守られない行は、フックに移す合図です。IMPORTANT や全大文字の強調は不要になった助言に挙げられ、重ねると規則を過剰に当てはめやすくなります。
-* アーキテクチャやファイル構成の説明も、不要になった助言に挙げられています（memory ページとの食い違いは [Ch9](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-two-systems)）。
+* アーキテクチャやファイル構成の説明も、不要になった助言に挙げられています（memory ページとの食い違いは [メモリ](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-two-systems)）。
 
 <div class="src">
   出典: [best-practices#deterministic-and-non-deterministic-instructions](https://code.claude.com/docs/en/best-practices#deterministic-and-non-deterministic-instructions) · [#tell-claude-what-it-cant-see](https://code.claude.com/docs/en/best-practices#tell-claude-what-it-cant-see) · [#keep-claude-md-short](https://code.claude.com/docs/en/best-practices#keep-claude-md-short) · [#enforce-the-rules-that-cant-have-exceptions](https://code.claude.com/docs/en/best-practices#enforce-the-rules-that-cant-have-exceptions) · [#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing)
@@ -46,7 +46,7 @@ CLAUDE.md には、コードから分からないことだけを書きます。�
 | 目的                                  | 手段                                                                                              |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | 触るコードの規約だけを読ませる        | ディレクトリごとの CLAUDE.md                                                                      |
-| 触らないパッケージの CLAUDE.md を外す | `claudeMdExcludes`（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-add-dir-excludes)） |
+| 触らないパッケージの CLAUDE.md を外す | `claudeMdExcludes`（[メモリ](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-add-dir-excludes)） |
 | 生成コード・vendor を開かせない       | `permissions.deny` の `Read`                                                                      |
 | 定義と参照を走査なしで引く            | code intelligence プラグイン                                                                      |
 | worktree に必要な分だけ置く           | `worktree.sparsePaths`                                                                            |

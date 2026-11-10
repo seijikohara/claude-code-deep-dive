@@ -1,13 +1,13 @@
 ---
 title: "並列化の全体像"
-description: "Claude Code が複数のタスクを同時に進める 5 つの手段を並べ、誰が調整するか、ワーカー同士がどう通信するか、同じファイルをどう扱うかで比較します。各手段の詳細は Ch37 以降の章にあります。"
+description: "Claude Code が複数のタスクを同時に進める 5 つの手段を並べ、誰が調整するか、ワーカー同士がどう通信するか、同じファイルをどう扱うかで比較します。各手段の詳細は「サブエージェント」以降の章にあります。"
 sidebar:
   order: 36
 ---
 
 import { Badge } from "@astrojs/starlight/components";
 
-Claude Code が複数のタスクを同時に進める 5 つの手段を並べ、誰が調整するか、ワーカー同士がどう通信するか、同じファイルをどう扱うかで比較します。各手段の詳細は Ch37 以降の章にあります。
+Claude Code が複数のタスクを同時に進める 5 つの手段を並べ、誰が調整するか、ワーカー同士がどう通信するか、同じファイルをどう扱うかで比較します。各手段の詳細は「サブエージェント」以降の章にあります。
 
 <span id="ch36-approaches" />
 
@@ -22,9 +22,9 @@ Claude Code が複数のタスクを同時に進める 5 つの手段を並べ�
 | Dynamic Workflows                                                | 多数のサブエージェントを動かし、結果を突き合わせるスクリプト                                                                             | サブエージェント数個に収まらない作業や相互検証。リポジトリ全体の監査、500 ファイルの移行など | [41](/claude-code-deep-dive/ja/parallel/workflows/)           |
 
 - どの手段でもワーカーは Claude セッションです。別のツールを使わせるには MCP サーバーとして公開します。
-- 補助ツール: worktree（[Ch42](/claude-code-deep-dive/ja/parallel/worktrees/)）、セッション間メッセージング（[Ch40](/claude-code-deep-dive/ja/parallel/messaging/)）、`/batch`（1 つの変更を 5〜30 の worktree 分離サブエージェントに分ける Skill）。
+- 補助ツール: worktree（[Worktree](/claude-code-deep-dive/ja/parallel/worktrees/)）、セッション間メッセージング（[セッション間メッセージング](/claude-code-deep-dive/ja/parallel/messaging/)）、`/batch`（1 つの変更を 5〜30 の worktree 分離サブエージェントに分ける Skill）。
 
-* 並列化とは別の機能: 背景 Bash コマンド、fork サブエージェント（`/subtask`。起動方法の 1 つ）、クラウドのスケジュールタスク（[Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)）。
+* 並列化とは別の機能: 背景 Bash コマンド、fork サブエージェント（`/subtask`。起動方法の 1 つ）、クラウドのスケジュールタスク（[スケジュール実行](/claude-code-deep-dive/ja/parallel/scheduling/)）。
 * 複数のセッションやサブエージェントを同時に動かすと、トークン消費もその分増えます。
 
 <div class="src">
@@ -56,7 +56,7 @@ Claude Code が複数のタスクを同時に進める 5 つの手段を並べ�
 - 現在のセッションの背景作業（終了したサブエージェントを含む）: `/tasks`
 - Workflow の実行: `/workflows`
 - 名前付きの背景サブエージェント: `@` の入力補完に状態つきで出る
-- `/agents` は保存場所の案内を表示するだけで、`claude agents` とは別物です（ウィザードは削除済み。[Ch66](/claude-code-deep-dive/ja/summary/renames/)）。
+- `/agents` は保存場所の案内を表示するだけで、`claude agents` とは別物です（ウィザードは削除済み。[改名・廃止・削除](/claude-code-deep-dive/ja/summary/renames/)）。
 
 <div class="src">
   出典: [agents#choose-an-approach](https://code.claude.com/docs/en/agents#choose-an-approach) · [#check-on-running-work](https://code.claude.com/docs/en/agents#check-on-running-work) · [agent-teams#compare-with-subagents](https://code.claude.com/docs/en/agent-teams#compare-with-subagents) · [workflows#when-to-use-a-workflow](https://code.claude.com/docs/en/workflows#when-to-use-a-workflow)

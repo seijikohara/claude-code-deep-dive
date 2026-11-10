@@ -1,13 +1,13 @@
 ---
 title: "Hooks"
-description: "33 イベントの設定・入出力・決定制御・非同期実行・安全性を扱います（全件表は 付録 D）。"
+description: "33 イベントの設定・入出力・決定制御・非同期実行・安全性を扱います（全件表は「Hook イベント全件」）。"
 sidebar:
   order: 28
 ---
 
 import { Badge } from "@astrojs/starlight/components";
 
-33 イベントの設定・入出力・決定制御・非同期実行・安全性を扱います（全件表は [付録 D](/claude-code-deep-dive/ja/appendix/hooks/)）。
+33 イベントの設定・入出力・決定制御・非同期実行・安全性を扱います（全件表は [Hook イベント全件](/claude-code-deep-dive/ja/appendix/hooks/)）。
 
 <span id="ch28-overview" />
 
@@ -18,7 +18,7 @@ import { Badge } from "@astrojs/starlight/components";
 - ハンドラの型は 5 種類です: `command`・`http`・`mcp_tool`・`prompt`・`agent`。`agent` だけが Experimental です。
 - 解決の順序は、イベント発火、`matcher` の照合、ハンドラごとの `if` の照合、ハンドラの起動、結果の適用です。
 - exit 0 で何も出力しないフックは「判断なし」で、通常の権限フローに進みます。黙っていても承認にはなりません。
-- プラグインの JavaScript 関数フック（mod）は別の仕組みで、本章のフックと併用できます（[Ch33](/claude-code-deep-dive/ja/extensions/mods/)）。
+- プラグインの JavaScript 関数フック（mod）は別の仕組みで、本章のフックと併用できます（[Mods](/claude-code-deep-dive/ja/extensions/mods/)）。
 
 ```json
 {
@@ -145,7 +145,7 @@ matcher で Bash に絞り、`if` で `rm` のサブコマンドにさらに絞�
 | `TaskCompleted`      | タスクを完了にするとき                                         | なし             | 5   | 完了にしない                          |
 | `TeammateIdle`       | Agent Teams のチームメイトがアイドルになる直前                 | なし             | 5   | アイドルにせず、作業を続けさせる      |
 
-型 = 使えるハンドラの型（5 は全種、4 は `agent` 以外、3 は `command`・`http`・`mcp_tool`）。`TeammateIdle` とチームメイト経路の `TaskCompleted` は Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）の機能です。
+型 = 使えるハンドラの型（5 は全種、4 は `agent` 以外、3 は `command`・`http`・`mcp_tool`）。`TeammateIdle` とチームメイト経路の `TaskCompleted` は Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />（[Agent Teams](/claude-code-deep-dive/ja/parallel/agent-teams/)）の機能です。
 
 <div class="src">
   出典: [hooks#hook-lifecycle](https://code.claude.com/docs/en/hooks#hook-lifecycle) · [#matcher-patterns](https://code.claude.com/docs/en/hooks#matcher-patterns) · [#exit-code-2-behavior-per-event](https://code.claude.com/docs/en/hooks#exit-code-2-behavior-per-event) · [#prompt-based-hooks](https://code.claude.com/docs/en/hooks#prompt-based-hooks)
@@ -172,7 +172,7 @@ matcher で Bash に絞り、`if` で `rm` のサブコマンドにさらに絞�
 - プラグインの `hooks/hooks.json` は、最上位に任意の `description` を書けます。有効化するとユーザーとプロジェクトのフックにマージされます。
 - settings ファイルを直接編集した変更は、通常はファイル監視で自動的に反映されます。
 
-設定ファイルの優先順位とマージ全般は [Ch18](/claude-code-deep-dive/ja/settings/settings-files/)、管理者向けの制限キーは本章の「セキュリティ・管理・デバッグ」と [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
+設定ファイルの優先順位とマージ全般は [設定ファイル](/claude-code-deep-dive/ja/settings/settings-files/)、管理者向けの制限キーは本章の「セキュリティ・管理・デバッグ」と [管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
 
 <div class="src">
   出典: [hooks#hook-locations](https://code.claude.com/docs/en/hooks#hook-locations) · [#hook-handler-fields](https://code.claude.com/docs/en/hooks#hook-handler-fields) · [#reference-scripts-by-path](https://code.claude.com/docs/en/hooks#reference-scripts-by-path) · [#disable-or-remove-hooks](https://code.claude.com/docs/en/hooks#disable-or-remove-hooks)
@@ -587,7 +587,7 @@ Failed with non-blocking status code: something broke
 - 同じイベントで複数のフックが返した値は、すべて届きます。
 - 文字列中の `<system-reminder>`・`</system-reminder>` は、`<` が `&lt;` に置き換わって届きます。
 - 「本番環境が対象」のような事実の文で書きます。システム命令を装った文は、プロンプトインジェクション対策に引っかかり、Claude がユーザーに提示してしまいます。
-- 不変の規約は CLAUDE.md に書きます（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/)）。
+- 不変の規約は CLAUDE.md に書きます（[メモリ](/claude-code-deep-dive/ja/fundamentals/memory/)）。
 - 挿入した文はトランスクリプトに保存されます。`--continue`・`--resume` では途中のイベントの値をそのまま再生するので、時刻やコミット SHA は古くなります。`SessionStart` は `source: "resume"`（または `"fork"`）で再実行されます。
 
 ```json
@@ -646,8 +646,8 @@ Failed with non-blocking status code: something broke
 - どのモードでも自動承認されない操作、ネットワークパスからの読み取り、SDK が `always_ask` を付けたツール、`requiresUserInteraction` 付きの MCP ツール
 - `AskUserQuestion`・`ExitPlanMode` は allow だけでは足りません。`updatedInput` に回答を入れて返します。
 - plan mode でのファイル編集の allow は、フックがないときと同じ扱いです。
-- 逆に `deny` は、`bypassPermissions` を含むすべてのモードで効きます。`PreToolUse` は `dontAsk` を含むモード判定より先に発火します。詳しい優先関係は [Ch22](/claude-code-deep-dive/ja/settings/permission-rules/)。
-- auto mode で `permissionDecision` なしの `updatedInput` を返すと、`a hook changed this call's input after auto mode reviewed it` で拒否されることがあります（[Ch24](/claude-code-deep-dive/ja/settings/auto-mode/)）。
+- 逆に `deny` は、`bypassPermissions` を含むすべてのモードで効きます。`PreToolUse` は `dontAsk` を含むモード判定より先に発火します。詳しい優先関係は [権限ルール](/claude-code-deep-dive/ja/settings/permission-rules/)。
+- auto mode で `permissionDecision` なしの `updatedInput` を返すと、`a hook changed this call's input after auto mode reviewed it` で拒否されることがあります（[Auto mode](/claude-code-deep-dive/ja/settings/auto-mode/)）。
 
 ### `"defer"`: 呼び出しを保留して後で再開
 
@@ -779,7 +779,7 @@ Failed with non-blocking status code: something broke
 - `Stop` の入力: `stop_hook_active`（Stop フックで継続中なら `true`）、`last_assistant_message`、`background_tasks[]`、`session_crons[]`。最終応答はトランスクリプトでなく `last_assistant_message` から読みます。
 - `decision: "block"` には `reason` が必須で、Claude は続行します。`hookSpecificOutput.additionalContext` はエラー扱いでない `Stop hook feedback` として続行させます。
 - 連続 8 回ブロックすると、次のブロックは無視されてターンが終わります。Claude がツールを呼ぶとカウントは戻ります。上限は `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` で変えられ、`0` で無制限です。
-- `/goal` は session スコープの prompt 型 Stop フックの組み込み版です（[Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/)）。
+- `/goal` は session スコープの prompt 型 Stop フックの組み込み版です（[セッション](/claude-code-deep-dive/ja/fundamentals/sessions/)）。
 
 ```bash
 #!/bin/bash
@@ -812,7 +812,7 @@ fi
 * `TaskCreated`: exit 2（stderr）か `decision: "block"`（`reason`）でタスクを削除し、理由をツールエラーとして返します。`continue: false` は無視します。
 * `TaskCompleted`: `TaskUpdate` での完了時と、チームメイトが進行中のタスクを残して終えたときに発火します。exit 2 で完了にせず、stderr をモデルに返します。`continue: false` はチームメイト経路でだけ停止です。
 * `TeammateIdle`: exit 2 で作業を続けさせ、`continue: false` で止めます。
-* `TaskCreated`・`TaskCompleted` の入力は `task_id`・`task_subject` と任意の `task_description`・`teammate_name`・`team_name`（非推奨）、v2.1.290 以降は `agent_id` です。matcher はなく、チームメイトの経路は Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）の機能です。
+* `TaskCreated`・`TaskCompleted` の入力は `task_id`・`task_subject` と任意の `task_description`・`teammate_name`・`team_name`（非推奨）、v2.1.290 以降は `agent_id` です。matcher はなく、チームメイトの経路は Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />（[Agent Teams](/claude-code-deep-dive/ja/parallel/agent-teams/)）の機能です。
 
 <div class="src">
   出典: [hooks#userpromptsubmit](https://code.claude.com/docs/en/hooks#userpromptsubmit) · [#what-a-blocked-prompt-leaves-behind](https://code.claude.com/docs/en/hooks#what-a-blocked-prompt-leaves-behind) · [#userpromptexpansion](https://code.claude.com/docs/en/hooks#userpromptexpansion) · [#taskcreated](https://code.claude.com/docs/en/hooks#taskcreated) · [#taskcompleted](https://code.claude.com/docs/en/hooks#taskcompleted) · [#teammateidle](https://code.claude.com/docs/en/hooks#teammateidle)
@@ -858,7 +858,7 @@ fi
 * exit 0 の stdout か `additionalContext` は次のリクエストで届きます。次のプロンプトから 5 秒以内に終わらなければ、その次のリクエストに回ります。
 * `PreCompact` の matcher は `manual`（`/compact`）と `auto`（auto-compact とアイドル圧縮）です。入力は `trigger` と `custom_instructions`（auto では `null`）です。
 * exit 2 か `decision: "block"` で圧縮を止めます。事前の自動圧縮なら圧縮せずに続行し、上限エラーからの回復なら元のエラーでリクエストが失敗します。
-* exit 0 の stdout は要約への指示になり、10,000 文字で切られます。`PostCompact` は `compact_summary` を受け取るだけです。実測の発火順は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/)。
+* exit 0 の stdout は要約への指示になり、10,000 文字で切られます。`PostCompact` は `compact_summary` を受け取るだけです。実測の発火順は [コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/)。
 
 <div class="src">
   出典: [hooks#premodelswitch](https://code.claude.com/docs/en/hooks#premodelswitch) · [#postmodelswitch](https://code.claude.com/docs/en/hooks#postmodelswitch) · [#precompact](https://code.claude.com/docs/en/hooks#precompact) · [#postcompact](https://code.claude.com/docs/en/hooks#postcompact)
@@ -1002,7 +1002,7 @@ hooks:
 | `CLAUDECODE`・`CLAUDE_CODE_CHILD_SESSION`  | `1`。Claude Code が起動したプロセスの目印                                                  |
 | `CLAUDE_PID`                               | Claude Code のプロセス ID（v2.1.214 以降）                                                 |
 
-- 他に `CLAUDE_CODE_REMOTE`・`CLAUDE_CODE_BRIDGE_SESSION_ID` などがあり、`OTEL_*` は除かれます（[Ch20](/claude-code-deep-dive/ja/settings/env-vars/)）。
+- 他に `CLAUDE_CODE_REMOTE`・`CLAUDE_CODE_BRIDGE_SESSION_ID` などがあり、`OTEL_*` は除かれます（[環境変数](/claude-code-deep-dive/ja/settings/env-vars/)）。
 - 実機では <span class="undocumented">`CLAUDE_CODE_ENTRYPOINT`</span>・<span class="undocumented">`CLAUDE_CODE_SESSION_ATTENDED`</span> も見えました <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" />。
 
 <div class="src">
@@ -1024,7 +1024,7 @@ hooks:
 
 - `disableAllHooks` は優先順位を適用した後の値で効きます。プロジェクトの `false` はユーザーの `true` に勝ちます。managed のフックを止められるのは managed の設定だけです。
 - 個別のフックを無効にする方法はありません。
-- `allowManagedHooksOnly`（managed）は managed・SDK・強制有効化プラグインのフックだけを動かします。`strictPluginOnlyCustomization` の `"hooks"` でも絞れます（[Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/)）。
+- `allowManagedHooksOnly`（managed）は managed・SDK・強制有効化プラグインのフックだけを動かします。`strictPluginOnlyCustomization` の `"hooks"` でも絞れます（[管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/)）。
 - `allowedHttpHookUrls`・`httpHookAllowedEnvVars` は managed を含む全ソースの HTTP フックに効きます。
 
 ### 確認とデバッグ
@@ -1073,7 +1073,7 @@ hooks:
 | `UserPromptExpansion` | `command_source` は `"projectSettings"`                                                                               |
 
 :::danger[食い違い]
-`UserPromptSubmit`・`UserPromptExpansion` のフックイベントも `system/init` の前に出ました。headless ページの記載は `SessionStart`・`Setup` だけです（[Ch44](/claude-code-deep-dive/ja/automation/headless/)）。
+`UserPromptSubmit`・`UserPromptExpansion` のフックイベントも `system/init` の前に出ました。headless ページの記載は `SessionStart`・`Setup` だけです（[ヘッドレス実行](/claude-code-deep-dive/ja/automation/headless/)）。
 :::
 
 <div class="src">

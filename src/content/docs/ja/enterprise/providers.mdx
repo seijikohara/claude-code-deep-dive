@@ -1,11 +1,11 @@
 ---
 title: "クラウドプロバイダ"
-description: "Amazon Bedrock（Mantle を含む）、Claude Platform on AWS、Google Cloud's Agent Platform（旧 Vertex AI）、Microsoft Foundry で Claude Code を動かす設定を扱います。導入形態の比較、複数指定時の選択順、各プロバイダの資格情報・リージョン・既定モデル・IAM、機能差を説明します。エイリアスの解決とピン留めの一般則は Ch2 で扱います。"
+description: "Amazon Bedrock（Mantle を含む）、Claude Platform on AWS、Google Cloud's Agent Platform（旧 Vertex AI）、Microsoft Foundry で Claude Code を動かす設定を扱います。導入形態の比較、複数指定時の選択順、各プロバイダの資格情報・リージョン・既定モデル・IAM、機能差を説明します。エイリアスの解決とピン留めの一般則は「モデル選択」で扱います。"
 sidebar:
   order: 59
 ---
 
-Amazon Bedrock（Mantle を含む）、Claude Platform on AWS、Google Cloud's Agent Platform（旧 Vertex AI）、Microsoft Foundry で Claude Code を動かす設定を扱います。導入形態の比較、複数指定時の選択順、各プロバイダの資格情報・リージョン・既定モデル・IAM、機能差を説明します。エイリアスの解決とピン留めの一般則は [Ch2](/claude-code-deep-dive/ja/fundamentals/models/#ch02-providers) で扱います。
+Amazon Bedrock（Mantle を含む）、Claude Platform on AWS、Google Cloud's Agent Platform（旧 Vertex AI）、Microsoft Foundry で Claude Code を動かす設定を扱います。導入形態の比較、複数指定時の選択順、各プロバイダの資格情報・リージョン・既定モデル・IAM、機能差を説明します。エイリアスの解決とピン留めの一般則は [モデル選択](/claude-code-deep-dive/ja/fundamentals/models/#ch02-providers) で扱います。
 
 <span id="ch59-compare" />
 
@@ -21,7 +21,7 @@ Amazon Bedrock（Mantle を含む）、Claude Platform on AWS、Google Cloud's A
 
 | 機能                                                             | 4 プロバイダ（Bedrock・Platform on AWS・Agent Platform・Foundry）での扱い                                                           |
 | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| fast mode・Advisor・Channels・analytics・server-managed settings | すべてで使えない（Advisor の Platform on AWS は [Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/#ch05-cost) の食い違いを参照） |
+| fast mode・Advisor・Channels・analytics・server-managed settings | すべてで使えない（Advisor の Platform on AWS は [Advisor](/claude-code-deep-dive/ja/fundamentals/advisor/#ch05-cost) の食い違いを参照） |
 | WebSearch                                                        | Bedrock は不可。Agent Platform は Opus 4・Sonnet 4・Haiku 4.5 以降のみ。Platform on AWS・Foundry は可                               |
 | GitHub Actions・GitLab CI/CD                                     | Platform on AWS は GitHub Actions 不可、Foundry は GitLab CI/CD 不可                                                                |
 | auto mode                                                        | Bedrock・Agent Platform・Foundry は Sonnet 5 以降・Opus 4.7 以降・Haiku 5.5・Fable のみ                                             |
@@ -130,7 +130,7 @@ export AWS_REGION=us-east-1
 * 未ピン留めの `opus` は Opus 5.5 です。ピンには直接 API と同じ ID（`claude-opus-4-8` など）を使います。
 * Bedrock と違い WebSearch が使えます。使えないもの: fast mode、Channels、GitHub Actions、analytics、server-managed settings、`/import`、`/design-sync`。feature flag で動く機能は既定で無効です。
 * 確認: 起動バナーと `/status` の `API provider` に `Claude Platform on AWS` と出ます。
-* Advisor の提供可否は docs と changelog 2.1.300 で食い違います（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/#ch05-cost)）。実機の init には `advisor` が出ます。
+* Advisor の提供可否は docs と changelog 2.1.300 で食い違います（[Advisor](/claude-code-deep-dive/ja/fundamentals/advisor/#ch05-cost)）。実機の init には `advisor` が出ます。
 
 <div class="src">
   出典: [claude-platform-on-aws](https://code.claude.com/docs/en/claude-platform-on-aws)（Setup / Pin model versions / Launch and verify）· [feature-availability#summary-by-provider](https://code.claude.com/docs/en/feature-availability#summary-by-provider) · changelog 2.1.300 · 実機確認 2.1.321

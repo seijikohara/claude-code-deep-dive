@@ -17,7 +17,7 @@ import { Badge } from "@astrojs/starlight/components";
 | -------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `/clear [name]` （`/reset`、`/new`）               | 空のコンテキストで新しい会話を始める                            | 保存される。`/resume`、または同じプロセスなら rewind メニューで戻れる | `name` は離れる側の会話に付く。引数なしなら `--name`・`/rename` の名前を引き継ぐ（生成タイトルは引き継がない）。有効な `/goal` は消える |
 | `/compact [instructions]`                          | 履歴を構造化された要約に置き換える。引数で要約の焦点を指定      | 同じセッションのまま要約に置き換わる                                  | 会話層のキャッシュは作り直し。システムプロンプトとプロジェクト層は残り得る                                                              |
-| rewind の **Summarize from here** / **up to here** | 選んだ地点以降、または以前だけを要約する                        | 元のメッセージはトランスクリプトに残る                                | 部分的な `/compact` に相当（[Ch8](/claude-code-deep-dive/ja/fundamentals/checkpoints/#ch08-rewind)）                                    |
+| rewind の **Summarize from here** / **up to here** | 選んだ地点以降、または以前だけを要約する                        | 元のメッセージはトランスクリプトに残る                                | 部分的な `/compact` に相当（[チェックポイント](/claude-code-deep-dive/ja/fundamentals/checkpoints/#ch08-rewind)）                                    |
 | 自動圧縮                                           | auto-compact window に近づくと、`/compact` と同じ処理が走る     | 同上                                                                  | PreCompact の matcher は `auto`                                                                                                         |
 | アイドル圧縮                                       | 1 時間 TTL のキャッシュが切れる前に、放置中の長い会話を要約する | 同上                                                                  | 条件は後述（[アイドル圧縮](/claude-code-deep-dive/ja/fundamentals/context/#ch06-idle)）                                                 |
 | `/recap`                                           | 1 行の要約を表示する                                            | 履歴は置き換えない                                                    | 要約はコマンド出力として追記されるので、キャッシュは壊れない                                                                            |
@@ -164,7 +164,7 @@ Claude Code ignores it. …
 
 - 200K で拒否するゲートウェイには `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` を設定します。
 - ステータスラインの `used_percentage` はモデルの全ウィンドウに対する割合です。環境変数で window を変えると、圧縮時期の目安になりません。
-- プラン別の 1M 提供条件と `[1m]` の選び方は [Ch2](/claude-code-deep-dive/ja/fundamentals/models/)。
+- プラン別の 1M 提供条件と `[1m]` の選び方は [モデル選択](/claude-code-deep-dive/ja/fundamentals/models/)。
 
 ```text title="実測 2.1.321" frame="terminal"
 $ claude -p "/autocompact"
@@ -312,7 +312,7 @@ fallback で 1M から 200K に落ちたことが原因なら、エラーがそ�
 
 - 順序は PreCompact → SessionStart（source `compact`）→ PostCompact でした。`/compact` の入力では UserPromptSubmit は発火しませんでした。
 - `load_reason: "compact"` の InstructionsLoaded は圧縮の直後ではなく、次のプロンプトの UserPromptSubmit の後に発火しました。
-- PreCompact の `custom_instructions` は `/compact` の引数（自動と引数なしは `null`）、PostCompact の `compact_summary` は生成された要約です。どちらのフックも `systemMessage` と `continue` は捨てられます。終了コードの扱いは [Ch28](/claude-code-deep-dive/ja/extensions/hooks/)。
+- PreCompact の `custom_instructions` は `/compact` の引数（自動と引数なしは `null`）、PostCompact の `compact_summary` は生成された要約です。どちらのフックも `systemMessage` と `continue` は捨てられます。終了コードの扱いは [Hooks](/claude-code-deep-dive/ja/extensions/hooks/)。
 
 <div class="src">
   出典: [hooks#precompact](https://code.claude.com/docs/en/hooks#precompact) · [#postcompact](https://code.claude.com/docs/en/hooks#postcompact) · [#instructionsloaded](https://code.claude.com/docs/en/hooks#instructionsloaded) · 実機確認 2.1.321

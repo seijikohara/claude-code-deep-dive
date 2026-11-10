@@ -26,7 +26,7 @@ Claude Code はモデルの外側でツールとコンテキストを管理す�
 | Web                    | Web 検索、ドキュメント取得                                   |
 | コードインテリジェンス | 編集後の型エラー、定義ジャンプ、参照検索（プラグインが必要） |
 
-ほかにサブエージェントの起動、ユーザーへの質問などのオーケストレーション用ツールがあります（一覧は [Ch21](/claude-code-deep-dive/ja/settings/tools/)）。ループ・ツール・機能は、ターミナル、Desktop、IDE、Web のどこから使っても同じです。
+ほかにサブエージェントの起動、ユーザーへの質問などのオーケストレーション用ツールがあります（一覧は [組み込みツール](/claude-code-deep-dive/ja/settings/tools/)）。ループ・ツール・機能は、ターミナル、Desktop、IDE、Web のどこから使っても同じです。
 
 <div class="src">
   出典: [how-claude-code-works#the-agentic-loop](https://code.claude.com/docs/en/how-claude-code-works#the-agentic-loop) · [glossary#agentic-harness](https://code.claude.com/docs/en/glossary#agentic-harness) · [prompt-caching#how-the-cache-is-organized](https://code.claude.com/docs/en/prompt-caching#how-the-cache-is-organized)
@@ -39,15 +39,15 @@ Claude Code はモデルの外側でツールとコンテキストを管理す�
 | 要素                             | 載る内容                                                                                                | 補足                                                                                                                                     |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | システムプロンプト               | コアの指示とツール定義。`--append-system-prompt` のテキストも含む                                       | 最初のリクエストで組み立てて記録し、圧縮まで再利用する（再開後も同じ）。`--system-prompt-snapshot off` で毎回作り直す                    |
-| CLAUDE.md とスコープなしの rules | 起動時に読む各ファイルの全文                                                                            | システムプロンプトの後のユーザーメッセージとして届く。読み込み順は [Ch9](/claude-code-deep-dive/ja/fundamentals/memory/)                 |
+| CLAUDE.md とスコープなしの rules | 起動時に読む各ファイルの全文                                                                            | システムプロンプトの後のユーザーメッセージとして届く。読み込み順は [メモリ](/claude-code-deep-dive/ja/fundamentals/memory/)                 |
 | auto memory                      | `MEMORY.md` の先頭 200 行または 25KB の早い方                                                           | トピックファイルは必要時に読む                                                                                                           |
 | MCP サーバー                     | ツール名とサーバーの指示だけ                                                                            | 完全なスキーマは tool search で必要時に読み込む                                                                                          |
 | Skill                            | 名前と説明の一覧。本文は呼び出し時                                                                      | 一覧の上限は `skillListingBudgetFraction`（既定 `0.01` = ウィンドウの 1%）。超えると、使用頻度の低い Skill から説明を外す。名前は残る    |
 | 出力スタイル                     | 選んだスタイルの指示全文                                                                                | Default スタイルでは何も載らない                                                                                                         |
 | git status のスナップショット    | 現在のブランチ、main ブランチ、`git status` の出力、最近のコミット                                      | 会話の開始時に読む。`includeGitInstructions: false` で除外（組み込みのコミット・PR 指示も消える）。クラウドセッションには入らない        |
-| 環境の告知                       | 作業ディレクトリ、プラットフォーム、シェル、OS バージョン。auto memory のパスはシステムプロンプトに入る | このため、キャッシュは実質「マシンとディレクトリ」単位になる（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/#ch06-cache-layers)） |
+| 環境の告知                       | 作業ディレクトリ、プラットフォーム、シェル、OS バージョン。auto memory のパスはシステムプロンプトに入る | このため、キャッシュは実質「マシンとディレクトリ」単位になる（[コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/#ch06-cache-layers)） |
 
-AGENTS.md は CLAUDE.md の代わりに読まれることがあります（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/)）。サブエージェントの一覧やファイル変更の通知は、会話中に system reminder として加わります（[system reminder](/claude-code-deep-dive/ja/fundamentals/how-it-works/#ch01-reminders)）。
+AGENTS.md は CLAUDE.md の代わりに読まれることがあります（[メモリ](/claude-code-deep-dive/ja/fundamentals/memory/)）。サブエージェントの一覧やファイル変更の通知は、会話中に system reminder として加わります（[system reminder](/claude-code-deep-dive/ja/fundamentals/how-it-works/#ch01-reminders)）。
 
 <div class="src">
   出典: [context-window#what-the-timeline-shows](https://code.claude.com/docs/en/context-window#what-the-timeline-shows) · [memory](https://code.claude.com/docs/en/memory) · [settings-reference#skilllistingbudgetfraction](https://code.claude.com/docs/en/settings-reference#skilllistingbudgetfraction) · [prompt-caching#cache-scope](https://code.claude.com/docs/en/prompt-caching#cache-scope) · [cli-reference#system-prompt-flags-in-resumed-conversations](https://code.claude.com/docs/en/cli-reference#system-prompt-flags-in-resumed-conversations)
@@ -69,7 +69,7 @@ AGENTS.md は CLAUDE.md の代わりに読まれることがあります（[Ch9]
 
 - Skill の frontmatter に `disable-model-invocation: true` を書くと、説明もコンテキストに載りません。自分で書いていない Skill には、設定の `skillOverrides` で同じことができます。
 - サブエージェントは、自身のシステムプロンプト、`skills` に挙げた Skill の全文、CLAUDE.md と git status を持って始まります。組み込みの Explore と Plan はどちらも持たず、`omitClaudeMd` を設定したエージェントは user・project・local の CLAUDE.md を持ちません。
-- fork は親の会話、システムプロンプト、ツールを引き継ぎます。どちらの場合も、サブエージェントのツール呼び出しはメインのコンテキストに入らず、要約だけが返ります（詳細は [Ch37](/claude-code-deep-dive/ja/parallel/subagents/)）。
+- fork は親の会話、システムプロンプト、ツールを引き継ぎます。どちらの場合も、サブエージェントのツール呼び出しはメインのコンテキストに入らず、要約だけが返ります（詳細は [サブエージェント](/claude-code-deep-dive/ja/parallel/subagents/)）。
 
 <div class="src">
   出典: [features-overview#understand-context-costs](https://code.claude.com/docs/en/features-overview#understand-context-costs) · [how-claude-code-works#manage-context-with-skills-and-subagents](https://code.claude.com/docs/en/how-claude-code-works#manage-context-with-skills-and-subagents)
@@ -107,7 +107,7 @@ $ claude -p "/context"
 - `/context [all]` は使用量を色付きのグリッドとカテゴリ別の内訳で示し、重いツールやメモリの肥大に対する提案を出します。fullscreen では項目別の内訳がたたまれ、`all` で展開します。
 - 会話がウィンドウを超えると、超過量と空きを作るコマンドを示す警告が出ます。
 - `-p` でもモデルを呼ばずに動きます（実測: `num_turns` 0、コスト 0）。
-- **分母はモデルのウィンドウではなく auto-compact window** です。`--autocompact 200k` を付けると `/ 200k` と表示されます（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/#ch06-window-values)）。
+- **分母はモデルのウィンドウではなく auto-compact window** です。`--autocompact 200k` を付けると `/ 200k` と表示されます（[コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/#ch06-window-values)）。
 - `(deferred)` の行は合計に入っていません。合計 14.3k は残りの行の和で、Free space は 1m から 14.3k と buffer 33k を引いた値です。
 - CLAUDE.md があると `Memory files` 行と、Type・Path・Tokens の表が加わります。ここに出るのは起動時に読んだファイルだけで、サブディレクトリの CLAUDE.md は出ません。
 - スラッシングが `/clear` 後も続くときは、`Messages` 行とその上の行の合計を比べます。`Messages` が最大なら大きな出力が原因、上の行の合計が大きいなら起動時の読み込みを減らします。

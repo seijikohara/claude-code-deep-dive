@@ -298,6 +298,21 @@ export function checkLinks(html) {
  * Return the internal links of a built site that point at a missing page or a missing id.
  * `pages` maps a site path (e.g. "/ja/fundamentals/advisor/") to that page's HTML; `base` is the site base path.
  */
+/**
+ * Return chapter numbers ("Ch12") and appendix letters ("付録 A") in built pages. The sidebar shows
+ * page titles only, so a reader cannot map a number to a page; references must use the title.
+ */
+export function checkChapterNumbers(pages) {
+  const found = [];
+  for (const [path, html] of pages) {
+    const text = html.replace(/<(script|style)\b[\s\S]*?<\/\1>/g, "");
+    for (const m of text.matchAll(/(?<![\w#/-])(Ch\d+|付録 ?[A-E])(?!\w)/g)) {
+      found.push(`${path}: ${m[1]}`);
+    }
+  }
+  return found;
+}
+
 export function checkSiteLinks(pages, base) {
   const idsByPath = new Map();
   for (const [path, html] of pages) {

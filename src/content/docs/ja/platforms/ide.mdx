@@ -30,7 +30,7 @@ VS Code 拡張と JetBrains プラグイン、そして CLI が IDE とつなが
 - プロジェクトの `.claude/settings.json`・`settings.local.json` は開始モードに使いません。
 - `claudeCode.claudeProcessWrapper` を設定すると 3 と 4 は使われず、1・2 がなければ Manual で始まります。
 - Bypass permissions は `claudeCode.allowDangerouslySkipPermissions` がオンのときだけ表示されます。オフのまま `bypassPermissions` を指定すると Manual で始まります。
-- 表示名: Manual＝`default`、Edit automatically＝`acceptEdits`。モード自体は [Ch23](/claude-code-deep-dive/ja/settings/permission-modes/) で扱います。
+- 表示名: Manual＝`default`、Edit automatically＝`acceptEdits`。モード自体は [パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/) で扱います。
 
 <div class="src">
   出典: [vs-code#prerequisites](https://code.claude.com/docs/en/vs-code#prerequisites) · [#install-the-extension](https://code.claude.com/docs/en/vs-code#install-the-extension) · [#get-started](https://code.claude.com/docs/en/vs-code#get-started) · [permission-modes#switch-permission-modes](https://code.claude.com/docs/en/permission-modes#switch-permission-modes)
@@ -44,7 +44,7 @@ VS Code 拡張と JetBrains プラグイン、そして CLI が IDE とつなが
 - `claudeCode.attachSelection`（v2.1.300 以降）と `claudeCode.attachOpenFile`（v2.1.271 以降）をオフにすると、それぞれ渡さなくなります。統合ターミナルの `claude` にも効きます。
 - チャットパネルでは、`files.exclude`・`search.exclude` に一致するファイルや git が無視するファイルの選択テキストを渡しません。統合ターミナルにはこの除外がないため、`Read` の deny ルールで防ぎます。
 - `@` はあいまい一致です（フォルダは末尾に `/`）。`@terminal:name` でターミナルの出力を参照します。PDF はページ範囲を指定して読めます（poppler-utils が必要）。
-- `@browser` で Claude in Chrome を使います（Chrome 拡張 1.0.36 以降、[Ch54](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）。
+- `@browser` で Claude in Chrome を使います（Chrome 拡張 1.0.36 以降、[Chrome と Computer use](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）。
 
 * Manual では、編集のたびに元と提案の差分を並べて表示し、許可を求めます。差分を直接編集してから受け入れると、Claude は変更されたことを知らされます。
 * 変更ごとの **Accept this change**・**Reject this change** で 1 か所ずつレビューできます（v2.1.275 以降）。100 か所を超える差分にはこのボタンが出ません。

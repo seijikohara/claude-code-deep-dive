@@ -73,7 +73,7 @@ claude --desktop --resume <session-id>
 
 ## 権限モード・diff ビュー・`/code-review`
 
-- モード選択欄には Manual（`default`）・Accept edits・Plan・Auto が並びます。`dontAsk` は CLI 専用です。モードの詳細は [Ch23](/claude-code-deep-dive/ja/settings/permission-modes/) で扱います。
+- モード選択欄には Manual（`default`）・Accept edits・Plan・Auto が並びます。`dontAsk` は CLI 専用です。モードの詳細は [パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/) で扱います。
 - Bypass permissions は、Pro・Max・Ultra では **Allow bypass permissions mode** を設定でオンにすると現れます。Team・Enterprise には設定がなく、組織ポリシーで決まります。
 - Bypass でも、どのモードでも自動承認されない操作、外部サイトでの安全分類器、セッション削除などのデスクトップ操作は確認します（アーカイブは確認しません）。
 - ローカルセッションで選んだモードはフォルダごとに記憶され、プロジェクトの `.claude/` の `defaultMode` より優先されます。`~/.claude/settings.json` や managed settings の `defaultMode` で始まることはあります。Plan はそのセッションだけです。
@@ -89,7 +89,7 @@ claude --desktop --resume <session-id>
 ### `/code-review`
 
 - ローカル・SSH・WSL では、指摘がファイルごとの **Code review** カードで届きます。
-- **Walk through in diff** で 1 件ずつ確認して **Fix this one** か却下、**Apply fixes** で残りをまとめて修正します。コマンド自体は [Ch47](/claude-code-deep-dive/ja/automation/code-review/) で扱います。
+- **Walk through in diff** で 1 件ずつ確認して **Fix this one** か却下、**Apply fixes** で残りをまとめて修正します。コマンド自体は [コードレビュー](/claude-code-deep-dive/ja/automation/code-review/) で扱います。
 
 <div class="src">
   出典: [desktop#choose-a-permission-mode](https://code.claude.com/docs/en/desktop#choose-a-permission-mode) · [#review-changes-with-diff-view](https://code.claude.com/docs/en/desktop#review-changes-with-diff-view) · [#review-your-code](https://code.claude.com/docs/en/desktop#review-your-code)
@@ -112,7 +112,7 @@ claude --desktop --resume <session-id>
 - Claude が dev サーバーを起動してペインで開き、スクリーンショット・DOM 確認・クリック・入力で変更を検証します。auto-verify は既定でオンで、`.claude/launch.json` の `"autoVerify": false` で止めます。SSH セッションにはこのツールがありません。
 - 外部サイトも開けます（<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>）。書き込み操作はすべてのモードで安全分類器が確認し、Auto・Bypass 以外では新しいサイトへの移動前にドメイン許可リストも確認します。
 - 初めて操作するサイトでは **Allow once**・**Always allow**・**Deny** を選びます（サブドメインごと）。
-- ペインは個人のログイン情報を持たないクリーンなプロファイルです。ログイン済みのブラウザで操作させるなら Claude in Chrome（[Ch54](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）を使います。
+- ペインは個人のログイン情報を持たないクリーンなプロファイルです。ログイン済みのブラウザで操作させるなら Claude in Chrome（[Chrome と Computer use](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）を使います。
 - 管理キー: `browserExternalPageTools: "disabled"` は外部ページでのツールを止め、`disableBrowserExternalNavigation: true` は外部への移動自体を止めます。
 
 <div class="src">
@@ -134,8 +134,8 @@ claude --desktop --resume <session-id>
 - Claude は他の Code タブのセッションを一覧し、内容を読み、メッセージを送り、名前変更やアーカイブもできます。
 - 対象は Desktop 自身が動かすローカル・SSH・WSL のセッションです。クラウド、ターミナルの CLI、VS Code のセッションは見えません。既定では直近 20 件です。
 - アーカイブ前には承認カードが出ます（Auto・Bypass を除く）。受信側の `crossSessionInbound` が `refuse` なら破棄されます。
-- 2.1.321 から、Code タブのセッションが入力を待たずに他セッションへ送れるメッセージは 10 件から 20 件になりました。仕組みは [Ch40](/claude-code-deep-dive/ja/parallel/messaging/) で扱います。
-- ローカルセッションを他の端末に出すかは、Remote Control の設定（**Connect new sessions to Remote Control**、`remoteControlAtStartup`）で決まります（[Ch49](/claude-code-deep-dive/ja/platforms/remote-control/)）。
+- 2.1.321 から、Code タブのセッションが入力を待たずに他セッションへ送れるメッセージは 10 件から 20 件になりました。仕組みは [セッション間メッセージング](/claude-code-deep-dive/ja/parallel/messaging/) で扱います。
+- ローカルセッションを他の端末に出すかは、Remote Control の設定（**Connect new sessions to Remote Control**、`remoteControlAtStartup`）で決まります（[Remote Control とモバイル](/claude-code-deep-dive/ja/platforms/remote-control/)）。
 
 <div class="src">
   出典: [desktop#work-in-parallel-with-sessions](https://code.claude.com/docs/en/desktop#work-in-parallel-with-sessions) · [#run-a-session-in-its-own-worktree](https://code.claude.com/docs/en/desktop#run-a-session-in-its-own-worktree) · [#keep-uncommitted-changes-when-a-session-is-archived](https://code.claude.com/docs/en/desktop#keep-uncommitted-changes-when-a-session-is-archived) · [#work-across-sessions](https://code.claude.com/docs/en/desktop#work-across-sessions) · [#control-which-sessions-appear-on-your-other-devices](https://code.claude.com/docs/en/desktop#control-which-sessions-appear-on-your-other-devices) · changelog 2.1.321
@@ -218,7 +218,7 @@ claude://code/new?ssh_host=dev%40build.example.com&ssh_port=2222&ssh_folder=/srv
 - Dispatch が起動したセッションも Computer use を使えます。アプリの承認は 30 分で失効し、再確認になります。
 - Pro・Max・Ultra のみで、Team・Enterprise では使えません。ペアリングの手順はヘルプ記事にあります。
 
-CLI の Computer use は [Ch54](/claude-code-deep-dive/ja/platforms/chrome-computer-use/) で扱います。
+CLI の Computer use は [Chrome と Computer use](/claude-code-deep-dive/ja/platforms/chrome-computer-use/) で扱います。
 
 <div class="src">
   出典: [desktop#let-claude-use-your-computer](https://code.claude.com/docs/en/desktop#let-claude-use-your-computer) · [#app-permissions](https://code.claude.com/docs/en/desktop#app-permissions) · [#sessions-from-dispatch](https://code.claude.com/docs/en/desktop#sessions-from-dispatch) · [desktop-linux](https://code.claude.com/docs/en/desktop-linux#whats-not-in-the-linux-beta-yet)
@@ -230,7 +230,7 @@ CLI の Computer use は [Ch54](/claude-code-deep-dive/ja/platforms/chrome-compu
 
 ### ローカルのスケジュールタスク
 
-Desktop の **Scheduled tasks** ページには、ローカルとクラウドのタスクが並びます。ローカルのタスクはアプリが開いていてマシンが起きている間だけ動きます。比較は [Ch43](/claude-code-deep-dive/ja/parallel/scheduling/) で扱います。
+Desktop の **Scheduled tasks** ページには、ローカルとクラウドのタスクが並びます。ローカルのタスクはアプリが開いていてマシンが起きている間だけ動きます。比較は [スケジュール実行](/claude-code-deep-dive/ja/parallel/scheduling/) で扱います。
 
 ### iOS Simulator ペイン <Badge text="Beta" variant="note" size="small" class="badge beta" />
 

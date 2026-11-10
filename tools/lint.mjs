@@ -13,6 +13,7 @@ import {
   checkSources,
   checkLinks,
   checkSiteLinks,
+  checkChapterNumbers,
 } from "./lib/lint-rules.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -219,6 +220,13 @@ function run(argv) {
   if (opts.only.includes("links")) {
     const broken = opts.site ? checkSiteLinks(pages, SITE_BASE) : checkLinks(html);
     report(`links: ${broken.length} internal links without a target slide`, broken);
+    if (opts.site) {
+      const numbers = checkChapterNumbers(pages);
+      report(
+        `links: ${numbers.length} chapter numbers or appendix letters (use the page title)`,
+        numbers,
+      );
+    }
   }
 
   lines.push(findings === 0 ? "OK: no findings" : `FAIL: ${findings} findings`);

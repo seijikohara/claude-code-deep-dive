@@ -1,13 +1,13 @@
 ---
 title: "認証"
-description: "Claude Code が受け付けるアカウントと資格情報、その優先順位を扱います。claude auth サブコマンド、Anthropic プロファイル、apiKeyHelper、claude setup-token、管理者がログイン方法と API プロバイダを絞るキーまでを説明します。プロバイダ固有の設定は Ch59 で扱います。"
+description: "Claude Code が受け付けるアカウントと資格情報、その優先順位を扱います。claude auth サブコマンド、Anthropic プロファイル、apiKeyHelper、claude setup-token、管理者がログイン方法と API プロバイダを絞るキーまでを説明します。プロバイダ固有の設定は「クラウドプロバイダ」で扱います。"
 sidebar:
   order: 57
 ---
 
 import { Badge } from "@astrojs/starlight/components";
 
-Claude Code が受け付けるアカウントと資格情報、その優先順位を扱います。`claude auth` サブコマンド、Anthropic プロファイル、`apiKeyHelper`、`claude setup-token`、管理者がログイン方法と API プロバイダを絞るキーまでを説明します。プロバイダ固有の設定は [Ch59](/claude-code-deep-dive/ja/enterprise/providers/) で扱います。
+Claude Code が受け付けるアカウントと資格情報、その優先順位を扱います。`claude auth` サブコマンド、Anthropic プロファイル、`apiKeyHelper`、`claude setup-token`、管理者がログイン方法と API プロバイダを絞るキーまでを説明します。プロバイダ固有の設定は [クラウドプロバイダ](/claude-code-deep-dive/ja/enterprise/providers/) で扱います。
 
 <span id="ch57-accounts" />
 
@@ -19,7 +19,7 @@ Claude Code が受け付けるアカウントと資格情報、その優先順�
 | Teams・Enterprise  | 管理者に招待された claude.ai アカウント                            | Teams: SSO、管理ツール、server-managed settings。Enterprise はドメインキャプチャ、ロール別権限、Compliance API を追加                    |
 | Claude Console     | Console の資格情報。API キーを作るか、作らずにサインイン           | API 従量課金。ロールは **Claude Code**（Claude Code 用キーだけ作れる）と **Developer**（任意のキー）                                     |
 | クラウドプロバイダ | 環境変数を設定するか、ログイン画面で **3rd-party platform** を選ぶ | Bedrock・Agent Platform はウィザードあり。ブラウザログインは不要                                                                         |
-| Cloud gateway      | 自社の Claude apps gateway に `/login` から企業 SSO                | gateway が発行するトークンがセッション唯一の資格情報（[Ch60](/claude-code-deep-dive/ja/enterprise/network-gateways/#ch60-apps-gateway)） |
+| Cloud gateway      | 自社の Claude apps gateway に `/login` から企業 SSO                | gateway が発行するトークンがセッション唯一の資格情報（[ネットワークとゲートウェイ](/claude-code-deep-dive/ja/enterprise/network-gateways/#ch60-apps-gateway)） |
 
 - 初回の `claude` でブラウザが開きます。開かないときは <kbd>c</kbd> で URL をコピーします。リダイレクトせずコードが表示されたら `Paste code here if prompted` に貼ります。完了すると `Login successful` と出ます。
 - `/logout` は初回セットアップの状態も消すので、次の起動でログインからやり直します。
@@ -85,7 +85,7 @@ Commands:
 - 承認済みの `ANTHROPIC_API_KEY` はサブスクリプションより優先します。無効な組織のキーなら `unset` し、`/status` で確かめます。クラウドセッションは常にサブスクリプションを使います。
 
 :::danger[食い違い]
-手順 1 は 3 変数だけですが、`CLAUDE_CODE_USE_MANTLE` と `CLAUDE_CODE_USE_ANTHROPIC_AWS` も env-vars に載るプロバイダ選択で、実機の `authMethod` も `third_party` でした。docs の優先順位表には未記載です。複数指定時の選択順は [Ch59](/claude-code-deep-dive/ja/enterprise/providers/#ch59-selection)。
+手順 1 は 3 変数だけですが、`CLAUDE_CODE_USE_MANTLE` と `CLAUDE_CODE_USE_ANTHROPIC_AWS` も env-vars に載るプロバイダ選択で、実機の `authMethod` も `third_party` でした。docs の優先順位表には未記載です。複数指定時の選択順は [クラウドプロバイダ](/claude-code-deep-dive/ja/enterprise/providers/#ch59-selection)。
 :::
 
 <div class="src">
@@ -140,7 +140,7 @@ Commands:
 - `/login` と同じブラウザ認可で **1 年有効** の OAuth トークンを表示します。保存はしないので、`CLAUDE_CODE_OAUTH_TOKEN` に設定します。
 - Pro・Max・Ultra・Team・Enterprise が必要です。できるのはモデル呼び出しだけで、Remote Control と claude.ai コネクタは使えません（ローカルの MCP は動く）。
 - `--bare` はこのトークンを読まないので、`ANTHROPIC_API_KEY` か `apiKeyHelper` を使います。`forceLoginMethod` は適用されますが、`forceLoginOrgUUID` は検査されないため、別組織のトークンも作れます。
-- Console の API キーは claude.ai 組織とは別の組織に属するため、CI で server-managed settings を効かせるには、このトークンか endpoint-managed settings を使います（[Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/#ch58-server-managed)）。
+- Console の API キーは claude.ai 組織とは別の組織に属するため、CI で server-managed settings を効かせるには、このトークンか endpoint-managed settings を使います（[管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/#ch58-server-managed)）。
 - 自動プロビジョニング: `CLAUDE_CODE_OAUTH_REFRESH_TOKEN` と `CLAUDE_CODE_OAUTH_SCOPES`（例 `"user:profile user:inference user:sessions:claude_code"`）があると、`claude auth login` はブラウザを開かずに交換します。この 2 つと `CLAUDE_CODE_OAUTH_TOKEN` は project・local 設定の `env` では無視されます。
 
 <div class="src">
@@ -164,7 +164,7 @@ Commands:
 | プロファイル・federation                                    | 上の資格情報も残っているときだけブロック。組織は検査しない    |
 
 - 配布は MDM・ファイルで行います。server-managed settings は初回認証の後に届くので、最初のログインは誘導できません。
-- MDM・ファイルの値は server-managed より優先します。全クライアントが v2.1.299 以上になるまでは server-managed にも同じ値を置きます（[Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/#ch58-cross-source)）。
+- MDM・ファイルの値は server-managed より優先します。全クライアントが v2.1.299 以上になるまでは server-managed にも同じ値を置きます（[管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/#ch58-cross-source)）。
 - gateway サインインには `forceLoginOrgUUID` は効かず、IdP 側で絞ります。gateway が配る設定に両キーを入れません。
 - 不正な `forceLoginOrgUUID` は「どの組織もログイン不可」になります。
 

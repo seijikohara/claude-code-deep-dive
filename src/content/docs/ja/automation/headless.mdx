@@ -16,14 +16,14 @@ sidebar:
 - 標準入力はプロンプトの文脈として読み込まれます。パイプ入力の上限は 10MB で、超えると非ゼロで終了します。
 - ワークスペースの信頼ダイアログは出ません。検証に失敗した設定ファイルは、エラーを出さずに無視されます（`--help`）。
 - `--bare` がない場合、未信頼のフォルダでも、プロジェクトの `.claude/settings.json` のフックと `.mcp.json` のサーバーが動きます。サーバーごとの承認もありません。
-- `--bg` と、タスク文付きの `--cloud` はエラーで拒否されます。セッション ID 付きの `--cloud` は、そのクラウドセッションにメッセージを積んで終了します（[Ch50](/claude-code-deep-dive/ja/platforms/cloud/)）。
+- `--bg` と、タスク文付きの `--cloud` はエラーで拒否されます。セッション ID 付きの `--cloud` は、そのクラウドセッションにメッセージを積んで終了します（[クラウドセッション](/claude-code-deep-dive/ja/platforms/cloud/)）。
 
 ### `-p` でのスラッシュコマンド
 
 - ユーザーが呼び出す skill とカスタムコマンドは使えます。プロンプトに `/skill-name` を含めます。
 - `/login` など、端末 UI 専用の組み込みコマンドは使えません。
 - `/model`・`/effort`・`/fast`・`/color`・`/rename` は、`/model sonnet` のように値を引数で受け取ります。
-- 設定の変更は `/config thinking=false` の形です。`/output-style` は v2.1.269 以降です。実測の一覧は [Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/) と [Ch12](/claude-code-deep-dive/ja/operation/commands/) です。
+- 設定の変更は `/config thinking=false` の形です。`/output-style` は v2.1.269 以降です。実測の一覧は [セッション](/claude-code-deep-dive/ja/fundamentals/sessions/) と [スラッシュコマンド完全ガイド](/claude-code-deep-dive/ja/operation/commands/) です。
 
 ```text title="実測 2.1.321" frame="terminal"
 Warning: no stdin data received in 3s, proceeding
@@ -149,7 +149,7 @@ docs は `--bare` を「スクリプトと SDK 呼び出しの推奨モード」
 | その他                       | フックは動かない                                                                          | managed のフック・ステータスラインは動く。managed のプラグイン・skill・CLAUDE.md・MCP は読まない   | ファイルツールを作業ディレクトリに限定。`bypassPermissions` とクラウドセッション作成を拒否   |
 | 環境変数・版                 | `CLAUDE_CODE_SIMPLE`                                                                      | `CLAUDE_CODE_SAFE_MODE`                                                                            | v2.1.248 以降                                                                                |
 
-`--restricted` の docs は「コマンドやコードを実行する組み込みツールと WebFetch を外す」という一般的な表現だけです。外れるツール名は実測です。`--tools` で個別に名前を挙げれば残せます（`default` プリセットでは戻りません）。詳細は [Ch26](/claude-code-deep-dive/ja/settings/security/) と [Ch27](/claude-code-deep-dive/ja/settings/diagnostics/) です。
+`--restricted` の docs は「コマンドやコードを実行する組み込みツールと WebFetch を外す」という一般的な表現だけです。外れるツール名は実測です。`--tools` で個別に名前を挙げれば残せます（`default` プリセットでは戻りません）。詳細は [セキュリティ](/claude-code-deep-dive/ja/settings/security/) と [診断](/claude-code-deep-dive/ja/settings/diagnostics/) です。
 
 <div class="src">
   出典: [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags)（`--bare`・`--safe-mode`・`--restricted`） · [headless#start-faster-with-bare-mode](https://code.claude.com/docs/en/headless#start-faster-with-bare-mode) · 実機確認 2.1.321
@@ -291,7 +291,7 @@ $ claude -p --output-format stream-json --verbose \
 | `result`                                                                                 | 最終結果・費用・セッション情報                                                                                           | 常に。最後の行                                               |
 
 :::danger[食い違い]
-docs は init より前に出るのを `SessionStart`・`Setup` のフックと `plugin_install` に限っています。実測では `UserPromptSubmit`・`UserPromptExpansion` のフックイベントも init より前に出ました（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）。
+docs は init より前に出るのを `SessionStart`・`Setup` のフックと `plugin_install` に限っています。実測では `UserPromptSubmit`・`UserPromptExpansion` のフックイベントも init より前に出ました（[Hooks](/claude-code-deep-dive/ja/extensions/hooks/)）。
 :::
 
 <div class="src">
@@ -324,7 +324,7 @@ claude -p "Write a poem" --output-format stream-json \
 docs の例を紙面に合わせて折り返しています。
 
 - 読み手が遅い場合、終了前に出力の排出を待ちます。待ち時間は残量に応じて伸び、上限は 30 秒です。
-- Agent SDK のストリームイベントはメインセッションだけで、サブエージェントの差分は転送しません（[Ch45](/claude-code-deep-dive/ja/automation/agent-sdk/)）。
+- Agent SDK のストリームイベントはメインセッションだけで、サブエージェントの差分は転送しません（[Agent SDK](/claude-code-deep-dive/ja/automation/agent-sdk/)）。
 
 <div class="src">
   出典: [headless#follow-subagent-messages](https://code.claude.com/docs/en/headless#follow-subagent-messages) · [#stream-responses](https://code.claude.com/docs/en/headless#stream-responses) · [agent-sdk/streaming-output](https://code.claude.com/docs/en/agent-sdk/streaming-output)
@@ -340,7 +340,7 @@ docs の例を紙面に合わせて折り返しています。
 - `mcp_server_errors` の `type` は `unknown_type`・`url_missing_type`・`invalid_config`・`reserved_name` など。未知の値もスキップ扱いです。
 - キャッシュ済みツール一覧を持つリモートサーバーは `pending` のまま載ります。機能の判定は `capabilities` 配列で行います。
 - `--safe-mode` の init でも `plugins` には `"path": "builtin"` の組み込みプラグインが並びます。「空であること」は条件にできません。
-- init の主なキー（実測）: `tools`・`mcp_servers`・`model`・`permissionMode`・`slash_commands`・`agents`・`skills`・`plugins`・`capabilities` ほか（[Ch21](/claude-code-deep-dive/ja/settings/tools/)・[Ch12](/claude-code-deep-dive/ja/operation/commands/)）。
+- init の主なキー（実測）: `tools`・`mcp_servers`・`model`・`permissionMode`・`slash_commands`・`agents`・`skills`・`plugins`・`capabilities` ほか（[組み込みツール](/claude-code-deep-dive/ja/settings/tools/)・[スラッシュコマンド完全ガイド](/claude-code-deep-dive/ja/operation/commands/)）。
 
 ```text title="実測 2.1.321" frame="terminal"
 $ claude -p --strict-mcp-config --mcp-config \
@@ -375,7 +375,7 @@ jq -e 'select(.type == "system" and .subtype == "init")
 
 ## 無人実行の権限（実測）
 
-- モード未指定の `-p` は、v2.1.302 以降 Manual（設定値は `default`）で始まります。2.1.285〜2.1.301 は、サードパーティのプロバイダやテレメトリ無効時に auto で始まりました（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)）。
+- モード未指定の `-p` は、v2.1.302 以降 Manual（設定値は `default`）で始まります。2.1.285〜2.1.301 は、サードパーティのプロバイダやテレメトリ無効時に auto で始まりました（[パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/)）。
 - Manual の `-p` では、承認が要る呼び出しは拒否されます。承認できるのは allow ルール、`PermissionRequest` フック、`--permission-prompt-tool` です。
 - `--allowedTools` は権限ルール構文です。`Bash(git diff*)` は `git diff-index` にも一致するため、`*` の前に空白を入れます。auto で始まる実行では素の `Bash` が捨てられます。
 - `dontAsk`: 確認になる呼び出しをすべて拒否します。`AskUserQuestion`、組織が `ask` にしたコネクタ、`requiresUserInteraction` の MCP ツール、ネットワークパスの読み取りは、allow ルールがあっても拒否です。
@@ -443,7 +443,7 @@ claude -p --append-system-prompt-file ./style.md --append-system-prompt "Always 
 
 - `--continue`: このディレクトリの最新の会話を開きます。対話モードは `-p`・SDK・`/loop` のセッションを飛ばしますが、`claude -p --continue` は含めます。v2.1.257 以降は終了済みのバックグラウンドセッションも対象です。
 - `--resume`: ID・名前・`.jsonl` の絶対パスを受け取ります。ID は現在のプロジェクトと worktree、次に全プロジェクトから探します（v2.1.223 以降）。
-- `--fork-session` は新しい ID に分岐し、`--session-id` は ID を先に決めます（[Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/)）。ファイルの巻き戻しは SDK の `rewindFiles()` です（[Ch45](/claude-code-deep-dive/ja/automation/agent-sdk/)）。
+- `--fork-session` は新しい ID に分岐し、`--session-id` は ID を先に決めます（[セッション](/claude-code-deep-dive/ja/fundamentals/sessions/)）。ファイルの巻き戻しは SDK の `rewindFiles()` です（[Agent SDK](/claude-code-deep-dive/ja/automation/agent-sdk/)）。
 
 ### バックグラウンド処理の待ち
 

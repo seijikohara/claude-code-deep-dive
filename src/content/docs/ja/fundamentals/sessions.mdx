@@ -73,7 +73,7 @@ Error: Invalid session ID. Must be a valid UUID. → exit 1
 `-p` では、一致しない名前はピッカーを開かずにエラーで終了する。ID は伏せ字にした
 
 - 名前が一意でないとき、`claude --resume <name>` は名前を検索語にしたピッカーを開き、`/resume <name>` はエラーにします。
-- <Badge text="Preview" variant="tip" size="small" class="badge preview" /> 実行中の背景セッションを再開すると、`claude attach` でそのセッションに接続します（[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)）。
+- <Badge text="Preview" variant="tip" size="small" class="badge preview" /> 実行中の背景セッションを再開すると、`claude attach` でそのセッションに接続します（[Agent View とバックグラウンド](/claude-code-deep-dive/ja/parallel/agent-view/)）。
 
 <div class="src">
   出典: [sessions#resume-a-session](https://code.claude.com/docs/en/sessions#resume-a-session) · [#resume-by-session-id-or-name](https://code.claude.com/docs/en/sessions#resume-by-session-id-or-name) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · [commands](https://code.claude.com/docs/en/commands) · 実機確認 2.1.321
@@ -86,7 +86,7 @@ Error: Invalid session ID. Must be a valid UUID. → exit 1
 ### 復元される
 
 - **会話履歴**: 圧縮済みなら `Conversation compacted` の行から開きます。最後の要約、要約されなかったメッセージ、その後のメッセージだけを読み込みます。
-- **モデル**: 使っていたモデルで続けます（例外は [Ch2](/claude-code-deep-dive/ja/fundamentals/models/)）。
+- **モデル**: 使っていたモデルで続けます（例外は [モデル選択](/claude-code-deep-dive/ja/fundamentals/models/)）。
 - **エージェント**: `--agent` か `agent` 設定で始めたセッションは、そのエージェントのツール制限とモデルを保ちます。元のディレクトリ（信頼済みの場合）、次に再開したディレクトリの順に定義を探し、見つからなければ既定のツールで警告付きで再開します。
 - **権限モード**: 経路によります（次の節）。
 - **有効な `/goal`**: 条件を引き継ぎ、ターン数・経過時間・トークン量はリセットします。
@@ -118,7 +118,7 @@ Pro・Max・Ultra で、長い中断の後や別モデルで長い会話を再�
 | 起動時のピッカー                                                   | 同じコマンドラインで新規に始めたときのモード。plan だけは復元（`--permission-mode`・`--dangerously-skip-permissions`・`--fork-session` を付けると復元しない） |
 | セッション内の `/resume`                                           | 現在のモードを引き継ぐ。plan で終わった会話は plan。この実行中に一度開いた会話は現在のモード                                                                  |
 
-deny ルールで `ExitPlanMode` が消えていると、plan は復元しません。開始時のモードの決まり方は [Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)。
+deny ルールで `ExitPlanMode` が消えていると、plan は復元しません。開始時のモードの決まり方は [パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/)。
 
 | 終了時（ターミナル） | 再開後                                                                                                                |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -179,8 +179,8 @@ context yet. Usage: /rename <name>"
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/branch [name]`                                                         | 現時点までの会話をコピーし、コピー側へ切り替える。元はそのまま残り `/resume` で戻れる。名前の既定は最初のプロンプト | 同じプロセスなので「このセッションで許可」を保つ。実行中の背景サブエージェントと背景 Bash の出力は分岐側に出る。Remote Control も追従する                                       |
 | `claude --continue --fork-session` `claude --resume <id> --fork-session` | 新しいセッション ID で再開する。元のトランスクリプトは変わらない                                                    | 別プロセスなので許可は引き継がず、承認し直す。plan mode も復元しない。`--session-id <uuid>` を併用すると分岐の ID を指定できる                                                  |
-| `/fork [prompt]` <Badge text="Preview" variant="tip" size="small" class="badge preview" />              | 会話を新しい背景セッションへコピーし、自分はこのまま作業を続ける（2.1.212 から）                                    | コピーは自分の worktree を作るよう指示される（v2.1.221 以降）。agent view が off なら fork サブエージェントを起動する（[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)） |
-| `/subtask <task>`                                                        | 会話全体を引き継ぐ背景の fork サブエージェントに作業を渡す                                                          | 結果はこの会話に返る。agent view が off だと使えない（[Ch37](/claude-code-deep-dive/ja/parallel/subagents/)）                                                                   |
+| `/fork [prompt]` <Badge text="Preview" variant="tip" size="small" class="badge preview" />              | 会話を新しい背景セッションへコピーし、自分はこのまま作業を続ける（2.1.212 から）                                    | コピーは自分の worktree を作るよう指示される（v2.1.221 以降）。agent view が off なら fork サブエージェントを起動する（[Agent View とバックグラウンド](/claude-code-deep-dive/ja/parallel/agent-view/)） |
+| `/subtask <task>`                                                        | 会話全体を引き継ぐ背景の fork サブエージェントに作業を渡す                                                          | 結果はこの会話に返る。agent view が off だと使えない（[サブエージェント](/claude-code-deep-dive/ja/parallel/subagents/)）                                                                   |
 
 - `/fork` は 2.1.77 で `/branch` に改名され、2.1.212 で背景セッションへのコピーとして再定義されました。それまで `/fork` が起動していた会話内のサブエージェントは `/subtask` になりました。
 - 分岐で始まったセッションでは、SessionStart の source が `fork` です。フォークせずに同じセッションを 2 つのターミナルで再開すると、両方のメッセージが 1 つのトランスクリプトに混ざります。
@@ -210,7 +210,7 @@ context yet. Usage: /rename <name>"
 ```
 
 - `CLAUDE_CODE_SKIP_PROMPT_HISTORY` を付けたセッションは、`--resume`・`--continue`・<kbd>↑</kbd> の履歴に出ません。
-- <Badge text="Preview" variant="tip" size="small" class="badge preview" /> 背景セッションを `claude rm <id>` で消しても、トランスクリプトは残ります。ディレクトリ全体の一覧は [Ch10](/claude-code-deep-dive/ja/fundamentals/claude-dir/)。
+- <Badge text="Preview" variant="tip" size="small" class="badge preview" /> 背景セッションを `claude rm <id>` で消しても、トランスクリプトは残ります。ディレクトリ全体の一覧は [.claude ディレクトリ](/claude-code-deep-dive/ja/fundamentals/claude-dir/)。
 
 * 削除はセッション開始後の背景 sweep で、通知なしに行います。期限切れのセッションは `/resume` に出なくなります。
 * `cleanupPeriodDays: 0` は 2.1.89 から検証エラーです（以前は永続化を黙って止めていた）。長く残すなら `3650` などを設定します。
@@ -234,7 +234,7 @@ context yet. Usage: /rename <name>"
 | `/goal`、`/goal clear`                                                                       | 状態の表示と解除（右）                         |
 | `/rewind` `/checkpoint` `/undo` `/branch` `/fork` `/subtask` `/resume` `/continue` `/export` | `/<name> isn't available in this environment.` |
 
-この表示は「このセッションでは使えない組み込みコマンド」を意味し、対話専用である証明にはなりません（[Ch12](/claude-code-deep-dive/ja/operation/commands/)）。`-p` では代わりに `--resume`・`--continue`・`--fork-session`、`--output-format json`、SDK の `rewindFiles()` を使います（[Ch44](/claude-code-deep-dive/ja/automation/headless/)）。
+この表示は「このセッションでは使えない組み込みコマンド」を意味し、対話専用である証明にはなりません（[スラッシュコマンド完全ガイド](/claude-code-deep-dive/ja/operation/commands/)）。`-p` では代わりに `--resume`・`--continue`・`--fork-session`、`--output-format json`、SDK の `rewindFiles()` を使います（[ヘッドレス実行](/claude-code-deep-dive/ja/automation/headless/)）。
 
 ```text title="実測 2.1.321" frame="terminal"
 $ claude -p --output-format json "/rewind"
@@ -344,7 +344,7 @@ met — …
 | 手段        | 次のターンが始まる時                                                     | 止まる時                                                  | 置き場所と判定                                                                     |
 | ----------- | ------------------------------------------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `/goal`     | 前のターンの終了時。対話セッションではアイドル時の確認や自動再試行の時刻 | モデルが達成か不可能と判定、直すべきエラー、`/goal clear` | 現在のセッションだけ。small fast モデルが判定                                      |
-| `/loop`     | 指定した間隔が経過したとき                                               | ユーザーが止めるか、Claude が完了と判断                   | セッション内の予定タスク（[Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)） |
+| `/loop`     | 指定した間隔が経過したとき                                               | ユーザーが止めるか、Claude が完了と判断                   | セッション内の予定タスク（[スケジュール実行](/claude-code-deep-dive/ja/parallel/scheduling/)） |
 | Stop フック | 前のターンの終了時                                                       | 自分のスクリプトかプロンプトが決める                      | 設定ファイル。そのスコープの全セッションに効く                                     |
 
 - `/goal` と Stop フックはどちらも毎ターン後に発火します。決定的な検査ならスクリプトの Stop フック、モデルに判定させるなら `type: "prompt"` の Stop フックか `/goal` です。

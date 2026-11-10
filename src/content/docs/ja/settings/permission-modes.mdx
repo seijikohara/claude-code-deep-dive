@@ -49,7 +49,7 @@ bypassPermissions, manual, dontAsk, plan.      → exit 1
 
 - 選ばれた `auto` が使えない場合は Manual で始まります。
 - `-p` と SDK は v2.1.302 以降 `default` です。2.1.285〜2.1.301 は、サードパーティプロバイダかテレメトリ無効なら auto でした。
-- VS Code 拡張は `claudeCode.initialPermissionMode` を先に見て、プロジェクト設定は読みません。再開時は [Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/)。
+- VS Code 拡張は `claudeCode.initialPermissionMode` を先に見て、プロジェクト設定は読みません。再開時は [セッション](/claude-code-deep-dive/ja/fundamentals/sessions/)。
 
 user 設定を読まない `-p`（モード未指定）の init イベント:
 
@@ -150,7 +150,7 @@ claude -p "run the test suite" --permission-mode dontAsk \
 | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--permission-prompts none`（v2.1.259 以降）                                       | 確認になるものを拒否（`PermissionRequest` フックの承認は有効）。Claude に再試行しないよう伝え、`AskUserQuestion` を外し、未応答の elicitation を取り消す |
 | `permissions.denyInsteadOfPrompting`（v2.1.319 以降。user・managed・`--settings`） | `-p` 以外（対話・VS Code・Desktop のローカル）でも同じ拒否。`EnterPlanMode`・`ExitPlanMode` も外し、`canUseTool` とプロンプトツールに問い合わせない      |
-| `--permission-prompt-tool`                                                         | MCP ツールが確認に答える。`--help` には載らない（[Ch44](/claude-code-deep-dive/ja/automation/headless/)）                                                |
+| `--permission-prompt-tool`                                                         | MCP ツールが確認に答える。`--help` には載らない（[ヘッドレス実行](/claude-code-deep-dive/ja/automation/headless/)）                                                |
 
 ```bash
 claude -p "Update the dependency pins and run the tests" \

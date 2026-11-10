@@ -69,11 +69,11 @@ docs の標準レイアウト例（抜粋）
 | Skill              | `skills/<name>/SKILL.md` | `skills`                | 追加         | `/<plugin>:<dir>`                                                            |
 | コマンド（旧形式） | `commands/*.md`          | `commands`              | 置換         | `commands/db/migrate.md` は `/my-plugin:db:migrate`                          |
 | エージェント       | `agents/*.md`            | `agents`（`.md` のみ）  | 置換         | `<plugin>:<name>`。サブフォルダも `:` で連結                                 |
-| フック             | `hooks/hooks.json`       | `hooks`                 | マージ       | `modules` を書くと Mod（[Ch33](/claude-code-deep-dive/ja/extensions/mods/)） |
+| フック             | `hooks/hooks.json`       | `hooks`                 | マージ       | `modules` を書くと Mod（[Mods](/claude-code-deep-dive/ja/extensions/mods/)） |
 | MCP サーバー       | `.mcp.json`              | `mcpServers`            | マージ       | `plugin:<plugin>:<server>`                                                   |
 | LSP サーバー       | `.lsp.json`              | `lspServers`            | マージ       | 拡張子ごとに 1 サーバー                                                      |
 | 出力スタイル       | `output-styles/`         | `outputStyles`          | 置換         | `<plugin>:<name>`                                                            |
-| Workflow           | `workflows/*.js`         | `workflows`             | 置換         | [Ch41](/claude-code-deep-dive/ja/parallel/workflows/)                        |
+| Workflow           | `workflows/*.js`         | `workflows`             | 置換         | [Dynamic Workflows](/claude-code-deep-dive/ja/parallel/workflows/)                        |
 | テーマ             | `themes/*.json`          | `experimental.themes`   | 置換         | `/theme` にファイルの `name` で並ぶ                                          |
 | モニター           | `monitors/monitors.json` | `experimental.monitors` | 置換         | セッション中ずっと動くコマンド                                               |
 | 実行ファイル       | `bin/`                   | なし                    | —            | Bash ツールの `PATH` に入る                                                  |
@@ -239,7 +239,7 @@ Windows では置換後のパスの多くがスラッシュ区切りになりま
 - `hooks/hooks.json` と `hooks` キーの両方が読み込まれます。
 - Skill の使用を待たず、プラグインの読み込み時に登録されます。絞るには `matcher` を使います。
 - 自分の MCP ツールには `mcp__plugin_<plugin>_<server>__<tool>` の完全名で matcher を書きます。サーバー名だけでは発火しません。
-- イベントと入出力は [Ch28](/claude-code-deep-dive/ja/extensions/hooks/) で扱います。
+- イベントと入出力は [Hooks](/claude-code-deep-dive/ja/extensions/hooks/) で扱います。
 
 ### 既定の設定（`settings.json`・`settings`）
 
@@ -277,7 +277,7 @@ Windows では置換後のパスの多くがスラッシュ区切りになりま
 | `"https://example.com/server.mcpb"` | ダウンロードして展開                         |
 | インラインのマップ                  | 名前ごとのサーバー設定                       |
 
-MCPB サーバーの名前はバンドル側の `name` です。必須の `user_config` が未設定だと起動しません。`/plugin` の **Configure** か `--config <server>.<key>=<value>`（v2.1.285 以降）で設定します。接続の詳細は [Ch30](/claude-code-deep-dive/ja/extensions/mcp/) で扱います。
+MCPB サーバーの名前はバンドル側の `name` です。必須の `user_config` が未設定だと起動しません。`/plugin` の **Configure** か `--config <server>.<key>=<value>`（v2.1.285 以降）で設定します。接続の詳細は [MCP](/claude-code-deep-dive/ja/extensions/mcp/) で扱います。
 
 - `.lsp.json` はサーバー名から設定への対応で、包みはありません。validate はこのファイルを読みません。不正なエントリが 1 つでもあると、ファイル全体が読み飛ばされます。
 - 必須は `command` と `extensionToLanguage`（キーは `.` 始まり）です。任意: `args`、`transport`（`socket` も受け付けるが常に stdio）、`env`、`initializationOptions`、`settings`、`workspaceFolder`、`startupTimeout`、`shutdownTimeout`、`requestTimeout`（既定 60000、v2.1.288 以降）、`restartOnCrash`（既定 true）、`maxRestarts`、`diagnostics`（既定 true）。
@@ -330,7 +330,7 @@ Run /reload-plugins to load it now.
 | `@inline`        | `--plugin-dir`・`--plugin-url`・`CLAUDE_CODE_PLUGIN_DIRS`・SDK の `plugins`        |
 | `@skills-dir`    | skills ディレクトリのプラグイン                                                    |
 | `@synced`        | claude.ai のアカウントや組織で有効にしたもの                                       |
-| `@builtin`       | Claude Code の内蔵プラグイン（[Ch33](/claude-code-deep-dive/ja/extensions/mods/)） |
+| `@builtin`       | Claude Code の内蔵プラグイン（[Mods](/claude-code-deep-dive/ja/extensions/mods/)） |
 
 同じ manifest 名が複数あるときの優先順は、次のとおりです。
 
@@ -483,8 +483,8 @@ manifest の `version`、エントリの `version` の順に使います。ど�
 | `update`                      | `-s`（managed も可、自動判定）、`-y`、`--accept-command`、`--json`                                               | 反映は再起動か `/reload-plugins`                                                              |
 | `configure`                   | `--values-stdin`、`--json`                                                                                       | `name@marketplace` だけ受け付ける                                                             |
 | `prune`（`autoremove`）       | `--dry-run`、`-s`、`-y`                                                                                          | 非 TTY で `-y` が無ければ一覧だけ                                                             |
-| `restore-set-aside`           | `--discard`                                                                                                      | changelog 2.1.321 のみ（[Ch32](/claude-code-deep-dive/ja/extensions/marketplaces/#ch32-org)） |
-| `marketplace`                 | `add`・`list`・`update`・`remove`（`rm`）                                                                        | [Ch32](/claude-code-deep-dive/ja/extensions/marketplaces/#ch32-marketplace-sources)           |
+| `restore-set-aside`           | `--discard`                                                                                                      | changelog 2.1.321 のみ（[マーケットプレイス](/claude-code-deep-dive/ja/extensions/marketplaces/#ch32-org)） |
+| `marketplace`                 | `add`・`list`・`update`・`remove`（`rm`）                                                                        | [マーケットプレイス](/claude-code-deep-dive/ja/extensions/marketplaces/#ch32-marketplace-sources)           |
 
 - stdin か stdout が TTY でなく、`-y` も `--accept-command` も無いと、コマンドを表示するだけで exit 1 になります。Claude の Bash ツールやフックから実行した場合、`-y` は無視されます。
 - <span class="undocumented">`install --registry <url>` は `<package>@npm` の取得元の npm レジストリを指定します。`--help` にだけあり、docs にはありません。 <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /></span>
@@ -504,7 +504,7 @@ manifest の `version`、エントリの `version` の順に使います。ど�
 | `tag`               | `--push`、`--remote`、`--dry-run`、`-f`、`-m`                                                                                         |
 | `list`              | `--json`。`--available`・`--data-size` は `--json` が必要                                                                             |
 | `details`           | 読み込み済みのプラグインだけ。フラグなし                                                                                              |
-| `test`              | Mod のテスト（[Ch33](/claude-code-deep-dive/ja/extensions/mods/)）                                                                    |
+| `test`              | Mod のテスト（[Mods](/claude-code-deep-dive/ja/extensions/mods/)）                                                                    |
 | `eval`・`eval init` | exit 2・130・143 を追加（[後述](/claude-code-deep-dive/ja/extensions/plugins/#ch31-evals-run)）。init は `--bare`・`-i`・`--eval-dir` |
 
 - `claude plugins` は別名です。終了コードは成功 0、失敗 1 です。
@@ -565,7 +565,7 @@ Per-component (rounded)
 - **on-invoke** は本文で、呼ばれるたびに払います。コマンド（上の `ping`）は Skills に数えます。フックと MCP は見積もりません。MCP の分は `/context` で見ます。
 - 公式マーケットプレイスのプラグインは、導入前に **Context cost**（`Every turn:`・`When invoked:`）を表示します。2,000 トークン以上なら強調されます。
 - 使用状況: `/plugin` の **Not used recently**（14 日かつ 10 セッション未使用）、`/skill-doctor`、`/doctor`、`/usage`。
-- 組織全体は OTel の `claude_code.plugin_loaded` などと Analytics API で測ります。公式以外のプラグイン名は既定で伏せられるか省かれます（`plugin_loaded` では `third-party`）（[Ch61](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)）。
+- 組織全体は OTel の `claude_code.plugin_loaded` などと Analytics API で測ります。公式以外のプラグイン名は既定で伏せられるか省かれます（`plugin_loaded` では `third-party`）（[監視・コスト・分析](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)）。
 
 <div class="src">
   出典: [plugins/measure](https://code.claude.com/docs/en/plugins/measure) · [plugins/cli-reference#plugin-details](https://code.claude.com/docs/en/plugins/cli-reference#plugin-details) · 実機確認 2.1.321

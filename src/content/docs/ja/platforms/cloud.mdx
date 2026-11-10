@@ -53,11 +53,11 @@ claude --cloud "Update the API documentation"
 - 1 回の `--cloud` で扱うリポジトリは 1 つです。旧表記 `--remote` は非推奨の別名として動きます。
 
 * VM の準備中は、clone やセットアップスクリプトの進行をチェックリストで表示します。準備中に入力したメッセージは、準備完了後に送られます。
-* CLI からの受け渡しは一方向です。既存のターミナルセッションをクラウドへ送ることはできません。Desktop は **Open in** メニューで送れます（[Ch52](/claude-code-deep-dive/ja/platforms/desktop/)）。
+* CLI からの受け渡しは一方向です。既存のターミナルセッションをクラウドへ送ることはできません。Desktop は **Open in** メニューで送れます（[Desktop](/claude-code-deep-dive/ja/platforms/desktop/)）。
 * claude.ai のサインイン（`claude auth login`）が必要です。Bedrock・Agent Platform などのサードパーティプロバイダでは使えません。`ANTHROPIC_BASE_URL` だけで設定したゲートウェイはサードパーティ扱いになりませんが、サインインは必要です。
 * 組織ポリシー `allow_remote_sessions` が有効である必要があります。Enterprise のカスタムロールでは、クラウドセッションの権限が要ります。
 * 環境の選び方: `/remote-env` で選んだ環境、なければ Anthropic ホストの環境、なければ一覧で最初の bridge 以外の環境です。`--environment ccpool_...` はその 1 回だけセルフホスト環境を指定します（`env_` の ID は拒否）。
-* `--cloud` と `--remote-control` は無関係です（[Ch49](/claude-code-deep-dive/ja/platforms/remote-control/)）。
+* `--cloud` と `--remote-control` は無関係です（[Remote Control とモバイル](/claude-code-deep-dive/ja/platforms/remote-control/)）。
 
 <div class="src">
   出典: [claude-code-on-the-web#start-a-cloud-session-from-your-terminal](https://code.claude.com/docs/en/claude-code-on-the-web#start-a-cloud-session-from-your-terminal) · [#branch-is-not-on-github](https://code.claude.com/docs/en/claude-code-on-the-web#branch-is-not-on-github) · [cloud-environments#the-default-environment](https://code.claude.com/docs/en/cloud-environments#the-default-environment) · [cli-reference](https://code.claude.com/docs/en/cli-reference)

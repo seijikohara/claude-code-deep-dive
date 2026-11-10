@@ -24,7 +24,7 @@ Claude Code は同じエンジンを CLI・Desktop・IDE・Web・モバイルで
 
 - スクリプト（`-p`）と Agent SDK は CLI 専用です。サードパーティプロバイダは VS Code と JetBrains（IDE のターミナルで CLI を動かす）でも使えます。
 - 同じプロジェクトでサーフェスを混在できます。設定・プロジェクトメモリ・MCP サーバーは、ローカルのサーフェス間で共有されます。
-- 外部連携は Chrome（[Ch54](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）、GitHub Actions・GitLab CI/CD <Badge text="Beta" variant="note" size="small" class="badge beta" />（[Ch46](/claude-code-deep-dive/ja/automation/cicd/)）、Code Review（[Ch47](/claude-code-deep-dive/ja/automation/code-review/)）、Slack <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> と Claude Tag <Badge text="Beta" variant="note" size="small" class="badge beta" />（[Ch55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)）が担います。
+- 外部連携は Chrome（[Chrome と Computer use](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）、GitHub Actions・GitLab CI/CD <Badge text="Beta" variant="note" size="small" class="badge beta" />（[CI/CD](/claude-code-deep-dive/ja/automation/cicd/)）、Code Review（[コードレビュー](/claude-code-deep-dive/ja/automation/code-review/)）、Slack <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> と Claude Tag <Badge text="Beta" variant="note" size="small" class="badge beta" />（[Projects・Slack・Claude Tag](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)）が担います。
 
 <div class="src">
   出典: [platforms#where-to-run-claude-code](https://code.claude.com/docs/en/platforms#where-to-run-claude-code) · [platforms#connect-your-tools](https://code.claude.com/docs/en/platforms#connect-your-tools)
@@ -46,7 +46,7 @@ Claude Code は同じエンジンを CLI・Desktop・IDE・Web・モバイルで
 | Computer use <Badge text="Preview" variant="tip" size="small" class="badge preview" />          | macOS（`/mcp` で有効化）         | macOS・Windows（Linux 版は未対応）                                           | 記載なし                                                    |
 | Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> | 使える                           | 使えない（Workflows は使える）                                               | 記載なし                                                    |
 | Dispatch                                                         | 使えない                         | サイドバーに Dispatch セッション                                             | 記載なし                                                    |
-| 定期実行                                                         | cron、CI                         | スケジュールタスク（[Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)） | 記載なし                                                    |
+| 定期実行                                                         | cron、CI                         | スケジュールタスク（[スケジュール実行](/claude-code-deep-dive/ja/parallel/scheduling/)） | 記載なし                                                    |
 
 「記載なし」は docs に記述がないことを表し、使えないことを意味しません。
 
@@ -84,7 +84,7 @@ Console の API キーやサードパーティプロバイダからは使えま�
 
 - Sub = サブスクリプション、AWS = Claude Platform on AWS、Agent P. = Google Cloud の Agent Platform。
 - 注 1: Opus 4・Sonnet 4・Haiku 4.5 以降のモデル。注 2: Sonnet 5 以降・Opus 4.7 以降・Haiku 5.5・Fable のみ。
-- Advisor の AWS 列は changelog 2.1.300 と食い違います（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/#ch05-cost)）。
+- Advisor の AWS 列は changelog 2.1.300 と食い違います（[Advisor](/claude-code-deep-dive/ja/fundamentals/advisor/#ch05-cost)）。
 
 <div class="src">
   出典: [feature-availability#features-that-require-a-claude-subscription](https://code.claude.com/docs/en/feature-availability#features-that-require-a-claude-subscription) · [#cli-capabilities-that-vary-by-provider](https://code.claude.com/docs/en/feature-availability#cli-capabilities-that-vary-by-provider) · [#summary-by-provider](https://code.claude.com/docs/en/feature-availability#summary-by-provider)
@@ -109,7 +109,7 @@ Console の API キーやサードパーティプロバイダからは使えま�
 - 注: Enterprise では premium シート、または Chat + Claude Code シートが必要です。
 - Ultra は旧 Max 20x、Max は旧 Max 5x の新しい名前です。Claude Code の機能は Max と Ultra で同じです。
 - HIPAA 構成を適用した Enterprise 組織では、この表の一部の機能がオフになります。
-- プラン限定の機能は他にもあります。Projects は Pro・Max・Ultra の public beta、Claude Tag は Team・Enterprise の public beta、セルフホスト環境は Team・Enterprise の public beta です（[Ch55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)、[Ch51](/claude-code-deep-dive/ja/platforms/self-hosted/)）。
+- プラン限定の機能は他にもあります。Projects は Pro・Max・Ultra の public beta、Claude Tag は Team・Enterprise の public beta、セルフホスト環境は Team・Enterprise の public beta です（[Projects・Slack・Claude Tag](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)、[セルフホスト環境](/claude-code-deep-dive/ja/platforms/self-hosted/)）。
 
 <div class="src">
   出典: [feature-availability#availability-by-subscription-plan](https://code.claude.com/docs/en/feature-availability#availability-by-subscription-plan) · [#ultra-plan](https://code.claude.com/docs/en/feature-availability#ultra-plan) · [claude-projects](https://code.claude.com/docs/en/claude-projects) · [self-hosted-environments](https://code.claude.com/docs/en/self-hosted-environments#availability-and-limitations)
@@ -121,12 +121,12 @@ Console の API キーやサードパーティプロバイダからは使えま�
 
 | 手段                                                   | きっかけ                                             | Claude が動く場所                     | 準備                                                                                                   | 詳細                                                            |
 | ------------------------------------------------------ | ---------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| Dispatch                                               | モバイルアプリからタスクをメッセージ                 | 自分のマシン（Desktop）               | モバイルアプリと Desktop をペアリング。Pro・Max・Ultra                                                 | [Ch52](/claude-code-deep-dive/ja/platforms/desktop/)            |
-| Remote Control                                         | 動作中のセッションを claude.ai/code やアプリから操作 | 自分のマシン（CLI・Desktop・VS Code） | `claude remote-control` か `/remote-control`                                                           | [Ch49](/claude-code-deep-dive/ja/platforms/remote-control/)     |
-| Channels <Badge text="Preview" variant="tip" size="small" class="badge preview" />    | Telegram・Discord や自前サーバーからイベントを送る   | 自分のマシン（CLI）                   | チャネルプラグインを入れる                                                                             | [Ch34](/claude-code-deep-dive/ja/extensions/channels/)          |
-| Slack <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> | チャンネルで `@Claude` にメンション                  | Anthropic のクラウド                  | Slack アプリを入れ、Web 版を有効化。Pro・Max・Ultra。Claude Tag 接続済みのワークスペースでは応答しない | [Ch55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/) |
-| セルフホスト環境 <Badge text="Beta" variant="note" size="small" class="badge beta" />  | クラウドセッションで自組織の環境を選ぶ               | 自組織のインフラ                      | ランナーを配備。Team・Enterprise                                                                       | [Ch51](/claude-code-deep-dive/ja/platforms/self-hosted/)        |
-| スケジュールタスク                                     | スケジュールを設定                                   | CLI・Desktop・クラウド                | 頻度を選ぶ                                                                                             | [Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)          |
+| Dispatch                                               | モバイルアプリからタスクをメッセージ                 | 自分のマシン（Desktop）               | モバイルアプリと Desktop をペアリング。Pro・Max・Ultra                                                 | [Desktop](/claude-code-deep-dive/ja/platforms/desktop/)            |
+| Remote Control                                         | 動作中のセッションを claude.ai/code やアプリから操作 | 自分のマシン（CLI・Desktop・VS Code） | `claude remote-control` か `/remote-control`                                                           | [Remote Control とモバイル](/claude-code-deep-dive/ja/platforms/remote-control/)     |
+| Channels <Badge text="Preview" variant="tip" size="small" class="badge preview" />    | Telegram・Discord や自前サーバーからイベントを送る   | 自分のマシン（CLI）                   | チャネルプラグインを入れる                                                                             | [Channels](/claude-code-deep-dive/ja/extensions/channels/)          |
+| Slack <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> | チャンネルで `@Claude` にメンション                  | Anthropic のクラウド                  | Slack アプリを入れ、Web 版を有効化。Pro・Max・Ultra。Claude Tag 接続済みのワークスペースでは応答しない | [Projects・Slack・Claude Tag](/claude-code-deep-dive/ja/platforms/projects-slack-tag/) |
+| セルフホスト環境 <Badge text="Beta" variant="note" size="small" class="badge beta" />  | クラウドセッションで自組織の環境を選ぶ               | 自組織のインフラ                      | ランナーを配備。Team・Enterprise                                                                       | [セルフホスト環境](/claude-code-deep-dive/ja/platforms/self-hosted/)        |
+| スケジュールタスク                                     | スケジュールを設定                                   | CLI・Desktop・クラウド                | 頻度を選ぶ                                                                                             | [スケジュール実行](/claude-code-deep-dive/ja/parallel/scheduling/)          |
 
 - マシンの電源が切れる場合は、クラウドセッションか Projects を使います。Remote Control と Dispatch は自分のマシンを動かすため、マシンと Claude Code（または Desktop）が動き続けている必要があります。
 - Remote Control 中にマシンがスリープしても、復帰すると Claude Code が再接続します。
