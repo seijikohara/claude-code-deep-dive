@@ -38,8 +38,8 @@
     <thead><tr><th style="width:15%">手段</th><th style="width:23%">調整役</th><th style="width:33%">通信と結果の届け先</th><th>同じファイルを触るとき</th></tr></thead>
     <tbody>
       <tr><td>サブエージェント</td><td>1 つの会話の中で Claude が委譲し、結果を集める</td><td>起動した会話に結果を返す。名前を付けたサブエージェント同士は送信もできる</td><td>サブエージェントごとに worktree を使える</td></tr>
-      <tr><td>Agent View</td><td>あなた。独立したタスクを渡し、あとで確認する</td><td>結果はあなたにだけ届く。セッション間メッセージングで相互に送信できる</td><td>セッションは編集前に専用の worktree へ移る</td></tr>
-      <tr><td>Agent Teams</td><td>Claude（lead）が計画・割り当て・監督する</td><td>チームメイト同士が直接送信する。Task ツールがあればタスクリストも共有する</td><td>worktree で分離しない。チームメイトごとに担当ファイルを分ける</td></tr>
+      <tr><td>Agent View <span class="badge preview">Preview</span></td><td>あなた。独立したタスクを渡し、あとで確認する</td><td>結果はあなたにだけ届く。セッション間メッセージングで相互に送信できる</td><td>セッションは編集前に専用の worktree へ移る</td></tr>
+      <tr><td>Agent Teams <span class="badge experimental">Experimental</span></td><td>Claude（lead）が計画・割り当て・監督する</td><td>チームメイト同士が直接送信する。Task ツールがあればタスクリストも共有する</td><td>worktree で分離しない。チームメイトごとに担当ファイルを分ける</td></tr>
       <tr><td>Workflows</td><td>スクリプトが計画を持つ。Claude のターンごとの判断ではない</td><td>途中結果はスクリプトの変数に置き、最終結果だけが会話に入る</td><td>—</td></tr>
     </tbody>
   </table>
@@ -66,7 +66,7 @@
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agents#choose-an-approach">agents#choose-an-approach</a> · <a href="https://code.claude.com/docs/en/agents#check-on-running-work">#check-on-running-work</a> · <a href="https://code.claude.com/docs/en/workflows#when-to-use-a-workflow">workflows#when-to-use-a-workflow</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agents#choose-an-approach">agents#choose-an-approach</a> · <a href="https://code.claude.com/docs/en/agents#check-on-running-work">#check-on-running-work</a> · <a href="https://code.claude.com/docs/en/agent-teams#compare-with-subagents">agent-teams#compare-with-subagents</a> · <a href="https://code.claude.com/docs/en/workflows#when-to-use-a-workflow">workflows#when-to-use-a-workflow</a></footer>
 </section>
 
 </section>

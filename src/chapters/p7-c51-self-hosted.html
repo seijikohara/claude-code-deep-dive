@@ -1,0 +1,100 @@
+<section id="ch51" data-part="Part VII プラットフォーム" data-chapter="Ch51" data-title="セルフホスト環境">
+
+<section id="ch51-title" class="chapter-title">
+  <p class="chapter-label">51</p>
+  <h1>セルフホスト環境 <span class="badge beta">Beta</span></h1>
+  <p class="chapter-summary">クラウドセッションを、Anthropic のインフラではなく自組織のネットワーク内で実行する仕組みです。この章では、環境・ランナー・セッションの関係、提供条件、ランナーの起動と主要フラグを扱います。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch51-overview">
+  <h2>仕組みと提供条件 <span class="badge beta">Beta</span></h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li><strong>環境</strong>: claude.ai の管理画面 <strong>Cloud environments</strong> で作るランナーのグループです。API・メトリクス上の名前は <code>pool</code>、ID は <code>ccpool_...</code> です。</li>
+        <li><strong>ランナー</strong>: 自組織のホストで動く常駐プロセスです。<code>claude</code> 本体に <code>claude self-hosted-runner</code> として含まれます（<code>--help</code> 非表示）。</li>
+        <li><strong>セッション</strong>: ランナーが子プロセスとして起動する Claude Code です。</li>
+        <li>セッションは環境のキューに入り、空きのあるランナーが取得してリポジトリを clone します。ランナーのポーリングがハートビートを兼ね、止まるとリースは約 60 秒で切れます。</li>
+        <li>接続はすべて外向き HTTPS です。Anthropic から内側へは接続しません。</li>
+        <li>ランナーは最初のセッションの所有者（ユーザー、または Claude Tag エージェント）に固定されます。最小台数は、同時に動く所有者の数です。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>提供条件と制限</h3>
+      <ul class="small">
+        <li>Team・Enterprise の public beta で、既定はオフです。Owner が <strong>Allow self-hosted environments</strong> をオンにします（クラウドセッションの有効化が前提）。</li>
+        <li>ZDR（Zero Data Retention）・HIPAA 構成の組織では使えません。</li>
+        <li>推論は既定で Anthropic API です。Bedrock・Agent Platform に送る構成では、server-managed settings と claude.ai の組織ポリシーがセッションに届きません。</li>
+        <li>会話（プロンプト・応答・ツール結果）は常に <code>api.anthropic.com</code> へ送られます。checkout・ビルド成果物・シークレットは自組織に残ります。</li>
+        <li>起動元は claude.ai/code、モバイル・デスクトップアプリ、クラウドのスケジュールタスク、<code>claude --cloud</code>、<code>--environment</code> です。Claude Security と Code Review のセッションはまだ回せません。</li>
+        <li>リポジトリは GitHub と GitHub Enterprise Server です。他の git ホストは <code>--environment</code> で起動した場合のみ使えます。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/self-hosted-environments#how-self-hosted-environments-work">self-hosted-environments</a>（How it works / Availability and limitations / Key concepts / Session lifecycle / What stays on your infrastructure） · <a href="https://code.claude.com/docs/en/cli-reference">cli-reference</a></footer>
+</section>
+
+<section id="ch51-runner">
+  <h2>ランナーの起動・要件・停止の挙動 <span class="badge beta">Beta</span></h2>
+  <div class="cols-2">
+    <div>
+<pre data-lang="bash" class="compact"># 対話ガイド（Owner でサインインしたホスト）
+# ./runner-setup/CHEAT-SHEET.md を書き出す
+claude self-hosted-runner setup
+
+# 手動起動
+claude self-hosted-runner \
+  --environment-secret-file /etc/claude/env-secret \
+  --base-dir /srv/claude-workspace
+
+# 診断セッション
+claude self-hosted-runner doctor
+# オンデマンドでランナーを起動
+claude self-hosted-runner orchestrator ...
+
+# CI から起動（返信を待たずに終了）
+claude -p "Fix the login bug" \
+  --environment ccpool_... --output-format json</pre>
+    </div>
+    <div>
+      <ul class="small">
+        <li>ホストは Linux か macOS です。Windows はランナーホストにできないため、Linux コンテナで動かします。</li>
+        <li>Claude Code v2.1.224 以降と Git 2.24 以降が必要です。Claude Tag のセッションを扱うランナーは v2.1.229 以降と <code>python3</code> が要ります。</li>
+        <li>環境シークレットは作成時に一度だけ表示され、365 日で失効します。</li>
+        <li><code>--environment</code> は <code>remote.defaultEnvironmentId</code> より優先されます。<code>--output-format json</code> では、成功時に <code>{"ok":true,"session_id":...,"pool_id":...}</code> を 1 行出力します。</li>
+        <li><code>--drain-grace-sec 0</code>（既定）のランナーは、セッションが終わるとすぐ終了します。オーケストレーター（Kubernetes など）が新しいディスクで再起動する前提です。</li>
+        <li>シグナルなしでホストが消える基盤では、<code>--retire-at</code> にその数分前の時刻を渡します。ランナーは新規受付を止め、セッションを手放して exit 0 します。手放したセッションは、次のメッセージで別のランナーに移ります。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/self-hosted-environments-quickstart">self-hosted-environments-quickstart</a> · <a href="https://code.claude.com/docs/en/self-hosted-environments#runner-lifecycle">self-hosted-environments#runner-lifecycle</a> · <a href="https://code.claude.com/docs/en/self-hosted-environments-testing#environment-dispatch-behavior">self-hosted-environments-testing</a> · <a href="https://code.claude.com/docs/en/self-hosted-environments-deploy#troubleshooting">self-hosted-environments-deploy#troubleshooting</a></footer>
+</section>
+
+<section id="ch51-flags">
+  <h2>ランナーの主要フラグ <span class="badge beta">Beta</span></h2>
+  <table class="dense">
+    <thead><tr><th style="width:30%">フラグ</th><th style="width:12%">既定</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td><code>--capacity</code></td><td><code>1</code></td><td>同時セッション数。すべて同じ所有者のセッション。環境内のランナーで同じ値にそろえる</td></tr>
+      <tr><td><code>--base-dir</code></td><td><code>/workspace</code></td><td>checkout とセッションごとの作業ディレクトリの置き場</td></tr>
+      <tr><td><code>--drain-grace-sec</code></td><td><code>0</code></td><td>セッション終了後、同じ所有者のキューを待つ秒数</td></tr>
+      <tr><td><code>--retire-at &lt;epoch-seconds&gt;</code></td><td>なし</td><td>指定時刻で退役する</td></tr>
+      <tr><td><code>--release-idle-session-min</code></td><td><code>0</code></td><td>アイドルになったセッション枠を解放するまでの分数</td></tr>
+      <tr><td><code>--kill-session-after-min</code></td><td><code>0</code></td><td>セッションの実時間の上限（固まったセッション対策）</td></tr>
+      <tr><td><code>--lock-to-account</code></td><td>なし</td><td>起動時に所有者を固定する。メールアドレスまたは <code>user_...</code></td></tr>
+      <tr><td><code>--exec-path</code> / <code>--hooks-dir</code></td><td>自身 / なし</td><td>セッションごとのラッパースクリプト / ライフサイクルフック</td></tr>
+      <tr><td><code>--use-anthropic-git-proxy</code></td><td>オフ</td><td>github.com のリポジトリを Anthropic の git プロキシ経由で clone する</td></tr>
+      <tr><td><code>--trust-workspace</code></td><td>オン</td><td>リポジトリにコミットされた <code>permissions.allow</code>・<code>additionalDirectories</code> を有効にする</td></tr>
+      <tr><td><code>--confine-repo-settings</code></td><td><code>warn</code></td><td>ワークスペース外への読み書きを許すリポジトリ設定を検出する</td></tr>
+      <tr><td><code>--health-port</code></td><td><code>8080</code></td><td><code>/healthz</code> と <code>/metrics</code>（Prometheus）。<code>0</code> で無効</td></tr>
+    </tbody>
+  </table>
+  <ul class="small">
+    <li>フラグは環境変数より優先されます。時間を表す環境変数は、フラグの単位にかかわらずミリ秒です（<code>_MS</code> で終わる名前）。</li>
+    <li>2.1.321 の <code>--help</code> には docs の表にないフラグもあります。<code>--checkout-hook-timeout-min</code>（既定 30 分。changelog 2.1.307）と、<span class="undocumented"><code>--agent-proxy-url</code>・<code>--diff-finds-nested-repository</code></span> <span class="badge undocumented">Undocumented</span> です。</li>
+  </ul>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/self-hosted-environments-reference#runner-cli-flags">self-hosted-environments-reference#runner-cli-flags</a> · changelog 2.1.307 · 実機確認 2.1.321（<code>claude self-hosted-runner --help</code>）</footer>
+</section>
+
+</section>

@@ -46,7 +46,7 @@
   <table class="dense">
     <thead><tr><th style="width:34%">構文</th><th>役割と注意点</th></tr></thead>
     <tbody>
-      <tr><td><code>add [options] &lt;name&gt; &lt;commandOrUrl&gt; [args...]</code></td><td>サーバーを追加する。<code>-t, --transport</code>（<code>stdio</code>・<code>sse</code>・<code>http</code>、既定 <code>stdio</code>）、<code>-s, --scope</code>（既定 <code>local</code>）、<code>-e, --env</code>、<code>-H, --header</code>、<code>--client-id</code>、<code>--client-secret</code>、<code>--callback-port</code>。成功すると <code>Added ...</code> 行を出す。資格情報は検証しない</td></tr>
+      <tr><td><code>add [options] &lt;name&gt; &lt;commandOrUrl&gt; [args...]</code></td><td>サーバーを追加する。<code>-t, --transport</code>（<code>stdio</code>・<code>sse</code>・<code>http</code>、既定 <code>stdio</code>）、<code>-s, --scope</code>（既定 <code>local</code>）、<code>-e, --env</code>、<code>-H, --header</code>、<code>--client-id</code>、<code>--client-secret</code>、<code>--callback-port</code>。成功すると <code>Added ...</code> 行を出す</td></tr>
       <tr><td><code>add-json [options] &lt;name&gt; &lt;json&gt;</code></td><td>JSON 文字列で追加する。stdio・SSE・HTTP・WebSocket に対応。<code>-s</code> と <code>--client-secret</code> を受け付ける</td></tr>
       <tr><td><code>add-from-claude-desktop [options]</code></td><td>Claude Desktop の設定から対話で選んで取り込む（macOS と WSL のみ）。同名があると <code>server_1</code> のように番号が付く</td></tr>
       <tr><td><code>list</code> / <code>get &lt;name&gt;</code></td><td>承認済みサーバーをヘルスチェックして状態を出す。未承認の <code>.mcp.json</code> サーバーには接続せず <code>⏸ Pending approval</code> と出す</td></tr>
@@ -69,7 +69,7 @@
       <tr><td><code>http</code></td><td>リモートの推奨。<code>add --transport http</code>。JSON では <code>streamable-http</code> も同じ意味。OAuth とヘッダーで認証</td></tr>
       <tr><td><code>sse</code></td><td>ドキュメントで非推奨。<code>--transport http</code> で追加すると HTTP を試し、受け付けなければ SSE に切り替える（v2.1.265 以降）。直接指定は <code>--transport sse</code></td></tr>
       <tr><td><code>stdio</code></td><td>ローカルプロセス。<code>--transport</code> の既定。<code>add [options] &lt;name&gt; -- &lt;command&gt; [args...]</code></td></tr>
-      <tr><td><code>ws</code></td><td>サーバーから能動的に送るリモート向け。<code>.mcp.json</code> か <code>add-json</code> でだけ設定でき、<code>--transport</code> は <code>ws</code> を受け付けない。認証はヘッダーのみ（OAuth なし）。フィールドは <code>url</code>・<code>headers</code>・<code>headersHelper</code>・<code>timeout</code>・<code>alwaysLoad</code></td></tr>
+      <tr><td><code>ws</code></td><td>サーバーから能動的に送るリモート向け。<code>.mcp.json</code> か <code>add-json</code> で設定し、<code>--transport</code> は <code>ws</code> を受け付けない。認証はヘッダーのみ（OAuth なし）。フィールドは <code>url</code>・<code>headers</code>・<code>headersHelper</code>・<code>timeout</code>・<code>alwaysLoad</code></td></tr>
       <tr><td><code>sdk</code></td><td>Agent SDK アプリや Desktop などの SDK ホストだけが登録できる in-process サーバー。設定ファイルに書くとスキップされる</td></tr>
     </tbody>
   </table>
@@ -222,7 +222,7 @@ claude mcp add --transport http shared-server \
         <li>設定の有無にかかわらず空になり、<code>:-default</code> も無視され、警告も出ません。<code>Bearer ${ANTHROPIC_AUTH_TOKEN}</code> は <code>Bearer </code> になり、通常は 401 で失敗します。</li>
         <li><code>ANTHROPIC_BASE_URL</code> は展開されます。ただし値に資格情報（ユーザー名とパスワード）を含む場合は除きます。</li>
         <li><code>API_KEY</code> のような対象外の名前はそのまま展開します。対象の値を渡したいときは、自分で名付けた変数にコピーして参照します。</li>
-        <li>対象の変数を参照すると、debug ログに <code>never expanded toward a remote server</code> を含む行が出ます（<code>claude --debug-file</code> で確認）。</li>
+        <li>設定済みの対象変数を参照すると、debug ログに <code>never expanded toward a remote server</code> を含む行が出ます（<code>claude --debug-file</code> で確認）。</li>
       </ul>
     </div>
   </div>
@@ -524,7 +524,7 @@ ENABLE_TOOL_SEARCH=auto:5 claude</pre>
       <h3>tool search が使われない場合</h3>
       <ul class="small">
         <li>Opus 4・Sonnet 4・Haiku 4.5 より前のモデル（<code>ENABLE_TOOL_SEARCH=true</code> でも不可）。</li>
-        <li>Agent Platform（Google Cloud）の Opus・Sonnet・Haiku 4.5 より前のモデル（v2.1.221 より前は全モデル）。</li>
+        <li>Agent Platform（Google Cloud）の Opus・Sonnet・Haiku 4.5 より前のモデル（v2.1.221 より前は既定で全モデル）。</li>
         <li>Azure ホストの Microsoft Foundry。サーバー側の拒否を検知して最初から読み込みます。</li>
         <li><code>CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS</code> の設定時。<code>ENABLE_TOOL_SEARCH</code> では戻せず、managed settings なら有効を保てます（v2.1.227 以降）。</li>
         <li>HIPAA 構成のセッション（どの設定でも戻せない）。</li>
@@ -717,7 +717,7 @@ MCP config file not found: <cwd>/Reply with OK
 }</pre>
       <ul class="small">
         <li>v2.1.259 以降です。managed settings からだけ読み、user・project・local では警告付きで捨てます。</li>
-        <li>ヘッダーの値はマシン上の誰でも読めます。全員向けの資格情報を使うか、OAuth に任せます。</li>
+        <li>ヘッダーの値は、managed settings を読める人なら利用者を含め誰でも読めます。全員向けの資格情報を使うか、OAuth に任せます。</li>
       </ul>
     </div>
     <div>
@@ -762,7 +762,7 @@ MCP config file not found: <cwd>/Reply with OK
   ]
 }</pre>
       <ul class="small">
-        <li>この例で <code>https://staging.example.com:8443/api</code> は許可されます（deny 側も既定ポートだけに一致）。</li>
+        <li>この例で <code>https://staging.example.com:8443/api</code> は許可されます（deny 側は既定ポートだけに一致）。</li>
         <li>allowlist を通さないもの: <code>managedMcpServers</code>、<code>env</code> の外で <code>${VAR}</code> を使わない <code>managed-mcp.json</code> のエントリ、組み込み（Chrome・<code>ide</code>）、Claude Tag の Slack ツール。<code>type: "sdk"</code> は 3 段階とも通しません。</li>
         <li>再接続や再有効化のたびに評価します。弾かれたサーバーは <code>/mcp</code> と <code>claude mcp list</code> から黙って消えます。</li>
         <li><code>claude mcp add</code> は <code>Cannot add MCP server "&lt;name&gt;": server is explicitly blocked by enterprise policy</code> か <code>... not allowed by enterprise policy</code> で失敗します。</li>

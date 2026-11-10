@@ -79,7 +79,7 @@ Error: Invalid session ID. Must be a valid UUID. → exit 1</pre>
     </div>
       <ul class="small">
         <li>名前が一意でないとき、<code>claude --resume &lt;name&gt;</code> は名前を検索語にしたピッカーを開き、<code>/resume &lt;name&gt;</code> はエラーにします。</li>
-        <li>実行中の背景セッションを再開すると、<code>claude attach</code> でそのセッションに接続します（<a href="#/ch38">Ch38</a>）。</li>
+        <li><span class="badge preview">Preview</span> 実行中の背景セッションを再開すると、<code>claude attach</code> でそのセッションに接続します（<a href="#/ch38">Ch38</a>）。</li>
       </ul>
     </div>
   </div>
@@ -168,7 +168,7 @@ Error: Invalid session ID. Must be a valid UUID. → exit 1</pre>
           <tr><td><kbd>Ctrl</kbd>+<kbd>B</kbd></td><td>現在の git ブランチに絞る</td></tr>
         </tbody>
       </table>
-      <p class="small">既定の表示範囲は現在の worktree（背景セッションは <code>bg</code> 印）と、<code>/add-dir</code> でこのディレクトリを加えたセッションです。<code>/branch</code> や <code>--fork-session</code> の分岐は 1 行にまとまり、<kbd>→</kbd> で展開します。</p>
+      <p class="small">既定の表示範囲は現在の worktree（背景セッションは <code>bg</code> 印）と、<code>/add-dir</code> でこのディレクトリを加えたセッションです。<code>/branch</code> や <code>--fork-session</code> の分岐は別の行に出ます。同じセッションの項目が複数あると 1 行にまとまり、<kbd>→</kbd> で展開します。</p>
     </div>
     <div>
       <ul class="small">
@@ -196,7 +196,7 @@ context yet. Usage: /rename <name>"</pre>
     <tbody>
       <tr><td><code>/branch [name]</code></td><td>現時点までの会話をコピーし、コピー側へ切り替える。元はそのまま残り <code>/resume</code> で戻れる。名前の既定は最初のプロンプト</td><td>同じプロセスなので「このセッションで許可」を保つ。実行中の背景サブエージェントと背景 Bash の出力は分岐側に出る。Remote Control も追従する</td></tr>
       <tr><td><code>claude --continue --fork-session</code><br><code>claude --resume &lt;id&gt; --fork-session</code></td><td>新しいセッション ID で再開する。元のトランスクリプトは変わらない</td><td>別プロセスなので許可は引き継がず、承認し直す。plan mode も復元しない。<code>--session-id &lt;uuid&gt;</code> を併用すると分岐の ID を指定できる</td></tr>
-      <tr><td><code>/fork [prompt]</code></td><td>会話を新しい背景セッションへコピーし、自分はこのまま作業を続ける（2.1.212 から）</td><td>コピーは自分の worktree を作るよう指示される（v2.1.221 以降）。agent view が off なら fork サブエージェントを起動する（<a href="#/ch38">Ch38</a>）</td></tr>
+      <tr><td><code>/fork [prompt]</code> <span class="badge preview">Preview</span></td><td>会話を新しい背景セッションへコピーし、自分はこのまま作業を続ける（2.1.212 から）</td><td>コピーは自分の worktree を作るよう指示される（v2.1.221 以降）。agent view が off なら fork サブエージェントを起動する（<a href="#/ch38">Ch38</a>）</td></tr>
       <tr><td><code>/subtask &lt;task&gt;</code></td><td>会話全体を引き継ぐ背景の fork サブエージェントに作業を渡す</td><td>結果はこの会話に返る。agent view が off だと使えない（<a href="#/ch37">Ch37</a>）</td></tr>
     </tbody>
   </table>
@@ -228,14 +228,14 @@ context yet. Usage: /rename <name>"</pre>
 }</pre>
       <ul class="small">
         <li><code>CLAUDE_CODE_SKIP_PROMPT_HISTORY</code> を付けたセッションは、<code>--resume</code>・<code>--continue</code>・<kbd>↑</kbd> の履歴に出ません。</li>
-        <li>背景セッションを <code>claude rm &lt;id&gt;</code> で消しても、トランスクリプトは残ります。ディレクトリ全体の一覧は <a href="#/ch10">Ch10</a>。</li>
+        <li><span class="badge preview">Preview</span> 背景セッションを <code>claude rm &lt;id&gt;</code> で消しても、トランスクリプトは残ります。ディレクトリ全体の一覧は <a href="#/ch10">Ch10</a>。</li>
       </ul>
     </div>
     <div>
       <ul class="small">
         <li>削除はセッション開始後の背景 sweep で、通知なしに行います。期限切れのセッションは <code>/resume</code> に出なくなります。</li>
         <li><code>cleanupPeriodDays: 0</code> は 2.1.89 から検証エラーです（以前は永続化を黙って止めていた）。長く残すなら <code>3650</code> などを設定します。</li>
-        <li><code>--bare</code> の <code>-p</code> では sweep を走らせません。設定ファイルが読めないなど期間を安全に決められないときは sweep を止め、<code>/status</code> に警告を出します。</li>
+        <li><code>--bare</code> の <code>-p</code> では sweep を走らせません。期間を安全に決められないときは sweep を止めます。原因が設定ファイルの読み込み・解析の失敗などなら <code>/status</code> に警告を出します。</li>
         <li><code>CLAUDE_CODE_TRANSCRIPT_LOCAL_GC</code>（v2.1.287 以降、起動時の環境のみ）: 圧縮のたびに、ファイルが 5 MB を超えていれば圧縮前の履歴を消します。縮小が 10% 未満なら消しません（v2.1.296 以降）。再開時の会話は変わりません。</li>
         <li>すぐ消すなら <code>claude purge [path]</code>（<code>--dry-run</code>、<code>-y</code>、<code>-i</code>、<code>--all</code>）。トランスクリプト、auto memory、<code>tasks/</code>・<code>debug/</code>・<code>file-history/</code>、<code>history.jsonl</code> の該当行、<code>~/.claude.json</code> の項目を消します。2.1.288 より前は <code>claude project purge</code> でした。</li>
       </ul>
@@ -331,7 +331,7 @@ done.txt, or stop after 4 turns</pre>
       <ul class="small">
         <li>数ターン続けてツールを使わずに評価へ答えるだけになると、警告を出して止まります。goal は残ります。</li>
         <li>直すまで治らないエラー（自前の認証の失敗、クレジット切れ、自動圧縮で解消できない context overflow、使えないモデル）は goal を消し、<code>Goal cleared after an unrecoverable error</code> で始まる警告を出します。</li>
-        <li>それ以外は goal を残します（v2.1.269 以降の対話セッション）。一時的なエラーは <code>Goal still active</code> で 3 回まで再試行し、rate limit・利用上限・フックが終えたターンは <code>Goal paused</code> で止まります。</li>
+        <li>それ以外のエラーでは goal を残します。v2.1.269 以降の対話セッションでは、一時的なエラーは <code>Goal still active</code> で 3 回まで再試行し、rate limit・利用上限・フックが終えたターンは <code>Goal paused</code> で止まります。</li>
       </ul>
     </div>
     <div>

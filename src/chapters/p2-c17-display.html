@@ -25,11 +25,11 @@
         <tbody>
           <tr><td><code>CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1</code> か <code>CLAUDE_CODE_NO_FLICKER=0</code></td><td>クラシック</td></tr>
           <tr><td><code>CLAUDE_CODE_NO_FLICKER=1</code></td><td>フルスクリーン</td></tr>
-          <tr><td>この端末で起動失敗によりフルスクリーンを止めた</td><td>クラシック</td></tr>
+          <tr><td>このマシンで起動失敗によりフルスクリーンを止めた</td><td>クラシック</td></tr>
           <tr><td>iTerm2 の <code>tmux -CC</code>、または Windows 上の Claude Code に SSH</td><td>クラシック</td></tr>
           <tr><td>設定 <code>tui</code> がある</td><td>その値</td></tr>
           <tr><td>feature flag を取得せず、起動ダイアログの提示を終えた</td><td>クラシック</td></tr>
-          <tr><td>feature flag を取得せず、この端末の初回起動が v2.1.239 以降</td><td>フルスクリーン</td></tr>
+          <tr><td>feature flag を取得せず、このマシンの初回起動が v2.1.239 以降</td><td>フルスクリーン</td></tr>
           <tr><td>feature flag を取得し、初回利用が 2026-05-06 以降</td><td>フルスクリーン</td></tr>
           <tr><td>それ以外</td><td>クラシック</td></tr>
         </tbody>
@@ -70,7 +70,7 @@
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/fullscreen#use-the-mouse">fullscreen#use-the-mouse</a> · <a href="https://code.claude.com/docs/en/fullscreen#scroll-the-conversation">#scroll-the-conversation</a> · <a href="https://code.claude.com/docs/en/fullscreen#search-and-review-the-conversation">#search-and-review-the-conversation</a> · <a href="https://code.claude.com/docs/en/fullscreen#keep-native-text-selection">#keep-native-text-selection</a> · <a href="https://code.claude.com/docs/en/fullscreen#fullscreen-renderer-didnt-finish-starting">#troubleshooting</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/fullscreen#use-the-mouse">fullscreen#use-the-mouse</a> · <a href="https://code.claude.com/docs/en/fullscreen#scroll-the-conversation">#scroll-the-conversation</a> · <a href="https://code.claude.com/docs/en/fullscreen#search-and-review-the-conversation">#search-and-review-the-conversation</a> · <a href="https://code.claude.com/docs/en/fullscreen#keep-native-text-selection">#keep-native-text-selection</a> · <a href="https://code.claude.com/docs/en/fullscreen#fullscreen-renderer-didnt-finish-starting">#troubleshooting</a> · <a href="https://code.claude.com/docs/en/settings-reference#autoscrollenabled">settings-reference#autoscrollenabled</a></footer>
 </section>
 
 <section id="ch17-terminal">
@@ -106,7 +106,7 @@ set -s extended-keys on
 set -as terminal-features 'xterm*:extkeys'</pre>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/terminal-config#enter-multiline-prompts">terminal-config#enter-multiline-prompts</a> · <a href="https://code.claude.com/docs/en/terminal-config#get-a-terminal-bell-or-notification">#get-a-terminal-bell-or-notification</a> · <a href="https://code.claude.com/docs/en/terminal-config#see-session-status-in-your-terminal">#see-session-status-in-your-terminal</a> · <a href="https://code.claude.com/docs/en/terminal-config#configure-tmux">#configure-tmux</a> · <a href="https://code.claude.com/docs/en/settings-reference#preferrednotifchannel">settings-reference#preferrednotifchannel</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/terminal-config#enter-multiline-prompts">terminal-config#enter-multiline-prompts</a> · <a href="https://code.claude.com/docs/en/terminal-config#get-a-terminal-bell-or-notification">#get-a-terminal-bell-or-notification</a> · <a href="https://code.claude.com/docs/en/terminal-config#see-session-status-in-your-terminal">#see-session-status-in-your-terminal</a> · <a href="https://code.claude.com/docs/en/terminal-config#configure-tmux">#configure-tmux</a> · <a href="https://code.claude.com/docs/en/fullscreen#use-with-tmux">fullscreen</a> · <a href="https://code.claude.com/docs/en/settings-reference#preferrednotifchannel">settings-reference#preferrednotifchannel</a></footer>
 </section>
 
 <section id="ch17-theme">
@@ -145,7 +145,7 @@ set -as terminal-features 'xterm*:extkeys'</pre>
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/terminal-config#match-the-color-theme">terminal-config#match-the-color-theme</a> · <a href="https://code.claude.com/docs/en/terminal-config#create-a-custom-theme">#create-a-custom-theme</a> · <a href="https://code.claude.com/docs/en/settings-reference#theme">settings-reference#theme</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/terminal-config#match-the-color-theme">terminal-config#match-the-color-theme</a> · <a href="https://code.claude.com/docs/en/terminal-config#create-a-custom-theme">#create-a-custom-theme</a> · <a href="https://code.claude.com/docs/en/settings-reference#theme">settings-reference#theme</a> · <a href="https://code.claude.com/docs/en/interactive-mode#theme-and-display">interactive-mode#theme-and-display</a></footer>
 </section>
 
 <section id="ch17-voice">
@@ -185,7 +185,7 @@ set -as terminal-features 'xterm*:extkeys'</pre>
     <div>
       <ul class="small">
         <li>有効化は <code>claude --ax-screen-reader</code>、<code>CLAUDE_AX_SCREEN_READER=1</code>、ユーザー設定の <code>"axScreenReader": true</code> で、この順に優先します。<code>CLAUDE_AX_SCREEN_READER=0</code> は設定が <code>true</code> でも無効にします。起動行 <code>[Screen Reader Mode: on via flag]</code> が経路を示します。</li>
-        <li>プロジェクトの <code>.claude/settings*.json</code> にある <code>axScreenReader</code> と <code>env</code> の変数は無視され、<code>Screen reader mode is off: project settings can't turn it on</code> と出ます（changelog 2.1.307 では 2.1.305 以降の挙動）。</li>
+        <li>プロジェクトの <code>.claude/settings*.json</code> にある <code>axScreenReader</code> と <code>env</code> の <code>CLAUDE_AX_SCREEN_READER</code> は無視され、他で有効化していなければ <code>Screen reader mode is off: project settings can't turn it on</code> と出ます（2.1.305 以降、changelog 2.1.307）。</li>
         <li>常にクラシック描画で、<code>tui</code> は無視されます（アタッチしたバックグラウンドセッションを除く）。<code>-p</code> の出力は変わりません。</li>
       </ul>
       <div class="callout conflict">

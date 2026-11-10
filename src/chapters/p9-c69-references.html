@@ -1,0 +1,55 @@
+<section id="ch69" data-part="Part IX まとめ" data-chapter="Ch69" data-title="参考資料">
+
+<section id="ch69-title" class="chapter-title">
+  <p class="chapter-label">69</p>
+  <h1>参考資料</h1>
+  <p class="chapter-summary">本資料の情報源と調査方法、各スライドの出典表記の読み方をまとめます。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch69-sources">
+  <h2>情報源と調査方法</h2>
+  <div class="cols-2">
+    <div>
+      <h3>公開情報</h3>
+      <ul>
+        <li>ドキュメントの索引: <a href="https://code.claude.com/docs/llms.txt">code.claude.com/docs/llms.txt</a>。各ページは <code>https://code.claude.com/docs/en/&lt;page&gt;</code> にあります。</li>
+        <li>changelog: <a href="https://code.claude.com/docs/en/changelog">code.claude.com/docs/en/changelog</a>。GitHub の <a href="https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md">CHANGELOG.md</a> から生成されています。</li>
+        <li>What's New: <a href="https://code.claude.com/docs/en/whats-new">code.claude.com/docs/en/whats-new</a>。W13（2.1.83〜）から W37（〜2.1.269）までの週次まとめで、W31 はありません。2.1.270 以降は changelog だけが情報源です。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>調査方法（2026-11-10、2.1.321）</h3>
+      <ul class="small">
+        <li><strong>ドキュメントのミラー</strong>: 索引に載る英語版 228 ページを Markdown で取得し、すべての事実をページ内の記述と照合しました。</li>
+        <li><strong><code>--help</code> の保存</strong>: <code>claude --help</code> と各サブコマンドの help を 60 ファイル保存しました。</li>
+        <li><strong>ヘッドレスの init イベント</strong>: <code>--safe-mode --setting-sources project</code> と最小限の環境変数で <code>-p</code> を実行し、<code>system/init</code> を保存しました。ツール 24、コマンド 55 などの数はこの実行の値です。</li>
+        <li><strong>実験</strong>: 分野別の空ディレクトリで <code>--no-session-persistence --setting-sources project</code> を付け、主に <code>--model haiku</code> で実行しました。課金や設定変更を伴うコマンド（<code>ultrareview</code>、クラウドセッション、インストール・更新など）は help の確認だけです。</li>
+        <li><strong>バイナリの文字列</strong>: <code>strings</code> の出力は候補の発見にだけ使いました。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/llms.txt">Claude Code docs index</a> · <a href="https://code.claude.com/docs/en/changelog">changelog</a> · <a href="https://code.claude.com/docs/en/whats-new">whats-new</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch69-evidence">
+  <h2>証拠の段階と出典表記の読み方</h2>
+  <table>
+    <thead><tr><th style="width:28%">根拠</th><th>スライドでの扱い</th></tr></thead>
+    <tbody>
+      <tr><td>ドキュメント</td><td>事実。出典欄にページへのリンク。バッジはページの現在の表記に従う（<a href="#/ch62">Ch62</a>）</td></tr>
+      <tr><td>changelog だけ</td><td>事実。出典欄は「changelog 2.1.x（リファレンス未掲載）」。Undocumented バッジは付けない</td></tr>
+      <tr><td>保存した実行出力</td><td>事実。出典欄に「実機確認 2.1.321」。伏せ字を入れたうえで原文のまま引用</td></tr>
+      <tr><td>実行したが出力は未保存</td><td>出典欄に「実機確認 2.1.321」。調査メモに残る範囲を超えて出力を引用しない</td></tr>
+      <tr><td><code>--help</code> や実行結果にだけ現れる</td><td><span class="badge undocumented">Undocumented</span> と「実機確認 2.1.321」</td></tr>
+      <tr><td>バイナリの文字列だけ</td><td><span class="badge undocumented">Undocumented</span>。<a href="#/ch63">Ch63</a> と <a href="#/ch67">Ch67</a> にだけ載せ、手順としては書かない</td></tr>
+    </tbody>
+  </table>
+  <ul class="small">
+    <li>3 つの情報源が食い違う箇所は、スライドの食い違い枠に両方の記述と出典を示し、<a href="#/ch67">Ch67</a> に一覧しました。</li>
+    <li>判定の基本は、新しく明示的な changelog が古いドキュメントより優先、実機の観察が strings からの推測より優先、です。</li>
+  </ul>
+  <footer class="src">出典: 本資料の編集方針 · <a href="https://code.claude.com/docs/en/changelog">changelog</a> · 実機確認 2.1.321</footer>
+</section>
+
+</section>

@@ -339,7 +339,6 @@ $ CLAUDE_CODE_DISABLE_1M_CONTEXT=1 \
         <li>Claude Code は、圧縮のほか「古いツール結果をコンテキストから消す」ことでも会話を書き換えます。</li>
         <li><code>/usage</code> の <code>Prompt cache (main)</code> 行は、この書き換えによるキャッシュの作り直しを miss ではなく <code>expected rebuild</code> と数えます。</li>
         <li>ステータスラインの <code>prompt_cache.expected_rebuilds</code> も同じ数です。<code>recache_tokens_if_cold</code> はクリア直後に <code>null</code> になります。</li>
-        <li>changelog 2.1.50: 「処理済みの大きなツール結果を消して、長いセッションのメモリ使用を改善」。</li>
         <li>発動条件・しきい値・設定キー・環境変数・フックは、ドキュメントに記載がありません。</li>
       </ul>
       <h3>画像と PDF</h3>
@@ -359,7 +358,7 @@ $ CLAUDE_CODE_DISABLE_1M_CONTEXT=1 \
       <p class="small">保存先は <code>~/.claude/projects/&lt;project&gt;/&lt;session&gt;/tool-results/</code> で、トランスクリプトと一緒に retention sweep で消えます。</p>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/costs#prompt-cache-statistics">costs#prompt-cache-statistics</a> · <a href="https://code.claude.com/docs/en/statusline#prompt-cache-fields">statusline#prompt-cache-fields</a> · <a href="https://code.claude.com/docs/en/prompt-caching#accumulating-many-images">prompt-caching#accumulating-many-images</a> · <a href="https://code.claude.com/docs/en/tools-reference#output-limits">tools-reference#output-limits</a> · <a href="https://code.claude.com/docs/en/settings-reference#bashoutputmaxchars">settings-reference#bashoutputmaxchars</a> · <a href="https://code.claude.com/docs/en/mcp#mcp-output-limits-and-warnings">mcp</a> · <a href="https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically">claude-directory</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.1.50</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/costs#prompt-cache-statistics">costs#prompt-cache-statistics</a> · <a href="https://code.claude.com/docs/en/statusline#prompt-cache-fields">statusline#prompt-cache-fields</a> · <a href="https://code.claude.com/docs/en/prompt-caching#accumulating-many-images">prompt-caching#accumulating-many-images</a> · <a href="https://code.claude.com/docs/en/tools-reference#output-limits">tools-reference#output-limits</a> · <a href="https://code.claude.com/docs/en/settings-reference#bashoutputmaxchars">settings-reference#bashoutputmaxchars</a> · <a href="https://code.claude.com/docs/en/mcp#mcp-output-limits-and-warnings">mcp</a> · <a href="https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically">claude-directory</a></footer>
 </section>
 
 <section id="ch06-cache-layers">
@@ -417,7 +416,7 @@ $ CLAUDE_CODE_PROMPT_CACHE_TTL=1h FORCE_PROMPT_CACHING_5M=1 \
         <tr><td>fast mode の切り替え</td><td>初回 on は会話全体を fast mode の単価で読み直す</td></tr>
         <tr><td>MCP サーバーの接続・削除</td><td>ツールを最初から読み込む場合だけ。tool search で遅延していれば壊れない</td></tr>
         <tr><td>ツール全体の deny</td><td><code>Bash</code>、<code>Bash(*)</code>、<code>"*"</code>、<code>"mcp__*"</code> など。tool search が無効なときだけ</td></tr>
-        <tr><td>圧縮</td><td>会話層だけ作り直す</td></tr>
+        <tr><td>圧縮</td><td>会話層を作り直す</td></tr>
         <tr><td>画像の蓄積</td><td>古い画像をまとめて外したとき</td></tr>
         <tr><td>Claude Code の更新</td><td>更新後の最初の会話</td></tr>
       </tbody>
@@ -432,7 +431,7 @@ $ CLAUDE_CODE_PROMPT_CACHE_TTL=1h FORCE_PROMPT_CACHING_5M=1 \
         <tr><td>Skill とコマンドの呼び出し</td><td>指示をユーザーメッセージとして追記する</td></tr>
         <tr><td><code>/recap</code>・<code>/rewind</code></td><td>rewind はキャッシュ済みの以前の prefix に戻る</td></tr>
         <tr><td>サブエージェントの起動</td><td>親の prefix は不変。fork は親のキャッシュを読む</td></tr>
-        <tr><td><code>/advisor</code> の切り替え</td><td>定義がキャッシュ境界の後ろにある</td></tr>
+        <tr><td><code>/advisor</code> の切り替え <span class="badge experimental">Experimental</span></td><td>定義がキャッシュ境界の後ろにある</td></tr>
       </tbody>
     </table>
   </div>

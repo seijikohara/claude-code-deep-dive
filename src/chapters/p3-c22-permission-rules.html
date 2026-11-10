@@ -66,7 +66,7 @@
       <ul class="small">
         <li><strong>複合コマンド</strong>: 承認が必要だったサブコマンドごとに別のルールを保存します（最大 5 個）。<code>git status &amp;&amp; npm test</code> なら <code>npm test</code> のルールだけです。作業ディレクトリ外への <code>cd</code> はそのパスの Read ルールになります。</li>
         <li><strong>1 回限りの承認しか出ない確認</strong>: 選択肢が許す範囲をすべて表示できないとき、Claude Code は「今後は確認しない」系の選択肢を出しません。必要なら <code>/permissions</code> でルールを書きます。</li>
-        <li><strong>コメント</strong>: Yes か No に移って <kbd>Tab</kbd> を押すと入力欄が開き、<kbd>Enter</kbd> で回答と一緒に送ります。Yes では結果の後に Claude へ届きます。No では拒否の理由になり、Claude は作業を続けます。コメントなしの No はターンを止めます。WebFetch とブラウザの確認には入力欄がありません。</li>
+        <li><strong>コメント</strong>: Yes か No に移って <kbd>Tab</kbd> を押すと入力欄が開き、<kbd>Enter</kbd> で回答と一緒に送ります。Yes では結果の後に Claude へ届きます。No では拒否の理由になり、Claude は作業を続けます。メイン会話の確認でコメントなしの No を選ぶとターンが止まります。WebFetch とブラウザの確認には入力欄がありません。</li>
       </ul>
     </div>
   </div>
@@ -104,7 +104,7 @@
       </div>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/permissions#manage-permissions">permissions#manage-permissions</a> · <a href="https://code.claude.com/docs/en/commands">commands</a> · <a href="https://code.claude.com/docs/en/auto-mode-config#review-denials">auto-mode-config#review-denials</a> · <a href="https://code.claude.com/docs/en/errors#matches-no-tool">errors#matches-no-tool</a> · changelog 2.1.280 · 実機確認 2.1.321</footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/permissions#manage-permissions">permissions#manage-permissions</a> · <a href="https://code.claude.com/docs/en/commands">commands</a> · <a href="https://code.claude.com/docs/en/auto-mode-config#review-denials">auto-mode-config#review-denials</a> · <a href="https://code.claude.com/docs/en/errors#matches-no-tool">errors#matches-no-tool</a> · changelog 2.1.280, 2.1.305 · 実機確認 2.1.321</footer>
 </section>
 
 <section id="ch22-order">
@@ -268,7 +268,7 @@
         <li>区切りは <code>&amp;&amp;</code>・<code>||</code>・<code>;</code>・<code>|</code>・<code>|&amp;</code>・<code>&amp;</code>・改行です。確認なしで走るには、すべてのサブコマンドが allow ルールか読み取り専用判定で許可されている必要があります。</li>
         <li>deny・ask は、サブシェル・コマンド置換・<code>for</code> の本体を含むどれか 1 つに一致すれば効きます。auto mode でも同じです。ask <code>Bash(git clean *)</code> は <code>cd /tmp &amp;&amp; git clean -f</code> や <code>echo "$(git clean -f)"</code> でも確認します。</li>
         <li><code>npm test &amp;&amp;</code> のように後ろが空の <code>&amp;&amp;</code>・<code>||</code> は解析不能として分割されず、<code>Bash(npm *)</code> でも承認されません。</li>
-        <li>PowerShell は AST を解析し、<code>|</code>・<code>;</code>・PowerShell 7 以降の <code>&amp;&amp;</code>・<code>||</code> で分割します。別名は正規化され（<code>PowerShell(Get-ChildItem *)</code> は <code>gci</code>・<code>ls</code>・<code>dir</code> にも一致）、大文字小文字を区別しません。</li>
+        <li>PowerShell <span class="badge preview">Preview</span> は AST を解析し、<code>|</code>・<code>;</code>・PowerShell 7 以降の <code>&amp;&amp;</code>・<code>||</code> で分割します。別名は正規化され（<code>PowerShell(Get-ChildItem *)</code> は <code>gci</code>・<code>ls</code>・<code>dir</code> にも一致）、大文字小文字を区別しません。</li>
       </ul>
     </div>
     <div>
@@ -401,7 +401,7 @@
         </tbody>
       </table>
       <ul class="small">
-        <li><code>!</code> 否定（deny・ask のみ）は、同じ出所の前にある <code>path</code>・<code>./path</code> ルールから除外します。<code>Read(*.env)</code> の後の <code>Read(!sample.env)</code> など。先頭の <code>!</code>、<code>/</code>・<code>~/</code>・<code>//</code> アンカーのルール、丸ごと止めたディレクトリの内側には効きません。</li>
+        <li><code>!</code> 否定（deny・ask のみ）は、同じ出所の前にある <code>path</code>・<code>./path</code> ルールから除外します。<code>Read(*.env)</code> の後の <code>Read(!sample.env)</code> など。一覧の最初に置いた <code>!</code> ルール、<code>/</code>・<code>~/</code>・<code>//</code> アンカーのルール、丸ごと止めたディレクトリの内側には効きません。</li>
         <li>確認から保存したパスは <code>[</code>・<code>]</code>・<code>*</code> がエスケープされます。括弧はそのままです（<code>Edit(./Finance (2024)/**)</code>）。</li>
       </ul>
     </div>
@@ -446,7 +446,7 @@
         <li>サーバー名の <code>.</code> や空白は <code>_</code> になります（<code>my.server</code> → <code>mcp__my_server__*</code>）。プラグインのサーバーは <code>mcp__plugin_my-plugin_database-tools__*</code> の形です。claude.ai のコネクタは <code>mcp__claude_ai_&lt;server&gt;__&lt;tool&gt;</code> です。</li>
         <li>名前に <code>__</code> を含むか <code>_</code> で終わるサーバー（<code>reports__v2</code>）を allow するには <code>mcp__reports__v2__*</code> と全名で書きます。deny・ask では短い <code>mcp__reports</code> もそのサーバーを覆います。</li>
         <li>組織が <code>ask</code> にしたコネクタツールは allow が効かず、auto や bypass でも毎回確認します。<code>dontAsk</code> では拒否です。</li>
-        <li>Cowork では <code>Bash</code>・<code>WebFetch</code> の deny が <code>mcp__workspace__bash</code>・<code>mcp__workspace__web_fetch</code> にも効きます。allow は引き継がれません。</li>
+        <li>Cowork では、ツール全体を指定した <code>Bash</code>・<code>WebFetch</code> の deny が <code>mcp__workspace__bash</code>・<code>mcp__workspace__web_fetch</code> にも効きます。allow は引き継がれません。</li>
       </ul>
     </div>
   </div>
@@ -532,7 +532,7 @@
       <ul class="small">
         <li>project の <code>permissions.allow</code> と <code>additionalDirectories</code> は、信頼ダイアログを受け入れた後にだけ適用されます。deny と ask は制限だけなので常に効きます。</li>
         <li>信頼はリポジトリでは git ルート（worktree ならメインのチェックアウト）、外では起動ディレクトリで記録されます。ホームディレクトリではそのセッション限りです。</li>
-        <li><code>-p</code> と SDK はダイアログを出しません。親フォルダの信頼もこれらには数えません。</li>
+        <li><code>-p</code> と SDK はダイアログを出しません。親フォルダを信頼しても、project の <code>permissions.allow</code> と <code>additionalDirectories</code> には数えません。</li>
         <li><code>.claude/settings.local.json</code> が git で追跡されているか <code>.claude</code> が symlink なら、リポジトリ由来として信頼まで保留されます。</li>
         <li>手動で信頼するには <code>~/.claude.json</code> の <code>projects["&lt;path&gt;"].hasTrustDialogAccepted</code> を <code>true</code> にします。</li>
       </ul>

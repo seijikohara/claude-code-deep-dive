@@ -264,10 +264,10 @@ Error: --agents file not found: <cwd>/missing.json (a value that is not a JSON o
     <div>
       <ul class="small">
         <li>両方あるときは <code>disallowedTools</code> を先に適用し、残りに <code>tools</code> を当てます。両方に書いたツールは除かれます。</li>
-        <li>MCP: <code>tools</code> に <code>mcp__github__*</code>、<code>disallowedTools</code> に <code>mcp__github</code> か <code>mcp__*</code>。名前に <code>__</code> を含むサーバーは <code>mcp__reports__v2__*</code> と書きます。</li>
+        <li>MCP: <code>tools</code> に <code>mcp__github__*</code>、<code>disallowedTools</code> に <code>mcp__github</code>（全サーバーなら <code>mcp__*</code>）。名前に <code>__</code> を含むサーバーは <code>mcp__reports__v2__*</code> と書きます。</li>
         <li><code>Agent(worker, researcher)</code> の許可リストは <code>--agent</code> のメインスレッドでだけ効きます。サブエージェント定義では括弧内が無視されます。</li>
         <li>コマンド単位の禁止は <code>permissions.deny</code> の <code>Bash(git push *)</code> で書きます。</li>
-        <li><code>tools</code> が 1 つも解決できないと起動を拒否します（v2.1.208 以降）。例: <code>Agent 'code-reviewer' would be spawned with zero tools — refusing. Its tools list resolved to nothing: unrecognized [Grpe]. Fix the agent's tools frontmatter or pass a different subagent_type.</code></li>
+        <li><code>tools</code> が 1 つも解決できないと、通常は起動を拒否します（v2.1.208 以降）。例: <code>Agent 'code-reviewer' would be spawned with zero tools — refusing. Its tools list resolved to nothing: unrecognized [Grpe]. Fix the agent's tools frontmatter or pass a different subagent_type.</code></li>
       </ul>
     </div>
   </div>

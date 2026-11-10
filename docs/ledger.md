@@ -436,3 +436,16 @@ The owner chapter explains a topic in full. Every other chapter links to it and 
 - User-specific numbers from normal runs: total tools, total commands or skills, agent count, MCP server count and statuses, plugin count, and costs. Use only the safe-mode baseline numbers in §1.
 - The user's own configuration: the configured permission mode, `auth status` fields (auth method, plan or subscription, login expiry), and the contents of user settings.
 - Any `*.private.*` file under `lab/`. Quote other lab output only after redaction (design §5b).
+
+## 6. Errata found during authoring and review
+
+These entries supersede the rulings above.
+
+- **R17 (starting mode in `-p`):** changelog 2.1.302 reverts the 2.1.285 change. `-p` and the SDK start in `default` again; 2.1.285–2.1.301 is the exception period (permission-modes :99, :130).
+- **R13 (`--resume-session-at`, `--resume-drops-turn`):** not strings-only. agent-sdk__typescript:548 names `--resume-drops-turn`, and both SDK references document `resumeSessionAt` / `resume_session_at`.
+- **R20 (`$.ui.view`):** documented in plugins__mods__reference:221 (v2.1.300+). Only the `({ agentId })` form is changelog-only.
+- **R11 (tools missing from the `-p` init):** tools-reference explains `SendFeedback` and `EndConversation`, and artifacts.md says `Artifact` is off by default in `-p`. `WebFetch`, `AskUserQuestion`, `EnterPlanMode` and `ExitPlanMode` remain unexplained.
+- **R10 (`--restricted`, `--bare` tool sets):** raw captures now exist (lab/settings/tools.raw.txt, lab/author-automation/): `--restricted` leaves 21 tools, `--bare` leaves 3.
+- **New conflict (Ch6):** the sub-agents page says a subagent's `autoCompactWindow` has no effect when `CLAUDE_CODE_AUTO_COMPACT_WINDOW` is set; changelog 2.1.312 says it now lowers that window.
+- **New conflict (Ch17):** screen reader mode minimum version: cli-reference and env-vars say v2.1.181; changelog 2.1.208 says "Added screen reader mode".
+- **Statuses added:** `/fork` is Preview (agent view); the PowerShell tool is Preview; `ENABLE_BETA_TRACING_DETAILED` and `BETA_TRACING_ENDPOINT` are Beta (`data/status-overrides.json`).

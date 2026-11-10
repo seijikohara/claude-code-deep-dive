@@ -1,0 +1,60 @@
+<section id="ch00" data-part="Part 0 導入" data-chapter="" data-title="全体像">
+
+<section id="ch00-year">
+  <h2>2.1.x の 1 年: 2.1.0 → 2.1.321、260 リリース</h2>
+  <p class="small">2.1.0（2026-01-07）から 2.1.321（2026-11-09）まで 260 リリースです。版番号は連番ではなく、欠番があります。各月の大きな追加だけを版付きで並べます。詳細は <a href="#/ch64">Ch64</a> と <a href="#/ch65">Ch65</a> にあります。</p>
+  <table class="dense">
+    <thead><tr><th style="width:8%">月</th><th>主な追加（版）</th></tr></thead>
+    <tbody>
+      <tr><td>1 月</td><td>Skill のホットリロードと <code>context: fork</code>（2.1.0） · スラッシュコマンドと Skill の統合（2.1.3） · キーバインドのカスタマイズ（2.1.18）</td></tr>
+      <tr><td>2 月</td><td>Opus 4.6 と Agent Teams（2.1.32） · fast mode（2.1.36） · <code>--worktree</code>（2.1.49） · HTTP フック（2.1.63）</td></tr>
+      <tr><td>3 月</td><td><code>/loop</code>（2.1.71） · MCP elicitation と <code>/effort</code>（2.1.76） · <code>--channels</code>（2.1.80） · auto mode（2.1.83〜2.1.85、What's New W13）</td></tr>
+      <tr><td>4 月</td><td>Monitor ツール（2.1.98） · Opus 4.7・<code>xhigh</code>・<code>/ultrareview</code>（2.1.111） · ネイティブバイナリ（2.1.113） · <code>/usage</code> に統合（2.1.118）</td></tr>
+      <tr><td>5 月</td><td>Agent view と <code>/goal</code>（2.1.139） · <code>/code-review</code>（2.1.147） · Opus 4.8 と Dynamic workflows（2.1.154）</td></tr>
+      <tr><td>6 月</td><td><code>--safe-mode</code> と <code>/cd</code>（2.1.169） · Fable 5（2.1.170） · <code>Tool(param:value)</code> 権限ルール（2.1.178） · Sonnet 5（2.1.197）</td></tr>
+      <tr><td>7 月</td><td>Claude in Chrome の GA、サブエージェントの既定バックグラウンド化（2.1.198） · Manual への改名（2.1.200） · Opus 5（2.1.219）</td></tr>
+      <tr><td>8 月</td><td>セッション間メッセージングとセルフホスト環境（2.1.224） · fork の既定有効化（2.1.232） · <code>--restricted</code>（2.1.248）</td></tr>
+      <tr><td>9 月</td><td>Fable 5.1（2.1.257） · <code>claude plugin eval</code>（2.1.269） · AGENTS.md（2.1.277） · Opus 5.5（2.1.280） · Sonnet 5.5（2.1.284）</td></tr>
+      <tr><td>10 月</td><td>Mods（2.1.287） · Haiku 5.5（2.1.293） · フックの <code>onFailure: "block"</code>（2.1.295） · アイドル圧縮（2.1.299）</td></tr>
+      <tr><td>11 月</td><td>ターミナルの MCP tasks（2.1.319） · Fable 5.2（2.1.321）</td></tr>
+    </tbody>
+  </table>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.0〜2.1.321 · <a href="https://code.claude.com/docs/en/whats-new/2026-w13">whats-new/2026-w13</a></footer>
+</section>
+
+<section id="ch00-baseline">
+  <h2>実機で見る 2.1.321</h2>
+  <table>
+    <thead><tr><th style="width:17%">項目</th><th style="width:36%">2.1.321 の値</th><th>補足（詳細の章）</th></tr></thead>
+    <tbody>
+      <tr><td>バージョン</td><td><code>2.1.321 (Claude Code)</code></td><td>2026-11-09 リリース</td></tr>
+      <tr><td>既定モデル</td><td><code>claude-opus-5-5</code>（Anthropic API・サブスクリプションの場合）</td><td>Foundry では Sonnet 4.5。組織の既定モデルがあればそちらが優先（<a href="#/ch02">Ch2</a>）</td></tr>
+      <tr><td>組み込みツール</td><td>init 24 / docs 46（現行 45＋削除済み <code>TaskOutput</code>）</td><td>ツール名は <code>Agent</code>（旧名 <code>Task</code>。<code>-p</code> の init は <code>Task</code> と表示）（<a href="#/ch21">Ch21</a>）</td></tr>
+      <tr><td>スラッシュコマンド</td><td><code>-p</code> の init: 55（コマンド 36＋Skill 19）</td><td>公式一覧の現行コマンド名は 116（組み込み 95＋バンドル 21）。init はその <code>-p</code> セッションで実行できる正式名だけを列挙する（<a href="#/ch12">Ch12</a>）</td></tr>
+      <tr><td>組み込みエージェント</td><td>init 5: <code>claude</code>、<code>Explore</code>、<code>general-purpose</code>、<code>Plan</code>、<span class="undocumented undocumented-item"><code>web-fetch</code></span> <span class="badge undocumented">Undocumented</span></td><td>docs は 6 種（<code>statusline-setup</code>、<code>claude-code-guide</code> を含む）（<a href="#/ch37">Ch37</a>）</td></tr>
+      <tr><td>権限モード</td><td>init: <code>default</code>（表示名は Manual）</td><td><code>-p</code> と SDK は <code>default</code> で始まる。対話ターミナルと VS Code は 2.1.284 以降 auto で始まる（<a href="#/ch23">Ch23</a>）</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">init の値は、ユーザー設定を読まない <code>--safe-mode --setting-sources project</code> の <code>-p</code> 実行（stream-json の <code>system/init</code> イベント）から取りました。このときモデルは <code>--model haiku</code> で指定したため、既定モデルは docs と <code>--model default</code> の解決結果で確認しています。init の読み方は <a href="#/ch44">Ch44</a> にあります。</p>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config">model-config</a> · <a href="https://code.claude.com/docs/en/tools-reference">tools-reference</a> · <a href="https://code.claude.com/docs/en/commands">commands</a> · <a href="https://code.claude.com/docs/en/sub-agents">sub-agents</a> · <a href="https://code.claude.com/docs/en/permission-modes">permission-modes</a> · changelog 2.1.284 · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch00-extend">
+  <h2>拡張ポイントの全体図: 読み込むタイミングとコンテキストの消費</h2>
+  <table class="dense">
+    <thead><tr><th style="width:12%">拡張</th><th style="width:17%">読み込むタイミング</th><th style="width:36%">コンテキストに入るもの</th><th style="width:25%">コンテキストの消費</th><th>章</th></tr></thead>
+    <tbody>
+      <tr><td>CLAUDE.md</td><td>セッション開始時</td><td>開始時に読み込む各ファイルの全文</td><td>毎リクエスト</td><td><a href="#/ch09">Ch9</a></td></tr>
+      <tr><td>Skills</td><td>開始時と使用時</td><td>開始時は名前と説明、使うときに全文</td><td>低い（説明は毎リクエスト）。<code>disable-model-invocation: true</code> なら呼ぶまでゼロ</td><td><a href="#/ch29">Ch29</a></td></tr>
+      <tr><td>Hooks</td><td>イベント発生時</td><td>なし（会話の外で実行）</td><td>ゼロ。フックが出力を返したときだけ入る</td><td><a href="#/ch28">Ch28</a></td></tr>
+      <tr><td>MCP</td><td>セッション開始時</td><td>ツール名とサーバーの instructions。完全なスキーマは必要になってから</td><td>ツールを使うまで低い（tool search が既定で有効）</td><td><a href="#/ch30">Ch30</a></td></tr>
+      <tr><td>Subagents</td><td>起動したとき</td><td>新しい分離コンテキスト（自分の system prompt、<code>skills:</code> の全文、CLAUDE.md と git status）。fork は親の会話を引き継ぐ</td><td>メインの会話とは別</td><td><a href="#/ch37">Ch37</a></td></tr>
+      <tr><td>Plugins</td><td>ページに記載なし</td><td>Skill・フック・サブエージェント・MCP サーバーをまとめた配布単位。Skill は <code>/my-plugin:review</code> の形で名前空間が付く</td><td>ページに記載なし</td><td><a href="#/ch31">Ch31</a></td></tr>
+      <tr><td>Mods</td><td>セッション開始時、または <code>/reload-plugins</code></td><td>Claude Code のプロセス内で動く JavaScript / TypeScript のイベントハンドラ。ツール呼び出し・プロンプト・コマンド・画面描画を変えられる</td><td>ページに記載なし</td><td><a href="#/ch33">Ch33</a></td></tr>
+    </tbody>
+  </table>
+  <p class="small">同名の定義が複数あるとき、CLAUDE.md は全レベルが加算され、Skill・サブエージェント・MCP サーバーは名前で 1 つが勝ち、フックは全部が発火します。</p>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/features-overview#understand-context-costs">features-overview#understand-context-costs</a> · <a href="https://code.claude.com/docs/en/features-overview#understand-how-features-layer">#understand-how-features-layer</a> · <a href="https://code.claude.com/docs/en/plugins/mods/overview">plugins/mods/overview</a></footer>
+</section>
+
+</section>

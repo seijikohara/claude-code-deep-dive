@@ -42,7 +42,7 @@
 </section>
 
 <section id="ch38-dispatch">
-  <h2>dispatch の入力と、セッションを背景へ送る方法</h2>
+  <h2>dispatch の入力と、セッションを背景へ送る方法 <span class="badge preview">Preview</span></h2>
   <div class="cols-2">
     <div>
       <table class="dense">
@@ -63,12 +63,12 @@
     </div>
     <div>
       <ul class="small">
-        <li>ビュー内で実行されるコマンド: <code>/exit</code>・<code>/quit</code>、<code>/logout</code>、<code>/login</code>、引数なしの <code>/resume</code>・<code>/continue</code>、次の dispatch 用の <code>/model</code>・<code>/effort</code>・<code>/fast</code>（後の 2 つは v2.1.299 以降）。他の組み込みは <code>isn't available in agent view</code> です。</li>
+        <li>ビュー内で実行されるコマンド: <code>/exit</code>・<code>/quit</code>、<code>/logout</code>、<code>/login</code>、引数なしの <code>/resume</code>・<code>/continue</code>、次の dispatch 用の <code>/model</code>・<code>/effort</code>・<code>/fast</code>（後の 2 つは v2.1.299 以降）。<code>/init</code> のようにプロンプトへ展開する組み込みは最初のプロンプトとして送られ、それ以外の組み込みは <code>isn't available in agent view</code> です。</li>
         <li>起動時に既定値を渡せます。<code>--agent</code> の既定は <code>agent</code> 設定、なければ組み込みの <code>claude</code> です。</li>
       </ul>
 <pre data-lang="bash" class="compact">claude agents --permission-mode plan --model opus --effort high</pre>
       <ul class="small">
-        <li><code>--effort ultracode</code> はこのフラグでだけ指定できます。<code>--restricted</code>（v2.1.248 以降）と <code>--dangerously-skip-permissions</code> も使えます。</li>
+        <li>dispatch 入力の <code>/effort</code> は <code>ultracode</code> を受け付けないので、このフラグで <code>--effort ultracode</code> を渡します。<code>--restricted</code>（v2.1.248 以降）と <code>--dangerously-skip-permissions</code> も使えます。</li>
         <li>セッション内からは <code>/background</code>（別名 <code>/bg [prompt]</code>）で会話ごと背景へ送り、空のプロンプトで <kbd>←</kbd> を押すと背景へ送って agent view を開きます（<code>leftArrowOpensAgents</code>）。<code>/fork [prompt]</code> は会話のコピーを新しい背景セッションにします（<a href="#/ch07-branch">Ch7</a>）。</li>
       </ul>
     </div>
@@ -77,14 +77,14 @@
 </section>
 
 <section id="ch38-keys">
-  <h2>キー・フィルタ・peek と attach</h2>
+  <h2>キー・フィルタ・peek と attach <span class="badge preview">Preview</span></h2>
   <div class="cols-2">
     <table class="dense">
       <thead><tr><th style="width:36%">キー</th><th>動作</th></tr></thead>
       <tbody>
-        <tr><td><kbd>Enter</kbd>・<kbd>→</kbd></td><td>選んだセッションに attach（入力欄が空でなければ dispatch）</td></tr>
+        <tr><td><kbd>Enter</kbd>・<kbd>→</kbd></td><td>選んだセッションに attach（<kbd>Enter</kbd> は入力欄が空でなければ dispatch）</td></tr>
         <tr><td><kbd>Space</kbd></td><td>peek パネルの開閉</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>dispatch してすぐ attach</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>dispatch してすぐ attach（対応端末のみ）</td></tr>
         <tr><td><kbd>Alt</kbd>+<kbd>1</kbd>〜<kbd>9</kbd></td><td>同じディレクトリの 1〜9 番目に attach</td></tr>
         <tr><td><kbd>Tab</kbd></td><td>空の入力欄で全サブエージェントを一覧</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>T</kbd></td><td>固定と解除。固定するとアイドルでもプロセスを止めない</td></tr>
@@ -116,11 +116,12 @@
 </section>
 
 <section id="ch38-shell">
-  <h2><code>claude --bg</code> とシェルからの管理</h2>
+  <h2><code>claude --bg</code> とシェルからの管理 <span class="badge preview">Preview</span></h2>
   <div class="cols-2">
     <div>
-<pre data-lang="bash" class="compact">claude --bg "investigate the flaky SettingsChangeDetector test"</pre>
-<pre data-lang="text" class="compact">backgrounded · 7c5dcf5d · flaky-test-fix
+<pre data-lang="text" class="compact">$ claude --bg --name "flaky-test-fix" \
+    "investigate the flaky SettingsChangeDetector test"
+backgrounded · 7c5dcf5d · flaky-test-fix
   claude agents             list sessions
   claude attach 7c5dcf5d    open in this terminal
   claude logs 7c5dcf5d      show recent output
@@ -153,7 +154,7 @@
 </section>
 
 <section id="ch38-hosting">
-  <h2>supervisor・永続化・アイドル停止</h2>
+  <h2>supervisor・永続化・アイドル停止 <span class="badge preview">Preview</span></h2>
   <table class="dense">
     <thead><tr><th style="width:30%">状況</th><th>プロセスの扱い</th></tr></thead>
     <tbody>
@@ -162,7 +163,7 @@
       <tr><td>supervisor 稼働中の予期しない終了</td><td>再起動する。<kbd>←</kbd>・<code>/background</code> で送ったセッションを外から終了させた場合は stopped</td></tr>
       <tr><td>自動更新</td><td>supervisor が新しい版で再起動し、アイドルのセッションを移す。作業中・入力待ち・attach 中は中断しない</td></tr>
       <tr><td>supervisor 自体の停止</td><td>macOS・Linux では、約 1 分以内に新しい supervisor が接続しないとセッションが止まる。<code>claude agents</code> で起動する</td></tr>
-      <tr><td>マシンの停止</td><td>スリープでは止まらない。シャットダウン後は 48 時間以内なら failed、超えると stopped（<code>ended while the background service was off</code>）。返信か attach で再開する</td></tr>
+      <tr><td>マシンの停止</td><td>スリープでは止まらない。シャットダウンで止まり、最後の進捗から 48 時間以内なら failed、超えると stopped（<code>ended while the background service was off</code>）。返信か attach で再開する</td></tr>
     </tbody>
   </table>
   <div class="cols-2">
@@ -180,7 +181,7 @@
 </section>
 
 <section id="ch38-worktree">
-  <h2>worktree への隔離・削除規則・<code>claude agents --json</code></h2>
+  <h2>worktree への隔離・削除規則・<code>claude agents --json</code> <span class="badge preview">Preview</span></h2>
   <div class="cols-2">
     <div>
       <ul class="small">

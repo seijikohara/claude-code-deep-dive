@@ -38,7 +38,7 @@
       </div>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/settings#confirm-what-loaded">settings#confirm-what-loaded</a> · <a href="https://code.claude.com/docs/en/managed-settings#read-the-source-in-status">managed-settings#read-the-source-in-status</a> · <a href="https://code.claude.com/docs/en/commands">commands</a>（<code>/status</code>）· <a href="https://code.claude.com/docs/en/tools-reference#webfetch-availability">tools-reference#webfetch-availability</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/settings#confirm-what-loaded">settings#confirm-what-loaded</a> · <a href="https://code.claude.com/docs/en/managed-settings#read-the-source-in-%2Fstatus">managed-settings#read-the-source-in-/status</a> · <a href="https://code.claude.com/docs/en/commands">commands</a>（<code>/status</code>）· <a href="https://code.claude.com/docs/en/tools-reference#webfetch-availability">tools-reference#webfetch-availability</a></footer>
 </section>
 
 <section id="ch27-doctor">
@@ -51,11 +51,11 @@
           <tr><td>実行場所</td><td>ターミナル。セッションを開始しない</td><td>セッション内。Skill</td></tr>
           <tr><td>動作</td><td>読み取り専用の診断</td><td>修正を提案し、確認後に適用</td></tr>
           <tr><td>対象</td><td>インストール、自動更新、managed の取得、組織ポリシー、不正な設定、Remote Control</td><td>インストール、不正な設定、未使用の拡張、サブエージェント名の重複、CLAUDE.md</td></tr>
-          <tr><td>補足</td><td>カレントディレクトリの設定を trust の確認なしで読む</td><td>別名 <code>/checkup</code>。<code>DISABLE_DOCTOR_COMMAND=1</code> で隠せる</td></tr>
+          <tr><td>補足</td><td><span class="undocumented">カレントディレクトリの設定を trust の確認なしで読む <span class="badge undocumented">Undocumented</span></span></td><td>別名 <code>/checkup</code>。<code>DISABLE_DOCTOR_COMMAND=1</code> で隠せる</td></tr>
         </tbody>
       </table>
       <ul class="small">
-        <li><code>-p</code> の実行が設定を黙って捨てたときは、ターミナルで <code>claude doctor</code> を実行して何が落ちたかを確かめます。</li>
+        <li><code>-p</code> の実行が設定を捨てたときは、ターミナルで <code>claude doctor</code> を実行して何が落ちたかを確かめます。</li>
         <li>右の下は不正な <code>defaultMode</code> を置いたディレクトリでの出力です。Suggested fix が挙げるモードは 4 つで、エラー文の 6 つより少なくなっています。プランなどを含む値は … にしました。</li>
       </ul>
     </div>
@@ -170,7 +170,7 @@ claude --debug-file /tmp/claude-debug.log</pre>
       </ul>
       <h3><code>--bare</code>（<code>CLAUDE_CODE_SIMPLE=1</code>）</h3>
       <ul class="small">
-        <li>自動検出をすべて省き、ツールは <code>Bash</code>・<code>Read</code>・<code>Edit</code> だけです。診断よりスクリプト向けで、詳細は <a href="#/ch44">Ch44</a> です。</li>
+        <li>自動検出を省き、ツールは <code>Bash</code>・<code>Read</code>・<code>Edit</code> だけです。診断よりスクリプト向けで、詳細は <a href="#/ch44">Ch44</a> です。</li>
       </ul>
     </div>
     <div>

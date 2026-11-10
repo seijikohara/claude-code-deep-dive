@@ -79,9 +79,9 @@
   <h2>メニュー照合と非表示コマンド</h2>
   <div class="cols-2">
     <div>
-      <h3>/ メニューの照合（v2.1.236 以降）</h3>
+      <h3>/ メニューの照合</h3>
       <ul class="small">
-        <li>先頭の候補を強調するのは、<code>/</code> の後の文字がコマンド名か別名の先頭、または名前の中の単語の先頭と一致したときだけです。<code>:</code>・<code>_</code>・<code>-</code> の区切りは無視します。</li>
+        <li>v2.1.236 以降、先頭の候補を強調するのは、<code>/</code> の後の文字がコマンド名か別名の先頭、または名前の中の単語の先頭と一致したときだけです。<code>:</code>・<code>_</code>・<code>-</code> の区切りは無視します。</li>
         <li>例: <code>/adddir</code> は <code>/add-dir</code> を、<code>/new</code> は別名を通じて <code>/clear</code> を強調します。<kbd>Enter</kbd> で強調中の候補を実行します。</li>
         <li>打ち間違えたときは何も強調しません。近い候補は一覧に残り、<kbd>Tab</kbd> か矢印キーで選べます。<kbd>Enter</kbd> は入力どおりに送信し、<code>Unknown command</code> になります。</li>
         <li>プラグインの Skill は短い名前でも一致します。<code>/deploy</code> で <code>myplugin:deploy-app</code> が見つかり、挿入すると <code>/myplugin:deploy-app</code> と書かれます。</li>
@@ -413,6 +413,6 @@ $ claude -p "/use-case"
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/commands#all-commands">commands#all-commands</a> · <a href="https://code.claude.com/docs/en/memory">memory</a> · <a href="https://code.claude.com/docs/en/skills#check-your-setup-with-doctor">skills#check-your-setup-with-doctor</a> · <a href="https://code.claude.com/docs/en/costs#analyze-your-usage-patterns">costs#analyze-your-usage-patterns</a> · <a href="https://code.claude.com/docs/en/claude-directory">claude-directory</a> · <a href="https://code.claude.com/docs/en/cli-reference#cli-commands">cli-reference</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/commands#all-commands">commands#all-commands</a> · <a href="https://code.claude.com/docs/en/memory">memory</a> · <a href="https://code.claude.com/docs/en/skills#check-your-setup-with-%2Fdoctor">skills#check-your-setup-with-/doctor</a> · <a href="https://code.claude.com/docs/en/costs#analyze-your-usage-patterns">costs#analyze-your-usage-patterns</a> · <a href="https://code.claude.com/docs/en/claude-directory">claude-directory</a> · <a href="https://code.claude.com/docs/en/cli-reference#cli-commands">cli-reference</a></footer>
 </section>
 </section>

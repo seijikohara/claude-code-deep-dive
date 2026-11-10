@@ -101,13 +101,13 @@ Usage: /advisor <fable|opus|sonnet|off></pre>
         <li>サブエージェントは advisor の設定を引き継ぎ、自分のモデルでもう一度組み合わせを検査します。</li>
         <li>メインモデルより格下の advisor は、メインのリクエストには付けられません。ただし、条件を満たすサブエージェントは使えます。</li>
         <li>API が組み合わせを拒否した場合、Claude Code はそのリクエストを advisor なしで再送します。エラーは表示されません。</li>
-        <li>別の advisor を選び直した場合、反映されるのは <code>/clear</code> か <code>/compact</code> の後、または新しいセッションからです。</li>
+        <li>その後に別の advisor を選び直しても、反映されるのは <code>/clear</code> か <code>/compact</code> の後、または新しいセッションからです。</li>
       </ul>
       <div class="lab">
 <pre data-lang="text" class="compact">$ claude -p --model opus --advisor sonnet "/advisor"
 "sonnet" cannot advise "claude-opus-5-5" (the advisor must be
 at least as capable as the main model). The advisor will not
-be used for the main model.          → exit 0（起動は続く）
+be used for the main model. …        → exit 0（起動は続く）
 
 $ claude -p --model claude-haiku-4-5 \
     --advisor claude-haiku-4-5 "/advisor"
@@ -171,7 +171,7 @@ Error: The model "claude-haiku-4-5" cannot be used as an advisor.
         <p class="small">Claude Platform on AWS での提供可否が食い違っています。</p>
         <ul class="small">
           <li><strong>advisor ページ</strong>: 「Claude Platform on AWS では使えない」</li>
-          <li><strong>changelog 2.1.300</strong>: 「Added <code>/advisor</code> on Claude Platform on AWS」。advisor は <code>/advisor</code>・<code>advisorModel</code>・<code>--advisor</code> のいずれかで選ぶまで動きません。</li>
+          <li><strong>changelog 2.1.300</strong>: 「Added <code>/advisor</code> on Claude Platform on AWS」。<code>/advisor</code> などで選ぶまで動きません。助言が返るかは未検証です。</li>
         </ul>
       </div>
     </div>

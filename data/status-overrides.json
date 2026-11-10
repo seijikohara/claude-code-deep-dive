@@ -16,9 +16,21 @@
     "BETA_TRACING_ENDPOINT": "beta"
   },
   "settings": {
-    "advisorModel": "experimental"
+    "advisorModel": "experimental",
+    "teammateMode": "experimental"
   },
   "tools": {
-    "PowerShell": "preview"
+    "PowerShell": "preview",
+    "RemoteTrigger": "preview"
+  },
+  "cli-flags": {
+    "--advisor": "experimental",
+    "--teammate-mode": "experimental",
+    "--bg": "preview"
+  },
+  "cli-commands": {
+    "claude agents": "preview",
+    "claude ultrareview": "preview",
+    "claude self-hosted-runner": "beta"
   }
 }

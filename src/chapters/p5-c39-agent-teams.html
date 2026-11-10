@@ -43,7 +43,7 @@
 </section>
 
 <section id="ch39-architecture">
-  <h2>lead・チームメイト・タスクリスト・mailbox</h2>
+  <h2>lead・チームメイト・タスクリスト・mailbox <span class="badge experimental">Experimental</span></h2>
   <table class="dense">
     <thead><tr><th style="width:15%">構成要素</th><th>役割と保存場所</th></tr></thead>
     <tbody>
@@ -70,7 +70,7 @@
 </section>
 
 <section id="ch39-display">
-  <h2>表示モード: in-process・tmux・iTerm2</h2>
+  <h2>表示モード: in-process・tmux・iTerm2 <span class="badge experimental">Experimental</span></h2>
   <div class="cols-2">
     <div>
       <table class="dense">
@@ -105,7 +105,7 @@ error: option '--teammate-mode <mode>' argument 'bogus' is invalid. Allowed choi
 </section>
 
 <section id="ch39-model">
-  <h2>チームメイトのモデルと、サブエージェント定義の流用</h2>
+  <h2>チームメイトのモデルと、サブエージェント定義の流用 <span class="badge experimental">Experimental</span></h2>
   <div class="cols-2">
     <div>
       <h3>モデルの決まり方（先に当たったもの）</h3>
@@ -145,11 +145,11 @@ error: option '--teammate-mode <mode>' argument 'bogus' is invalid. Allowed choi
 </section>
 
 <section id="ch39-permissions">
-  <h2>権限モードと plan 承認</h2>
+  <h2>権限モードと plan 承認 <span class="badge experimental">Experimental</span></h2>
   <div class="cols-2">
     <div>
       <ul class="small">
-        <li>新しいチームメイトは lead のモードで始まります。<code>bypassPermissions</code> も同じです。lead が <code>dontAsk</code> なら Manual で始まります（分割ペインでこの扱いになるのは v2.1.317 以降）。起動時にチームメイトごとのモードは指定できません。</li>
+        <li>新しいチームメイトは lead のモードで始まります。<code>bypassPermissions</code> も同じです。lead が <code>dontAsk</code> なら Manual で始まります（lead が Manual・<code>dontAsk</code> の分割ペインでは v2.1.317 以降）。起動時にチームメイトごとのモードは指定できません。</li>
         <li>動作中のモードは <kbd>Shift</kbd>+<kbd>Tab</kbd> で切り替えます。分割ペインはそのペインで、in-process は表示中に押し、次のターンから効きます。</li>
         <li>lead が <code>acceptEdits</code>・<code>auto</code>・<code>bypassPermissions</code> の間、plan mode でない in-process のチームメイトは、Manual と表示されていても lead のモードで動きます。</li>
         <li>in-process は lead の allow・deny ルールをそのまま使い、<code>--disallowedTools</code>・<code>--tools</code>・<code>--allowedTools</code> が効きます。分割ペインには <code>--disallowedTools</code> と <code>--tools</code> だけが渡ります（v2.1.309 以降）。</li>
@@ -176,10 +176,10 @@ error: option '--teammate-mode <mode>' argument 'bogus' is invalid. Allowed choi
 </section>
 
 <section id="ch39-limits">
-  <h2>チーム用フック・制限事項・コスト</h2>
+  <h2>チーム用フック・制限事項・コスト <span class="badge experimental">Experimental</span></h2>
   <div class="cols-2">
     <div>
-      <h3>フック（詳細は <a href="#/ch28-tasks">Ch28</a>）</h3>
+      <h3>フック（詳細は <a href="#/ch28-prompt-tasks">Ch28</a>）</h3>
       <ul class="small">
         <li><code>TeammateIdle</code>: アイドルになる直前。exit 2 で stderr を返して作業を続けさせます。</li>
         <li><code>TaskCreated</code>: タスク作成時。exit 2 で作成を止めます。</li>

@@ -11,10 +11,11 @@ import {
   checkPrivacy,
   checkCoverage,
   checkSources,
+  checkLinks,
 } from "./lib/lint-rules.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const CHECKS = ["ids", "privacy", "coverage", "sources"];
+const CHECKS = ["ids", "privacy", "coverage", "sources", "links"];
 const PRIVACY_FILE = join(root, "tools/privacy-patterns.local.json");
 
 class UsageError extends Error {}
@@ -166,6 +167,11 @@ function run(argv) {
   if (opts.only.includes("sources")) {
     const missing = checkSources(html);
     report(`sources: ${missing.length} content slides without .src`, missing);
+  }
+
+  if (opts.only.includes("links")) {
+    const broken = checkLinks(html);
+    report(`links: ${broken.length} internal links without a target slide`, broken);
   }
 
   lines.push(findings === 0 ? "OK: no findings" : `FAIL: ${findings} findings`);

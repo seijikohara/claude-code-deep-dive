@@ -18,7 +18,7 @@
       <tr><td><kbd>Esc</kbd> <kbd>Esc</kbd></td><td>—</td><td>入力があれば消して履歴に保存。空なら rewind メニュー（<a href="#/ch08">Ch8</a>）</td></tr>
       <tr><td><kbd>Shift</kbd>+<kbd>Tab</kbd></td><td><code>chat:cycleMode</code></td><td><code>default</code>（表示は Manual）→ <code>acceptEdits</code> → <code>plan</code> →（使えるとき）<code>bypassPermissions</code> → <code>auto</code>。<code>auto</code> の次は <code>default</code>。VT 入力のない Windows では <kbd>Alt</kbd>+<kbd>M</kbd>。モードは <a href="#/ch23">Ch23</a></td></tr>
       <tr><td><kbd>Tab</kbd></td><td><code>autocomplete:accept</code></td><td>補完候補を確定。権限プロンプトで Yes/No にフォーカスがあるときはコメント欄を開閉</td></tr>
-      <tr><td><kbd>↑</kbd> <kbd>↓</kbd> / <kbd>Ctrl</kbd>+<kbd>P</kbd> <kbd>N</kbd></td><td><code>history:previous</code> <code>history:next</code></td><td>複数行の入力ではまず行内を移動し、先頭・末尾の行で履歴へ。キューがあれば <kbd>↑</kbd> で取り戻す</td></tr>
+      <tr><td><kbd>↑</kbd> <kbd>↓</kbd> / <kbd>Ctrl</kbd>+<kbd>P</kbd> <kbd>N</kbd></td><td><code>history:previous</code> <code>history:next</code>（<kbd>↑</kbd> <kbd>↓</kbd>）</td><td>複数行の入力ではまず行内を移動し、先頭・末尾の行で履歴へ。キューがあれば <kbd>↑</kbd> で取り戻す</td></tr>
       <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td><code>tabs:previous</code> <code>tabs:next</code></td><td>ダイアログやメニューのタブを切り替え</td></tr>
       <tr><td><kbd>?</kbd>（空の入力）</td><td>—</td><td>ショートカット一覧の表示を切り替え。入力がある場合は文字として入る</td></tr>
       <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>—</td><td>Unix でサスペンド。<code>fg</code> で再開</td></tr>
@@ -73,7 +73,7 @@
       <li><kbd>Ctrl</kbd>+<kbd>W</kbd> は記号を無視して空白まで消すので、パスや <code>--flag=value</code> を 1 回で消せます。</li>
       <li>空白なしで書く日本語や中国語でも、単語単位で動きます。</li>
       <li>この readline 準拠の動作は v2.1.261 以降です。切り替え用だった <code>keybindingFlavor</code> は非推奨で効果がありません。</li>
-      <li>これらのキーにはアクションが無く、<code>keybindings.json</code> では変えられません。</li>
+      <li>単語系のキーと <kbd>Ctrl</kbd>+<kbd>W</kbd> にはアクションが無く、<code>keybindings.json</code> では変えられません。</li>
       <li>削除範囲が <code>[Pasted text #N]</code> にかかると、プレースホルダーごと消えます。<kbd>Ctrl</kbd>+<kbd>Y</kbd> で戻せます。</li>
     </ul>
   </div>
@@ -161,7 +161,7 @@
           <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd> / <kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Ctrl</kbd>+<kbd>S</kbd><br><code>chat:sendNow</code></td><td>キューと下書きを今すぐ送る（v2.1.275 以降）。何も動いていなければ下書きを送信し、シェルモードではキューに入れるだけ</td></tr>
           <tr><td>同上・<code>!</code> が先頭にあるとき</td><td>ターンを中断する</td></tr>
           <tr><td>同上・Claude がバックグラウンド化できる処理中</td><td>その処理をバックグラウンドに回し、同じターンでメッセージを読ませる</td></tr>
-          <tr><td>同上・文章の生成だけをしているとき</td><td>ターンを中断して次に送る。v2.1.281 より前は常に中断</td></tr>
+          <tr><td>同上・文章の生成だけか、バックグラウンド化できない処理中</td><td>ターンを中断して次に送る。v2.1.281 より前は常に中断</td></tr>
           <tr><td><kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Enter</kbd><br><code>chat:queueSubmit</code></td><td>順番待ちとして送り、決して割り込まない。補完候補の選択中でも下書きを送る（v2.1.247 以降）</td></tr>
         </tbody>
       </table>
@@ -198,7 +198,7 @@
       <p class="small muted">Vim の NORMAL モードでは <kbd>/</kbd> が <kbd>Ctrl</kbd>+<kbd>R</kbd> と同じ検索を開きます。フルスクリーン描画は <a href="#/ch17">Ch17</a>。</p>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/interactive-mode#command-history">interactive-mode#command-history</a> · <a href="https://code.claude.com/docs/en/interactive-mode#bring-back-a-cleared-draft">#bring-back-a-cleared-draft</a> · <a href="https://code.claude.com/docs/en/interactive-mode#reverse-search-with-ctrl%2Br">#reverse-search-with-ctrl+r</a> · <a href="https://code.claude.com/docs/en/keybindings#history-search-actions">keybindings#history-search-actions</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/interactive-mode#command-history">interactive-mode#command-history</a> · <a href="https://code.claude.com/docs/en/interactive-mode#bring-back-a-cleared-draft">#bring-back-a-cleared-draft</a> · <a href="https://code.claude.com/docs/en/keybindings#history-search-actions">keybindings#history-search-actions</a></footer>
 </section>
 
 <section id="ch13-paste">
@@ -222,7 +222,7 @@
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/terminal-config#paste-large-content">terminal-config#paste-large-content</a> · <a href="https://code.claude.com/docs/en/interactive-mode#invisible-characters-in-prompts">interactive-mode#invisible-characters-in-prompts</a> · <a href="https://code.claude.com/docs/en/interactive-mode#general-controls">#general-controls</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/terminal-config#paste-large-content">terminal-config#paste-large-content</a> · <a href="https://code.claude.com/docs/en/interactive-mode#invisible-characters-in-prompts">interactive-mode#invisible-characters-in-prompts</a> · <a href="https://code.claude.com/docs/en/interactive-mode#general-controls">#general-controls</a> · <a href="https://code.claude.com/docs/en/keybindings#attachments-actions">keybindings#attachments-actions</a></footer>
 </section>
 
 <section id="ch13-vim">
@@ -256,7 +256,7 @@
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/interactive-mode#vim-editor-mode">interactive-mode#vim-editor-mode</a> · <a href="https://code.claude.com/docs/en/interactive-mode#remap-insert-mode-key-sequences">#remap-insert-mode-key-sequences</a> · <a href="https://code.claude.com/docs/en/keybindings#vim-mode-interaction">keybindings#vim-mode-interaction</a> · <a href="https://code.claude.com/docs/en/settings-reference#viminsertmoderemaps">settings-reference#viminsertmoderemaps</a> · changelog 2.1.92・2.1.208</footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/interactive-mode#vim-editor-mode">interactive-mode#vim-editor-mode</a> · <a href="https://code.claude.com/docs/en/interactive-mode#remap-insert-mode-key-sequences">#remap-insert-mode-key-sequences</a> · <a href="https://code.claude.com/docs/en/keybindings#vim-mode-interaction">keybindings#vim-mode-interaction</a> · <a href="https://code.claude.com/docs/en/terminal-config#edit-prompts-with-vim-keybindings">terminal-config#edit-prompts-with-vim-keybindings</a> · <a href="https://code.claude.com/docs/en/settings-reference#viminsertmoderemaps">settings-reference#viminsertmoderemaps</a> · <a href="https://code.claude.com/docs/en/settings-reference#editormode">#editormode</a> · changelog 2.1.92・2.1.208</footer>
 </section>
 
 <section id="ch13-btw">
@@ -278,7 +278,7 @@
         <tbody>
           <tr><td><kbd>Space</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd></td><td>閉じてプロンプトへ戻る</td></tr>
           <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>答えをスクロール</td></tr>
-          <tr><td><kbd>Shift</kbd>+<kbd>←</kbd> <kbd>→</kbd>、<kbd>[</kbd> <kbd>]</kbd>、<kbd>Tab</kbd></td><td>過去の答えを行き来（v2.1.257 以降。それ以前は <kbd>←</kbd> <kbd>→</kbd>）</td></tr>
+          <tr><td><kbd>Shift</kbd>+<kbd>←</kbd> <kbd>→</kbd>、<kbd>[</kbd> <kbd>]</kbd>、<kbd>Tab</kbd></td><td>過去の答えを行き来（v2.1.257 以降。v2.1.187〜2.1.256 は <kbd>←</kbd> <kbd>→</kbd>）</td></tr>
           <tr><td><kbd>c</kbd></td><td>答えを Markdown のままコピー</td></tr>
           <tr><td><kbd>f</kbd></td><td>質問と答えを含めてフォーク</td></tr>
           <tr><td><kbd>x</kbd></td><td>過去のやり取りの一覧を消す</td></tr>
@@ -293,7 +293,7 @@
       </div>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/interactive-mode#side-questions-with-btw">interactive-mode#side-questions-with-btw</a> · <a href="https://code.claude.com/docs/en/commands">commands</a> · changelog 2.1.299 · 実機確認 2.1.321</footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/interactive-mode#side-questions-with-%2Fbtw">interactive-mode#side-questions-with-/btw</a> · <a href="https://code.claude.com/docs/en/commands">commands</a> · changelog 2.1.299 · 実機確認 2.1.321</footer>
 </section>
 
 <section id="ch13-transcript">
@@ -318,7 +318,7 @@
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/interactive-mode#transcript-viewer">interactive-mode#transcript-viewer</a> · <a href="https://code.claude.com/docs/en/interactive-mode#review-changes-with-%2Fdiff">#review-changes-with-/diff</a> · <a href="https://code.claude.com/docs/en/commands">commands</a> · <a href="https://code.claude.com/docs/en/settings-reference#viewmode">settings-reference#viewmode</a> · changelog 2.1.110</footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/interactive-mode#transcript-viewer">interactive-mode#transcript-viewer</a> · <a href="https://code.claude.com/docs/en/interactive-mode#review-changes-with-%2Fdiff">#review-changes-with-/diff</a> · <a href="https://code.claude.com/docs/en/commands">commands</a> · <a href="https://code.claude.com/docs/en/settings-reference#viewmode">settings-reference#viewmode</a> · <a href="https://code.claude.com/docs/en/keybindings#diff-panel-actions">keybindings#diff-panel-actions</a> · <a href="https://code.claude.com/docs/en/fullscreen#search-and-review-the-conversation">fullscreen#search-and-review-the-conversation</a> · changelog 2.1.110</footer>
 </section>
 
 </section>

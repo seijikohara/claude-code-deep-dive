@@ -1,0 +1,45 @@
+<section id="ch68" data-part="Part IX まとめ" data-chapter="Ch68" data-title="アップグレードチェックリスト">
+
+<section id="ch68-title" class="chapter-title">
+  <p class="chapter-label">68</p>
+  <h1>アップグレードチェックリスト</h1>
+  <p class="chapter-summary">2.1.292 より前の版から 2.1.321 に上げるときに、スクリプト・設定・監視が影響を受けうる変更を changelog から拾った確認リストです。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch68-checklist">
+  <h2>2.1.321 に上げる前の確認項目</h2>
+  <div class="cols-2">
+    <div>
+      <h3>スクリプト・CI</h3>
+      <ul class="small">
+        <li>2.1.302: 権限モード未設定の <code>-p</code>・SDK は <code>default</code> で始まる。auto が要るなら <code>--permission-mode auto</code></li>
+        <li>2.1.302: <code>-p</code>・SDK でも fork サブエージェントが既定で有効。止めるなら <code>CLAUDE_CODE_FORK_SUBAGENT=0</code></li>
+        <li>2.1.317・2.1.321: トランスクリプトを書けないとき、<code>claude -p</code> は 1 で終わる（text・json 出力）</li>
+        <li>2.1.311: JSON 出力の制御文字が <code>\uXXXX</code> になる。パース後の値は同じ</li>
+        <li>2.1.309: <code>claude ultrareview</code> はワークスペースの信頼が必要。スクリプトは <code>--trust-workspace</code></li>
+        <li>2.1.300: <code>claude remote-control --sandbox</code> はエラー。<code>sandbox.enabled</code> に移す</li>
+        <li>2.1.319: self-paced <code>/loop</code> は再スケジュールしないと終わる。旧動作は <code>CLAUDE_CODE_LOOP_KEEPALIVE=1</code></li>
+        <li>2.1.292〜2.1.299: MCP プロトコル <code>2026-07-28</code> を既定で交渉する。戻すなら <code>MCP_PROTOCOL_NEGOTIATION=legacy</code></li>
+      </ul>
+    </div>
+    <div>
+      <h3>権限・管理設定・Skill</h3>
+      <ul class="small">
+        <li>2.1.299: MCP の allow ルールとエージェントの <code>tools:</code> は、サーバー名全体で書く（<code>mcp__&lt;server&gt;__*</code>）</li>
+        <li>2.1.305: <code>allowedMcpServers</code> は、<code>env</code> だけで <code>${VAR}</code> を使う managed の stdio サーバーを絞らない。止めるなら <code>deniedMcpServers</code></li>
+        <li>2.1.316: Team・Enterprise のサーバー管理設定は承認なしで適用される</li>
+        <li>2.1.321: <code>~/.claude/plugins</code> 内の作業中、その中の <code>.claude/skills</code> は読み込まれない</li>
+      </ul>
+      <h3>モデル・プロバイダ</h3>
+      <ul class="small">
+        <li>2.1.316: Opus 4.8 の fast mode は 2026-11-30 に削除。Opus 5.5 に移る</li>
+        <li>2.1.321: 保存済みの Fable 5.1 は <code>fable</code>（Fable 5.2）に移る（Team・Enterprise は組織の許可後）。戻すなら <code>/model claude-fable-5-1</code></li>
+        <li>2.1.311: Bedrock・Mantle・Vertex・Foundry はモデル設定を署名付きファイルから取得する。止めるなら <code>CLAUDE_CODE_MODEL_CATALOG=off</code></li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.292, 2.1.295, 2.1.299, 2.1.300, 2.1.302, 2.1.305, 2.1.309, 2.1.311, 2.1.316, 2.1.317, 2.1.319, 2.1.321</footer>
+</section>
+
+</section>

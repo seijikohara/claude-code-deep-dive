@@ -137,10 +137,10 @@ fable[1m]  model= claude-fable-5-2 …</pre>
       <tr><td>Fable 5.2</td><td><code>claude-fable-5-2</code></td><td>1M（標準）</td><td>v2.1.321 以降</td></tr>
       <tr><td>Fable 5.1 / 5</td><td><code>claude-fable-5-1</code> / <code>claude-fable-5</code></td><td>1M（標準）</td><td>Fable 5.1 は v2.1.257 以降</td></tr>
       <tr><td>Opus 5.5</td><td><code>claude-opus-5-5</code></td><td>1M（標準）</td><td>v2.1.280 以降</td></tr>
-      <tr><td>Opus 5 / 4.8 / 4.7</td><td><code>claude-opus-5</code> / <code>claude-opus-4-8</code> / <code>claude-opus-4-7</code></td><td>1M（標準）</td><td>記載なし</td></tr>
+      <tr><td>Opus 5 / 4.8 / 4.7</td><td><code>claude-opus-5</code> / <code>claude-opus-4-8</code> / <code>claude-opus-4-7</code></td><td>1M（標準）</td><td>v2.1.219 / v2.1.154 / v2.1.111 以降</td></tr>
       <tr><td>Opus 4.6</td><td><code>claude-opus-4-6</code></td><td>200K。<code>[1m]</code> で 1M</td><td>記載なし</td></tr>
       <tr><td>Sonnet 5.5</td><td><code>claude-sonnet-5-5</code></td><td>1M（標準）</td><td>v2.1.284 以降</td></tr>
-      <tr><td>Sonnet 5</td><td><code>claude-sonnet-5</code></td><td>1M（標準）</td><td>記載なし</td></tr>
+      <tr><td>Sonnet 5</td><td><code>claude-sonnet-5</code></td><td>1M（標準）</td><td>v2.1.197 以降</td></tr>
       <tr><td>Sonnet 4.6</td><td><code>claude-sonnet-4-6</code></td><td>200K。<code>[1m]</code> で 1M</td><td>記載なし</td></tr>
       <tr><td>Sonnet 4.5</td><td><code>claude-sonnet-4-5</code>（日付付き <code>claude-sonnet-4-5-20250929</code>）</td><td>1M の対象外</td><td>記載なし</td></tr>
       <tr><td>Haiku 5.5</td><td><code>claude-haiku-5-5</code></td><td>1M（全プラン）</td><td>v2.1.293 以降</td></tr>
@@ -151,7 +151,7 @@ fable[1m]  model= claude-fable-5-2 …</pre>
     <li>5.x 系モデルの日付付き ID はドキュメントにありません。古いバージョンでこれらを要求すると失敗します。<code>claude update</code> で更新します。</li>
     <li>実機: Haiku 5.5 の <code>modelUsage</code> は <code>contextWindow</code> 1000000、<code>maxOutputTokens</code> 128000 でした。</li>
   </ul>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#model-aliases">model-config#model-aliases</a> · <a href="https://code.claude.com/docs/en/model-config#work-with-fable">#work-with-fable</a> · <a href="https://code.claude.com/docs/en/model-config#extended-context">#extended-context</a> · <a href="https://code.claude.com/docs/en/model-config#restrict-model-selection">#restrict-model-selection</a> · 実機確認 2.1.321</footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#model-aliases">model-config#model-aliases</a> · <a href="https://code.claude.com/docs/en/model-config#work-with-fable">#work-with-fable</a> · <a href="https://code.claude.com/docs/en/model-config#extended-context">#extended-context</a> · <a href="https://code.claude.com/docs/en/model-config#restrict-model-selection">#restrict-model-selection</a> · <a href="https://code.claude.com/docs/en/errors#thinking-type-enabled-is-not-supported-for-this-model">errors</a> · 実機確認 2.1.321</footer>
 </section>
 
 <section id="ch02-pricing">
@@ -201,7 +201,7 @@ fable[1m]  model= claude-fable-5-2 …</pre>
         <li>docs の番号付きリストには組織既定モデルがありません。5 の位置は組織既定モデルと <code>ANTHROPIC_DEFAULT_MODEL</code> の節から決まります。</li>
         <li>組織既定を「ユーザーの選択を上書き」にすると、user・project・local の <code>model</code> より上になります。<code>--model</code>、<code>ANTHROPIC_MODEL</code>、managed、<code>--settings</code> の <code>model</code> は上書きできません。</li>
         <li><code>ANTHROPIC_DEFAULT_MODEL</code> は、値が <code>default</code>・<code>inherit</code>・<code>opusplan</code>・<code>haiku</code> の場合、<code>enforceAvailableModels</code> が ON の場合、制限や利用不可の場合に無視されます。</li>
-        <li>値は起動時に検証されず、誤りは最初のリクエストで <code>There's an issue with the selected model</code> になります。</li>
+        <li><code>--model</code> などで指定した誤った値は、最初のリクエストで <code>There's an issue with the selected model</code> になります。</li>
       </ul>
     </div>
     <div>
@@ -269,7 +269,7 @@ Set model to `Opus 5.5` for this session only</pre>
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#setting-your-model">model-config#setting-your-model</a> · <a href="https://code.claude.com/docs/en/model-config#a-new-session-starts-on-a-different-model-than-you-picked">#a-new-session-starts-on-a-different-model-than-you-picked</a> · <a href="https://code.claude.com/docs/en/commands">commands</a> · changelog 2.1.321 · 実機確認 2.1.321</footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#setting-your-model">model-config#setting-your-model</a> · <a href="https://code.claude.com/docs/en/model-config#a-new-session-starts-on-a-different-model-than-you-picked">#a-new-session-starts-on-a-different-model-than-you-picked</a> · <a href="https://code.claude.com/docs/en/commands">commands</a> · 実機確認 2.1.321</footer>
 </section>
 
 <section id="ch02-pinning">
@@ -293,14 +293,14 @@ export ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES='effort,xhigh_effort,
     </div>
     <div>
       <ul class="small">
-        <li>サードパーティでは展開前のピン留めが推奨です。未設定時の既定 ID が使えないと、Bedrock・Agent Platform は通知して古い版へ戻り、Foundry はエラーになります。</li>
+        <li>サードパーティでは展開前のピン留めが推奨です。未設定時の既定 ID が使えないと、Bedrock・Agent Platform は通知して古い版へ戻ります。Foundry は docs ではエラーですが、changelog 2.1.314 では同じファミリーの古い版へ戻ります（<a href="#/ch59">Ch59</a>）。</li>
         <li>設定すると、ピッカーはそのファミリーの組み込み行の代わりに 1 行だけ出します。<code>/model opus[1m]</code> はピン留めしたモデルに <code>[1m]</code> を付けます。<code>[1m]</code> は変数ごとに読まれ、送信前に外されます。</li>
         <li><code>_NAME</code>・<code>_DESCRIPTION</code> は表示を、<code>_SUPPORTED_CAPABILITIES</code> は能力（列挙したものだけ ON）を決めます。サードパーティで効き、前の 2 つは LLM ゲートウェイでも効きます。</li>
         <li>実機: <code>ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-4-8</code> と <code>--model opus</code> で、init の <code>model</code> は <code>claude-opus-4-8</code> でした。</li>
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#environment-variables">model-config#environment-variables</a> · <a href="https://code.claude.com/docs/en/model-config#pin-models-for-third-party-deployments">#pin-models-for-third-party-deployments</a> · <a href="https://code.claude.com/docs/en/model-config#customize-pinned-model-display-and-capabilities">#customize-pinned-model-display-and-capabilities</a> · 実機確認 2.1.321</footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#environment-variables">model-config#environment-variables</a> · <a href="https://code.claude.com/docs/en/model-config#pin-models-for-third-party-deployments">#pin-models-for-third-party-deployments</a> · <a href="https://code.claude.com/docs/en/model-config#customize-pinned-model-display-and-capabilities">#customize-pinned-model-display-and-capabilities</a> · changelog 2.1.314 · 実機確認 2.1.321</footer>
 </section>
 
 <section id="ch02-overrides">

@@ -97,7 +97,7 @@ bypassPermissions, manual, dontAsk, plan.      → exit 1</pre>
         <thead><tr><th style="width:22%">サーフェス</th><th>選べるモードと既定の決め方</th></tr></thead>
         <tbody>
           <tr><td>VS Code</td><td>Manual / Edit automatically / Plan / Auto / Bypass permissions。Bypass は <strong>Allow dangerously skip permissions</strong> の有効化が必要</td></tr>
-          <tr><td>JetBrains</td><td>IDE のターミナルで CLI と同じ操作</td></tr>
+          <tr><td>JetBrains <span class="badge beta">Beta</span></td><td>IDE のターミナルで CLI と同じ操作</td></tr>
           <tr><td>Desktop</td><td>モードセレクタ。Bypass は Pro・Max・Ultra では <strong>Allow bypass permissions mode</strong>、Team・Enterprise では組織ポリシー。選択はフォルダごとに記憶</td></tr>
           <tr><td>クラウド</td><td>Accept edits（<code>default</code> に相当）/ Plan / Auto。Bypass なし</td></tr>
           <tr><td>Remote Control</td><td>Manual / Accept edits / Plan / Auto。アプリから Bypass は選べない</td></tr>
@@ -122,7 +122,7 @@ bypassPermissions, manual, dontAsk, plan.      → exit 1</pre>
         <li>ファイル編集に加え、<code>mkdir</code>・<code>touch</code>・<code>rm</code>・<code>rmdir</code>・<code>mv</code>・<code>cp</code>・<code>sed</code> を自動承認します。対象は作業ディレクトリと <code>additionalDirectories</code> 内のパスだけです。</li>
         <li><code>touch</code> 以外は、<code>LANG=C</code> のような安全な環境変数や <code>timeout</code>・<code>nice</code>・<code>nohup</code> を前に付けても承認されます。</li>
         <li>確認が残るもの: 範囲外のパス、保護パス、クリティカルパスの削除、オプション・glob・前置きつきの <code>touch</code>、読み取り専用以外の Bash。各パスは symlink の検査も通ります。</li>
-        <li>PowerShell では <code>Set-Content</code>・<code>Add-Content</code>・<code>Clear-Content</code>・<code>Remove-Item</code> も対象です。引用符を含む位置引数は確認になるので <code>-Value</code> で渡します。</li>
+        <li>PowerShell <span class="badge preview">Preview</span> では <code>Set-Content</code>・<code>Add-Content</code>・<code>Clear-Content</code>・<code>Remove-Item</code> も対象です。引用符を含む位置引数は確認になるので <code>-Value</code> で渡します。</li>
       </ul>
     </div>
     <div>
@@ -164,13 +164,13 @@ bypassPermissions, manual, dontAsk, plan.      → exit 1</pre>
         <thead><tr><th style="width:36%">手段</th><th>効果</th></tr></thead>
         <tbody>
           <tr><td><code>--permission-prompts none</code>（v2.1.259 以降）</td><td>確認になるものを拒否（<code>PermissionRequest</code> フックの承認は有効）。Claude に再試行しないよう伝え、<code>AskUserQuestion</code> を外し、未応答の elicitation を取り消す</td></tr>
-          <tr><td><code>permissions.denyInsteadOfPrompting</code>（v2.1.319 以降。user・managed・<code>--settings</code>）</td><td>全セッション種別で同じ拒否。<code>EnterPlanMode</code>・<code>ExitPlanMode</code> も外し、<code>canUseTool</code> とプロンプトツールに問い合わせない</td></tr>
+          <tr><td><code>permissions.denyInsteadOfPrompting</code>（v2.1.319 以降。user・managed・<code>--settings</code>）</td><td><code>-p</code> 以外（対話・VS Code・Desktop のローカル）でも同じ拒否。<code>EnterPlanMode</code>・<code>ExitPlanMode</code> も外し、<code>canUseTool</code> とプロンプトツールに問い合わせない</td></tr>
           <tr><td><code>--permission-prompt-tool</code></td><td>MCP ツールが確認に答える。<code>--help</code> には載らない（<a href="#/ch44">Ch44</a>）</td></tr>
         </tbody>
       </table>
       <pre data-lang="bash" class="compact">claude -p "Update the dependency pins and run the tests" \
   --permission-mode auto --permission-prompts none</pre>
-      <p class="small"><code>denyInsteadOfPrompting</code> の拒否文は <code>Permission for this tool use was denied. It requires approval, and this session has no approval surface</code> で始まります。拒否は stream-json の <code>permission_denied</code> と結果の <code>permission_denials</code> に出ます。</p>
+      <p class="small"><code>denyInsteadOfPrompting</code> の拒否文は <code>Permission for this tool use was denied. It requires approval, and this session has no approval surface</code> で始まることがあります。拒否は stream-json の <code>permission_denied</code> と結果の <code>permission_denials</code> に出ます。</p>
     </div>
   </div>
   <footer class="src">出典: <a href="https://code.claude.com/docs/en/permission-modes#allow-only-pre-approved-tools-with-dontask-mode">permission-modes#allow-only-pre-approved-tools-with-dontask-mode</a> · <a href="https://code.claude.com/docs/en/headless#turn-off-permission-prompts-in-unattended-runs">headless#turn-off-permission-prompts-in-unattended-runs</a> · <a href="https://code.claude.com/docs/en/settings-reference#permissions-denyinsteadofprompting">settings-reference#permissions-denyinsteadofprompting</a> · <a href="https://code.claude.com/docs/en/cli-reference#cli-flags">cli-reference</a> · 実機確認 2.1.321</footer>
@@ -201,8 +201,8 @@ bypassPermissions, manual, dontAsk, plan.      → exit 1</pre>
       <pre data-lang="text" class="compact">--dangerously-skip-permissions cannot be used with root/sudo
 privileges for security reasons</pre>
       <ul class="small">
-        <li>バックグラウンドセッションは、承諾が user か managed 設定にないと bypass 要求を無視し、<code>Bypass permissions was requested at launch and ignored</code> と通知します。</li>
-        <li><code>permissions.disableBypassPermissionsMode: "disable"</code> はどのスコープでも効き、フラグとエージェント定義の <code>permissionMode: bypassPermissions</code> を拒否します。<code>--restricted</code> も bypass を拒否します。クラウドセッションは設定の <code>"bypassPermissions"</code> を黙って無視します。</li>
+        <li><span class="badge preview">Preview</span> バックグラウンドセッションは承諾の記録がないと bypass 起動を拒否し、承諾が <code>.claude/settings.local.json</code> だけなら bypass 要求を無視して通知します。</li>
+        <li><code>permissions.disableBypassPermissionsMode: "disable"</code> はどのスコープでも効き、フラグとエージェント定義の <code>permissionMode: bypassPermissions</code> を無効にします。<code>--restricted</code> も bypass を拒否します。クラウドセッションは設定の <code>"bypassPermissions"</code> を黙って無視します。</li>
       </ul>
       <div class="callout warn"><p class="small">プロンプトインジェクションに対する保護はありません。インターネットに出られないコンテナや VM でだけ使います。</p></div>
     </div>

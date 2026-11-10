@@ -13,14 +13,14 @@
     <thead><tr><th style="width:24%">キー</th><th style="width:22%">既定</th><th>要点</th></tr></thead>
     <tbody>
       <tr><td><code>model</code></td><td>アカウントの既定モデル</td><td>新規セッションの開始モデル。途中の <code>/model</code> は妨げない</td></tr>
-      <tr><td><code>fallbackModel</code></td><td>未設定（再試行しない）</td><td>過負荷・利用不可のときに順に試すモデルの配列。<code>"default"</code> は既定モデル</td></tr>
+      <tr><td><code>fallbackModel</code></td><td>未設定（別モデルで再試行しない）</td><td>過負荷・利用不可のときに順に試すモデルの配列。<code>"default"</code> は既定モデル</td></tr>
       <tr><td><code>availableModels</code></td><td>未設定（全モデル）</td><td>メイン・サブエージェント・Skill・advisor で選べるモデルを制限</td></tr>
       <tr><td><code>modelOverrides</code></td><td>未設定</td><td>Anthropic のモデル ID を、Bedrock の ARN などプロバイダ固有の ID に対応付け</td></tr>
       <tr><td><code>modelSettings</code></td><td>未設定</td><td>モデルごとに effort を保存（2.1.251 以降）</td></tr>
       <tr><td><code>effortLevel</code></td><td>未設定</td><td><code>"low"</code>・<code>"medium"</code>・<code>"high"</code>・<code>"xhigh"</code>。保存の無いモデルの既定</td></tr>
       <tr><td><code>maxEffortLevel</code></td><td>未設定（上限なし）</td><td>effort の上限。全スコープで最も低い上限が効く</td></tr>
       <tr><td><code>alwaysThinkingEnabled</code></td><td>未設定（対応モデルで思考オン）</td><td><code>false</code> で拡張思考をオフ。<code>true</code> は何も変えない</td></tr>
-      <tr><td><code>advisorModel</code></td><td>未設定（advisor オフ）</td><td>advisor のモデル（<a href="#/ch05">Ch5</a>）</td></tr>
+      <tr><td><code>advisorModel</code></td><td>未設定（advisor オフ）</td><td>advisor のモデル <span class="badge experimental">Experimental</span>（<a href="#/ch05">Ch5</a>）</td></tr>
       <tr><td><code>promptCacheTtl</code></td><td>未設定</td><td>メイン会話のキャッシュ TTL。<code>"5m"</code> か <code>"1h"</code></td></tr>
       <tr><td><code>language</code></td><td>未設定</td><td>既定の応答言語。固定の一覧は無く、値をそのまま Claude に渡す</td></tr>
     </tbody>
@@ -57,7 +57,7 @@
       <tr><td><code>hooks</code></td><td>未設定</td><td>イベントごとのフック定義。全ファイルでマージ（<a href="#/ch28">Ch28</a>）</td></tr>
       <tr><td><code>disableAllHooks</code></td><td>未設定</td><td>フック、カスタムステータスライン、ファイル候補コマンドを止める</td></tr>
       <tr><td><code>allowedHttpHookUrls</code></td><td>未設定（全 URL）</td><td>HTTP フックの送信先を制限</td></tr>
-      <tr><td><code>enableAllProjectMcpServers</code></td><td>未設定（毎回確認）</td><td>project の <code>.mcp.json</code> の全サーバーを承認</td></tr>
+      <tr><td><code>enableAllProjectMcpServers</code></td><td>未設定（サーバーごとに確認）</td><td>project の <code>.mcp.json</code> の全サーバーを承認</td></tr>
       <tr><td><code>enabledMcpjsonServers</code> / <code>disabledMcpjsonServers</code></td><td>未設定</td><td><code>.mcp.json</code> のサーバーを個別に承認・拒否</td></tr>
       <tr><td><code>allowedMcpServers</code> / <code>deniedMcpServers</code></td><td>未設定</td><td>追加できる MCP サーバーの許可・拒否リスト（<a href="#/ch30">Ch30</a>）</td></tr>
       <tr><td><code>disableClaudeAiConnectors</code></td><td><code>false</code></td><td>claude.ai コネクタを取得しない。<code>true</code> はどこからでも効く</td></tr>
@@ -77,7 +77,7 @@
     <thead><tr><th style="width:26%">キー</th><th style="width:18%">既定</th><th>要点</th></tr></thead>
     <tbody>
       <tr><td><code>theme</code></td><td><code>"dark"</code></td><td><code>"auto"</code>・<code>"light"</code>・<code>*-daltonized</code>・<code>*-ansi</code>・<code>"custom:&lt;slug&gt;"</code></td></tr>
-      <tr><td><code>tui</code></td><td>未設定（自動選択）</td><td><code>"default"</code>（従来の描画）か <code>"fullscreen"</code></td></tr>
+      <tr><td><code>tui</code></td><td>未設定（自動選択）</td><td><code>"default"</code>（従来の描画）か <code>"fullscreen"</code> <span class="badge preview">Preview</span></td></tr>
       <tr><td><code>viewMode</code></td><td>未設定</td><td><code>"default"</code>・<code>"verbose"</code>・<code>"focus"</code>。<code>--verbose</code> が優先</td></tr>
       <tr><td><code>editorMode</code></td><td><code>"normal"</code></td><td><code>"vim"</code> で入力欄を Vim キーバインドに</td></tr>
       <tr><td><code>statusLine</code></td><td>未設定</td><td>ステータスラインを描くコマンド（<a href="#/ch15">Ch15</a>）</td></tr>
@@ -103,7 +103,7 @@
       <tr><td><code>sandbox.network.allowedDomains</code></td><td>未設定</td><td>通信先を事前に許可。<code>*.example.com</code> はサブドメインに一致</td></tr>
       <tr><td><code>agent</code></td><td>未設定</td><td>メインスレッドを名前付きサブエージェントとして動かす。<code>--agent</code> が優先</td></tr>
       <tr><td><code>worktree.baseRef</code></td><td><code>"fresh"</code></td><td><code>"fresh"</code> は <code>origin/&lt;default-branch&gt;</code>、<code>"head"</code> はローカルの <code>HEAD</code> から分岐</td></tr>
-      <tr><td><code>teammateMode</code></td><td><code>"in-process"</code></td><td><code>"auto"</code>・<code>"tmux"</code>・<code>"iterm2"</code> で分割ペイン表示</td></tr>
+      <tr><td><code>teammateMode</code></td><td><code>"in-process"</code></td><td><code>"auto"</code>・<code>"tmux"</code>・<code>"iterm2"</code> で分割ペイン表示 <span class="badge experimental">Experimental</span></td></tr>
       <tr><td><code>attribution</code></td><td>未設定</td><td>commit・PR の帰属表記。<code>false</code> ですべて非表示（2.1.281 以降）</td></tr>
       <tr><td><code>includeGitInstructions</code></td><td><code>true</code></td><td>git の手順と git status のスナップショットを Claude に渡す</td></tr>
       <tr><td><code>apiKeyHelper</code></td><td>未設定</td><td>認証情報を出力するコマンド。<code>/bin/sh</code>（Windows は <code>cmd</code>）で実行</td></tr>

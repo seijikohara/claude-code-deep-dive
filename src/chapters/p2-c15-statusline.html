@@ -38,7 +38,7 @@
         <li>セッション開始と再開のあと、次のときに再実行します: 新しいアシスタントメッセージ、<code>/compact</code> の完了、権限モードの変更、vim モードの切り替え、<code>command</code> の変更、<code>refreshInterval</code> の経過、直前の入力にある <code>rate_limits.*.resets_at</code> と <code>prompt_cache.expires_at</code> の時刻。</li>
         <li>300ms でデバウンスします。<code>command</code> の変更だけはデバウンスせず即実行します。</li>
         <li>実行中に次のきっかけが来ると、走っているスクリプトを取り消します。終了コード 0 のときだけ出力を表示し、0 以外や出力なしでは空欄です。</li>
-        <li>メインセッションが待機中だとイベントが止まります。時刻などは <code>refreshInterval</code> で更新します。</li>
+        <li>メインセッションが待機中だとイベントが止まることがあります。時刻などは <code>refreshInterval</code> で更新します。</li>
         <li>出力は端末に直結しないので、<code>tput cols</code> は使えません。幅は環境変数 <code>COLUMNS</code>・<code>LINES</code> で読みます。</li>
         <li>複数行・ANSI カラー・OSC 8 リンクを出せます。ローカル実行でトークンは使いません。</li>
       </ul>
@@ -139,7 +139,7 @@ echo "[$MODEL] $BAR $PCT%"</pre>
     <div>
       <ul class="small">
         <li>ワークスペースの信頼を受け入れるまで空欄です。<code>claude --debug</code> は <code>Status line command skipped: workspace trust not accepted</code> を記録します。</li>
-        <li>managed 以外で <code>disableAllHooks: true</code> のとき、または managed の <code>allowManagedHooksOnly</code> があるときは、managed の <code>statusLine</code> だけが動きます。自分の設定は警告なしに消えます。</li>
+        <li>managed 以外で <code>disableAllHooks: true</code> のとき、または managed の <code>allowManagedHooksOnly</code> があるときは、managed の <code>statusLine</code> だけが動きます。後者では自分の設定が警告なしに消えます。</li>
         <li>ヘルプメニューと権限プロンプトの間は隠れます。設定すると <code>esc to interrupt</code>・<code>? for shortcuts</code>・<code>hold space to speak</code> などのヒントが出なくなります。</li>
         <li>フルスクリーン以外では、通知が同じ行の右側を共有します。</li>
         <li>Windows は Git Bash、無ければ PowerShell で実行します。パスは <code>/</code> 区切りで書きます。</li>

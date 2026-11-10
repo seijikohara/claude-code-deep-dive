@@ -1313,7 +1313,7 @@
   },
   {
     "name": "strictPluginOnlyCustomization.mcp",
-    "desc_ja": "`mcp` をロックし、`~/.claude.json` と `.mcp.json` の MCP サーバーを読み込まず、管理設定・プラグイン由来は残す。",
+    "desc_ja": "`mcp` をロックし、`~/.claude.json` と `.mcp.json` の MCP サーバーを読まず、管理設定と大半のプラグイン分は残す。",
     "status": "ga",
     "anchor": "https://code.claude.com/docs/en/settings-reference#strictpluginonlycustomization-mcp",
     "category": "Plugins and skills",
@@ -1337,7 +1337,7 @@
   },
   {
     "name": "pluginConfigs",
-    "desc_ja": "プラグインの `userConfig` ダイアログの機密でない回答をプラグイン ID ごとに保存し、機密値は macOS キーチェーンに入れる。",
+    "desc_ja": "プラグインの `userConfig` ダイアログの機密でない回答をプラグイン ID ごとに保存し、機密値はキーチェーンなどに入れる。",
     "status": "ga",
     "anchor": "https://code.claude.com/docs/en/settings-reference#pluginconfigs",
     "category": "Plugins and skills",

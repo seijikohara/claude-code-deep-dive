@@ -1,0 +1,207 @@
+<section id="ch64" data-part="Part IX まとめ" data-chapter="Ch64" data-title="タイムライン">
+
+<section id="ch64-title" class="chapter-title">
+  <p class="chapter-label">64</p>
+  <h1>タイムライン</h1>
+  <p class="chapter-summary">2.1.0（2026-01-07）から 2.1.321（2026-11-09）までの 260 リリースから、大きな追加と変更を月ごとに版付きで並べます。日付は changelog の公開日です。What's New だけに載る項目は、その週のリリース範囲を版の欄に書きます。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch64-q1">
+  <h2>1〜2 月: Skill の統合、Opus 4.6、Agent Teams、worktree</h2>
+  <div class="cols-2">
+    <div>
+      <h3>1 月（2.1.0〜2.1.29、24 リリース）</h3>
+      <table class="dense">
+        <thead><tr><th style="width:15%">版</th><th style="width:13%">日付</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>2.1.0</td><td>01-07</td><td>Skill のホットリロード。Skill の frontmatter に <code>context: fork</code> と <code>agent</code></td></tr>
+          <tr><td>2.1.0</td><td>01-07</td><td>エージェント・Skill の frontmatter にフック。Bash ルールの任意位置ワイルドカード（<code>Bash(npm *)</code>）</td></tr>
+          <tr><td>2.1.3</td><td>01-09</td><td>スラッシュコマンドと Skill を統合（動作は変わらない）</td></tr>
+          <tr><td>2.1.7</td><td>01-14</td><td>MCP tool search の auto を既定で有効化</td></tr>
+          <tr><td>2.1.10</td><td>01-17</td><td><code>Setup</code> フックイベント（<code>--init</code>、<code>--maintenance</code> など）</td></tr>
+          <tr><td>2.1.18</td><td>01-23</td><td>キーバインドのカスタマイズ（<code>/keybindings</code>）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>2 月（2.1.30〜2.1.63、28 リリース）</h3>
+      <table class="dense">
+        <thead><tr><th style="width:15%">版</th><th style="width:13%">日付</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>2.1.32</td><td>02-05</td><td>Opus 4.6。Agent Teams を research preview で公開</td></tr>
+          <tr><td>2.1.36</td><td>02-07</td><td>Opus 4.6 の fast mode</td></tr>
+          <tr><td>2.1.45</td><td>02-17</td><td>Sonnet 4.6</td></tr>
+          <tr><td>2.1.49</td><td>02-19</td><td><code>--worktree</code>（<code>-w</code>）。2.1.50 でエージェント定義の <code>isolation: worktree</code></td></tr>
+          <tr><td>2.1.51</td><td>02-24</td><td><code>claude remote-control</code> サブコマンド</td></tr>
+          <tr><td>2.1.63</td><td>02-28</td><td>HTTP フック。<code>/simplify</code> と <code>/batch</code>。<code>Task</code> ツールを <code>Agent</code> に改名（sub-agents ページ）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.0, 2.1.3, 2.1.7, 2.1.10, 2.1.18, 2.1.32, 2.1.36, 2.1.45, 2.1.49, 2.1.50, 2.1.51, 2.1.63 · <a href="https://code.claude.com/docs/en/sub-agents">sub-agents</a></footer>
+</section>
+
+<section id="ch64-mar">
+  <h2>3 月: <code>/loop</code>、MCP elicitation、Channels、auto mode（2.1.66〜2.1.87、20 リリース）</h2>
+  <table class="dense">
+    <thead><tr><th style="width:16%">版</th><th style="width:8%">日付</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td>2.1.69</td><td>03-05</td><td><code>/claude-api</code> Skill。<code>InstructionsLoaded</code> フック（CLAUDE.md と <code>.claude/rules/*.md</code> の読み込み時）</td></tr>
+      <tr><td>2.1.71</td><td>03-07</td><td><code>/loop</code>: プロンプトやコマンドを一定間隔で繰り返す</td></tr>
+      <tr><td>2.1.75</td><td>03-13</td><td>Max・Team・Enterprise で Opus 4.6 の 1M コンテキストが既定に</td></tr>
+      <tr><td>2.1.76</td><td>03-14</td><td>MCP elicitation と <code>Elicitation</code>・<code>ElicitationResult</code> フック。<code>/effort</code>。<code>PostCompact</code> フック</td></tr>
+      <tr><td>2.1.78</td><td>03-17</td><td><code>StopFailure</code> フック（API エラーでターンが終わったとき）</td></tr>
+      <tr><td>2.1.80</td><td>03-19</td><td><code>--channels</code>（research preview）: MCP サーバーがセッションにメッセージを送る</td></tr>
+      <tr><td>2.1.81</td><td>03-20</td><td><code>--bare</code>（スクリプト用の <code>-p</code>）。<code>--channels</code> の権限リレー</td></tr>
+      <tr><td>2.1.83〜2.1.85</td><td>W13</td><td>auto mode を research preview で公開（What's New W13）</td></tr>
+      <tr><td>2.1.83</td><td>03-25</td><td><code>managed-settings.d/</code> ドロップイン。<code>CwdChanged</code>・<code>FileChanged</code> フック</td></tr>
+      <tr><td>2.1.84</td><td>03-26</td><td>Windows の PowerShell ツール（opt-in preview）。<code>TaskCreated</code> フック</td></tr>
+      <tr><td>2.1.85</td><td>03-26</td><td>フックの <code>if</code> フィールド（権限ルールの構文で絞り込む。例: <code>Bash(git *)</code>）</td></tr>
+    </tbody>
+  </table>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.69, 2.1.71, 2.1.75, 2.1.76, 2.1.78, 2.1.80, 2.1.81, 2.1.83, 2.1.84, 2.1.85 · <a href="https://code.claude.com/docs/en/whats-new/2026-w13">whats-new/2026-w13</a></footer>
+</section>
+
+<section id="ch64-apr">
+  <h2>4 月: Opus 4.7 と <code>xhigh</code>、ネイティブバイナリ、<code>/usage</code>（2.1.89〜2.1.123、26 リリース）</h2>
+  <table class="dense">
+    <thead><tr><th style="width:16%">版</th><th style="width:8%">日付</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td>2.1.89</td><td>04-01</td><td>PreToolUse の <code>"defer"</code>（ヘッドレスで一時停止し <code>-p --resume</code> で再開）。<code>PermissionDenied</code> フック。<code>CLAUDE_CODE_NO_FLICKER=1</code></td></tr>
+      <tr><td>2.1.86〜2.1.91</td><td>W14</td><td>CLI の computer use を research preview で公開（What's New W14）</td></tr>
+      <tr><td>2.1.92</td><td>04-04</td><td><code>forceRemoteSettingsRefresh</code>（管理設定の取得に失敗したら起動しない）。<code>/vim</code>・<code>/tag</code> を削除</td></tr>
+      <tr><td>2.1.92〜2.1.101</td><td>W15</td><td>Ultraplan を research preview で公開（What's New W15。2.1.222 で削除）</td></tr>
+      <tr><td>2.1.98</td><td>04-09</td><td>Monitor ツール（バックグラウンドのスクリプトのイベントを流す）</td></tr>
+      <tr><td>2.1.108</td><td>04-14</td><td><code>/recap</code>。<code>ENABLE_PROMPT_CACHING_1H</code>。<code>/undo</code> を <code>/rewind</code> のエイリアスに</td></tr>
+      <tr><td>2.1.111</td><td>04-16</td><td>Opus 4.7 と <code>xhigh</code> effort。<code>/ultrareview</code>。auto mode に <code>--enable-auto-mode</code> が不要に</td></tr>
+      <tr><td>2.1.113</td><td>04-17</td><td>CLI が同梱の JavaScript ではなくネイティブバイナリを起動</td></tr>
+      <tr><td>2.1.117</td><td>04-22</td><td>macOS・Linux のネイティブビルドで <code>Glob</code>・<code>Grep</code> を Bash 経由の <code>bfs</code>・<code>ugrep</code> に置き換え</td></tr>
+      <tr><td>2.1.118</td><td>04-23</td><td><code>/cost</code> と <code>/stats</code> を <code>/usage</code> に統合。フックの <code>type: "mcp_tool"</code></td></tr>
+      <tr><td>2.1.120</td><td>04-28</td><td><code>claude ultrareview [target]</code>。Windows で Git Bash が不要に（PowerShell にフォールバック）</td></tr>
+    </tbody>
+  </table>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.89, 2.1.92, 2.1.98, 2.1.108, 2.1.111, 2.1.113, 2.1.117, 2.1.118, 2.1.120 · <a href="https://code.claude.com/docs/en/whats-new/2026-w14">whats-new/2026-w14</a> · <a href="https://code.claude.com/docs/en/whats-new/2026-w15">whats-new/2026-w15</a></footer>
+</section>
+
+<section id="ch64-may">
+  <h2>5 月: Agent view、<code>/goal</code>、Opus 4.8、Dynamic workflows（2.1.126〜2.1.159、27 リリース）</h2>
+  <table class="dense">
+    <thead><tr><th style="width:16%">版</th><th style="width:8%">日付</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td>2.1.126</td><td>05-01</td><td><code>claude project purge [path]</code>（2.1.288 で <code>claude purge</code> に改名）</td></tr>
+      <tr><td>2.1.129</td><td>05-06</td><td><code>--plugin-url</code>: URL の <code>.zip</code> プラグインをそのセッションだけ読み込む</td></tr>
+      <tr><td>2.1.136</td><td>05-08</td><td><code>autoMode.hard_deny</code>: 例外なしでブロックする auto mode のルール</td></tr>
+      <tr><td>2.1.139</td><td>05-11</td><td>Agent view（<code>claude agents</code>、Research Preview）。<code>/goal</code>。PostToolUse の <code>continueOnBlock</code></td></tr>
+      <tr><td>2.1.142</td><td>05-14</td><td>fast mode の既定モデルを Opus 4.7 に</td></tr>
+      <tr><td>2.1.143〜2.1.149</td><td>W21</td><td>auto mode を Pro プランと Sonnet 4.6 に拡大（What's New W21）</td></tr>
+      <tr><td>2.1.147</td><td>05-21</td><td><code>/simplify</code> を <code>/code-review</code> に改名（effort を指定して正しさのバグを報告）</td></tr>
+      <tr><td>2.1.149</td><td>05-22</td><td><code>/usage</code> に Skill・サブエージェント・プラグイン・MCP サーバー別の内訳</td></tr>
+      <tr><td>2.1.152</td><td>05-27</td><td><code>/reload-skills</code>。<code>MessageDisplay</code> フック</td></tr>
+      <tr><td>2.1.154</td><td>05-28</td><td>Opus 4.8（既定 effort は high）。Dynamic workflows（<code>/workflows</code>）</td></tr>
+      <tr><td>2.1.158</td><td>05-30</td><td>Bedrock・Vertex・Foundry の Opus 4.7・4.8 で auto mode（<code>CLAUDE_CODE_ENABLE_AUTO_MODE=1</code> で opt-in）</td></tr>
+    </tbody>
+  </table>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.126, 2.1.129, 2.1.136, 2.1.139, 2.1.142, 2.1.147, 2.1.149, 2.1.152, 2.1.154, 2.1.158, 2.1.288 · <a href="https://code.claude.com/docs/en/whats-new/2026-w21">whats-new/2026-w21</a></footer>
+</section>
+
+<section id="ch64-jun-jul">
+  <h2>6〜7 月: Fable 5、Sonnet 5、Chrome の GA、Opus 5</h2>
+  <div class="cols-2">
+    <div>
+      <h3>6 月（2.1.160〜2.1.197、28 リリース）</h3>
+      <table class="dense">
+        <thead><tr><th style="width:24%">版</th><th style="width:13%">日付</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>2.1.160</td><td>06-02</td><td>workflow のトリガー語を <code>ultracode</code> に</td></tr>
+          <tr><td>2.1.166</td><td>06-06</td><td><code>fallbackModel</code>（最大 3 つ）</td></tr>
+          <tr><td>2.1.169</td><td>06-08</td><td><code>--safe-mode</code>。<code>/cd</code></td></tr>
+          <tr><td>2.1.170</td><td>06-09</td><td>Fable 5</td></tr>
+          <tr><td>2.1.166〜2.1.176</td><td>W24</td><td>サブエージェントが子サブエージェントを起動可能に（What's New W24。2.1.172）</td></tr>
+          <tr><td>2.1.178</td><td>06-15</td><td>権限ルールの <code>Tool(param:value)</code>。<code>TeamCreate</code>・<code>TeamDelete</code> を削除</td></tr>
+          <tr><td>2.1.178〜2.1.183</td><td>W25</td><td>Artifacts（Team・Enterprise で beta。What's New W25）</td></tr>
+          <tr><td>2.1.181</td><td>06-17</td><td><code>/config key=value</code></td></tr>
+          <tr><td>2.1.197</td><td>06-30</td><td>Sonnet 5（既定モデル、ネイティブ 1M）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>7 月（2.1.198〜2.1.220、22 リリース）</h3>
+      <table class="dense">
+        <thead><tr><th style="width:17%">版</th><th style="width:13%">日付</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>2.1.198</td><td>07-01</td><td>Claude in Chrome が GA。サブエージェントが既定でバックグラウンド実行。<code>/agents</code> ウィザードを削除</td></tr>
+          <tr><td>2.1.200</td><td>07-03</td><td>権限モード <code>default</code> の表示名を Manual に</td></tr>
+          <tr><td>2.1.205</td><td>07-08</td><td><code>/doctor</code> が全体チェックに（<code>/checkup</code>）</td></tr>
+          <tr><td>2.1.207</td><td>07-11</td><td>Bedrock・Vertex・Foundry で auto mode の opt-in が不要に</td></tr>
+          <tr><td>2.1.208</td><td>07-14</td><td>スクリーンリーダーモード（<code>--ax-screen-reader</code>）</td></tr>
+          <tr><td>2.1.212</td><td>07-17</td><td><code>/fork</code> が別のバックグラウンドセッションを作る。旧動作は <code>/subtask</code></td></tr>
+          <tr><td>2.1.217</td><td>07-21</td><td>同時実行サブエージェントの上限（既定 20）。入れ子を既定で無効に</td></tr>
+          <tr><td>2.1.219</td><td>07-24</td><td>Opus 5。サブエージェントの入れ子を既定で深さ 3 まで</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.160〜2.1.219 の各版 · <a href="https://code.claude.com/docs/en/whats-new/2026-w24">whats-new/2026-w24</a> · <a href="https://code.claude.com/docs/en/whats-new/2026-w25">whats-new/2026-w25</a></footer>
+</section>
+
+<section id="ch64-aug-sep">
+  <h2>8〜9 月: セッション間メッセージング、fork、Opus 5.5、Sonnet 5.5</h2>
+  <div class="cols-2">
+    <div>
+      <h3>8 月（2.1.221〜2.1.252、28 リリース）</h3>
+      <table class="dense">
+        <thead><tr><th style="width:24%">版</th><th style="width:13%">日付</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>2.1.222</td><td>08-04</td><td>Ultraplan を削除</td></tr>
+          <tr><td>2.1.223</td><td>08-06</td><td><code>/review</code> を <code>/code-review</code> のエイリアスに。<code>/code-review ultra</code></td></tr>
+          <tr><td>2.1.224</td><td>08-07</td><td>セッション間の <code>SendMessage</code> と <code>ListAgents</code>。セルフホスト環境（<code>claude self-hosted-runner</code>）</td></tr>
+          <tr><td>2.1.220〜2.1.224</td><td>W32</td><td>08-14 から Pro・Max・Team の新規セッションで auto mode が既定（What's New W32）</td></tr>
+          <tr><td>2.1.232</td><td>08-13</td><td>fork サブエージェントを既定で有効化</td></tr>
+          <tr><td>2.1.237</td><td>08-20</td><td>組み込みの Concise 出力スタイル</td></tr>
+          <tr><td>2.1.248</td><td>08-27</td><td><code>--restricted</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>9 月（2.1.257〜2.1.286、27 リリース）</h3>
+      <table class="dense">
+        <thead><tr><th style="width:17%">版</th><th style="width:13%">日付</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>2.1.257</td><td>09-01</td><td>Fable 5.1</td></tr>
+          <tr><td>2.1.260</td><td>09-03</td><td>フルスクリーンの <code>/diff</code> パネル。2.1.261 で <code>/skill-doctor</code></td></tr>
+          <tr><td>2.1.269</td><td>09-11</td><td><code>claude plugin eval</code></td></tr>
+          <tr><td>2.1.277</td><td>09-18</td><td>CLAUDE.md が無いプロジェクトで AGENTS.md を読む。<code>TaskOutput</code> を削除</td></tr>
+          <tr><td>2.1.280</td><td>09-22</td><td>Opus 5.5。Pro と Team Standard の既定モデルを Opus に</td></tr>
+          <tr><td>2.1.284</td><td>09-28</td><td>Sonnet 5.5。対話セッションが全プランで auto 開始</td></tr>
+          <tr><td>2.1.285</td><td>09-29</td><td><code>claude --desktop</code>。<code>allowedProviders</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.222〜2.1.285 の各版 · <a href="https://code.claude.com/docs/en/whats-new/2026-w32">whats-new/2026-w32</a></footer>
+</section>
+
+<section id="ch64-oct-nov">
+  <h2>10〜11 月: Mods、Haiku 5.5、アイドル圧縮、MCP tasks、Fable 5.2（2.1.287〜2.1.321、30 リリース）</h2>
+  <table class="dense">
+    <thead><tr><th style="width:16%">版</th><th style="width:8%">日付</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td>2.1.287</td><td>10-01</td><td>Claude Mods（プラグインがより深い動作を変えられる）。組み込み mod の You should know</td></tr>
+      <tr><td>2.1.288</td><td>10-02</td><td><code>claude project purge</code> を <code>claude purge</code> に改名</td></tr>
+      <tr><td>2.1.293</td><td>10-07</td><td>Haiku 5.5（Anthropic API の既定 Haiku）</td></tr>
+      <tr><td>2.1.295</td><td>10-08</td><td>command・HTTP フックの <code>onFailure: "block"</code>。Program Status Protocol（OSC 7501）</td></tr>
+      <tr><td>2.1.299</td><td>10-14</td><td>ターミナルのアイドル圧縮（20 万トークン超で約 54 分アイドル）</td></tr>
+      <tr><td>2.1.302</td><td>10-16</td><td><code>-p</code> と SDK を <code>default</code> 開始に戻す（2.1.285 からの例外を終了）。fork サブエージェントを <code>-p</code>・SDK でも既定有効</td></tr>
+      <tr><td>2.1.304</td><td>10-19</td><td><code>/auto-mode-setup</code></td></tr>
+      <tr><td>2.1.314</td><td>10-30</td><td><code>permissions.blockWritesOutsideWorkingDirectories</code></td></tr>
+      <tr><td>2.1.316</td><td>10-31</td><td><code>CLAUDE_CODE_SUBAGENT_EFFORT</code>。Opus 4.8 の fast mode を非推奨</td></tr>
+      <tr><td>2.1.319</td><td>11-06</td><td>ターミナルの MCP tasks。<code>permissions.denyInsteadOfPrompting</code>。<code>CLAUDE_CODE_DISABLE_FEATURE_FLAGS</code></td></tr>
+      <tr><td>2.1.321</td><td>11-09</td><td>Fable 5.2（既定 Fable）。<code>claude remote-control --settings &lt;file&gt;</code></td></tr>
+    </tbody>
+  </table>
+  <p class="small">2.1.292 以降の詳細は <a href="#/ch65">Ch65</a> にあります。</p>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.287, 2.1.288, 2.1.293, 2.1.295, 2.1.299, 2.1.302, 2.1.304, 2.1.314, 2.1.316, 2.1.319, 2.1.321</footer>
+</section>
+
+</section>

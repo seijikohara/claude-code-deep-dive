@@ -1,0 +1,127 @@
+<section id="ch65" data-part="Part IX まとめ" data-chapter="Ch65" data-title="直近 25 リリース">
+
+<section id="ch65-title" class="chapter-title">
+  <p class="chapter-label">65</p>
+  <h1>直近 25 リリース</h1>
+  <p class="chapter-summary">2.1.292（2026-10-06）から 2.1.321（2026-11-09）までの 25 リリースを、追加・動作の変更・削除と修正に分けて読みます。2.1.297、2.1.298、2.1.313、2.1.315、2.1.320 は欠番です。2.1.303 と 2.1.308 は「Bug fixes and reliability improvements」だけのリリースです。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch65-added-1">
+  <h2>追加（1/2）: モデル・権限・セッション</h2>
+  <table class="dense">
+    <thead><tr><th style="width:9%">版</th><th>追加された内容</th></tr></thead>
+    <tbody>
+      <tr><td>2.1.321</td><td>Fable 5.2（<code>claude-fable-5-2</code>）を既定の Fable に。1M コンテキスト、$8/$40 per Mtok、キャッシュ読み取り $0.20/Mtok（<a href="#/ch02">Ch2</a>）</td></tr>
+      <tr><td>2.1.321</td><td><code>claude remote-control --settings &lt;file&gt;</code>: 起動する全セッションに設定ファイルを適用。ファイルを変えたら再起動が必要（<a href="#/ch49">Ch49</a>）</td></tr>
+      <tr><td>2.1.319</td><td><code>permissions.denyInsteadOfPrompting</code>: 権限プロンプトで待つ呼び出しを拒否し、ターンを続ける。ターミナル・サブエージェント・チームメイトが対象</td></tr>
+      <tr><td>2.1.319</td><td><code>CLAUDE_CODE_DISABLE_FEATURE_FLAGS</code>: テレメトリを止めずに feature flag の取得だけを止める。各 flag は組み込みの既定値になる</td></tr>
+      <tr><td>2.1.318</td><td><code>claude auth status</code> の <code>loginExpiresAt</code> と、<code>claude -p</code> の JSON 結果の <code>credential_expires_at</code></td></tr>
+      <tr><td>2.1.316</td><td><code>CLAUDE_CODE_SUBAGENT_EFFORT</code>（サブエージェントの既定 effort）と <code>CLAUDE_CODE_DISABLE_ULTRATHINK</code>（<a href="#/ch03">Ch3</a>）</td></tr>
+      <tr><td>2.1.314</td><td><code>permissions.blockWritesOutsideWorkingDirectories</code>: すべての権限モードで、作業ディレクトリ外への Write・Edit・NotebookEdit を拒否</td></tr>
+      <tr><td>2.1.304</td><td><code>/auto-mode-setup</code>: プロジェクトと最近のセッションを読んで auto mode に環境を教える。Bedrock・Vertex・Foundry でも使える（<a href="#/ch24">Ch24</a>）</td></tr>
+      <tr><td>2.1.302</td><td><code>CLAUDE_CODE_AUTO_MODE_MODEL</code>: クライアント側 classifier のモデルだけを変える</td></tr>
+      <tr><td>2.1.299</td><td>ターミナルのアイドル圧縮（<code>CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS</code>、<code>"idleCompaction": false</code>）（<a href="#/ch06">Ch6</a>）。<code>CLAUDE_CODE_DISABLE_FILE_MENTIONS</code></td></tr>
+      <tr><td>2.1.293</td><td>Haiku 5.5（<code>claude-haiku-5-5</code>）を Anthropic API の既定 Haiku に。1M、$0.10/$0.50（10 万トークン超のプロンプトは $0.50/$2.50）</td></tr>
+      <tr><td>2.1.292</td><td>Agent ツールの <code>effort</code> パラメータ。サブエージェントを指定の effort で動かす</td></tr>
+    </tbody>
+  </table>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.292, 2.1.293, 2.1.299, 2.1.302, 2.1.304, 2.1.314, 2.1.316, 2.1.318, 2.1.319, 2.1.321</footer>
+</section>
+
+<section id="ch65-added-2">
+  <h2>追加（2/2）: MCP・フック・Mods・プラグイン・OpenTelemetry</h2>
+  <table class="dense">
+    <thead><tr><th style="width:9%">版</th><th>追加された内容</th></tr></thead>
+    <tbody>
+      <tr><td>2.1.319</td><td>ターミナルの MCP tasks: サーバーがタスクとして実行する呼び出しをすぐバックグラウンドへ。<code>CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND</code> で待つ（<a href="#/ch30">Ch30</a>）</td></tr>
+      <tr><td>2.1.318</td><td>mod の <code>$.model.fork</code> に <code>effort</code> オプション</td></tr>
+      <tr><td>2.1.317</td><td>Agent SDK のフックコールバックに <code>onFailure: "block"</code>。OTel に <code>anthropic.plan</code>、<code>anthropic.seat_type</code>、<code>anthropic.provider</code>、<code>anthropic.custom_base_url</code></td></tr>
+      <tr><td>2.1.304</td><td>mod の <code>tool.check</code> の回答に <code>decider: "person"</code>、イベントに <code>e.isReadOnly</code>（<a href="#/ch33">Ch33</a>）</td></tr>
+      <tr><td>2.1.301</td><td>OTel の <code>tool_decision</code> に <code>classifier_verdict</code>、<code>permission_mode</code>、<code>classifier_category</code>（<code>classifier_category</code> は <code>OTEL_LOG_TOOL_DETAILS=1</code> のとき）</td></tr>
+      <tr><td>2.1.300</td><td>mod の <code>prompt.change</code> フック、<code>virtualText</code>、<code>$.ui.view({ agentId })</code>。Claude Platform on AWS の <code>/advisor</code>（<a href="#/ch05">Ch5</a>）</td></tr>
+      <tr><td>2.1.300</td><td>OTel の <code>api_request</code> に <code>cache_creation_5m_tokens</code>・<code>cache_creation_1h_tokens</code>。トレースに GenAI セマンティック規約の属性（<code>gen_ai.provider.name</code> など）</td></tr>
+      <tr><td>2.1.299</td><td><code>claude plugin eval</code> の <code>--disallow-tools</code> と、ケースの <code>disallowed_tools</code> フィールド（<a href="#/ch31">Ch31</a>）</td></tr>
+      <tr><td>2.1.296</td><td>Read ツールの <code>allow_large</code>。サブエージェント frontmatter と <code>--agents</code> の <code>autoCompactWindow</code>。<code>CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL</code></td></tr>
+      <tr><td>2.1.295</td><td>command・HTTP フックの <code>onFailure: "block"</code>: 起動失敗・タイムアウト・想定外の終了コードで操作をブロック（<a href="#/ch28">Ch28</a>）。OSC 7501</td></tr>
+      <tr><td>2.1.292</td><td><code>claude plugin install --marketplace &lt;source&gt;</code>。mod の <code>prompt.autocomplete</code> イベント</td></tr>
+    </tbody>
+  </table>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.292, 2.1.295, 2.1.296, 2.1.299, 2.1.300, 2.1.301, 2.1.304, 2.1.317, 2.1.318, 2.1.319</footer>
+</section>
+
+<section id="ch65-changed-1">
+  <h2>動作の変更（1/2）: 権限・auto mode・セキュリティ</h2>
+  <table class="dense">
+    <thead><tr><th style="width:9%">版</th><th>変わった動作</th></tr></thead>
+    <tbody>
+      <tr><td>2.1.321</td><td>Claude が書いた mod は auto・bypass モードで確認なしに有効になり、<code>dontAsk</code> モードでは読み込まれない（<a href="#/ch33">Ch33</a>）</td></tr>
+      <tr><td>2.1.321</td><td>mod 自身の <code>$.tool.call</code>・<code>$.mcp.call</code> は権限プロンプトを出さない。deny ルールと組織ポリシーは引き続き効く</td></tr>
+      <tr><td>2.1.321</td><td><code>/bin/cp</code> のようにパスで書いた <code>cp</code>・<code>mv</code> も、<code>cp</code>・<code>mv</code> と同じパス検査を受ける</td></tr>
+      <tr><td>2.1.319</td><td>テレメトリや feature flag を止めた auto mode（LLM ゲートウェイ経由を含む）: サーバーが確認できない呼び出しは確認か拒否。<code>CLAUDE_CODE_AUTO_MODE_SERVER=0</code> で組み込み classifier を使う（<a href="#/ch24">Ch24</a>）</td></tr>
+      <tr><td>2.1.319</td><td>より広い deny ルールがあると、セッションの完全一致の Bash・PowerShell ask ルールは確認せずに拒否</td></tr>
+      <tr><td>2.1.319</td><td><code>--add-dir</code> のディレクトリは、そのディレクトリの信頼ダイアログを承認してからマーケットプレイスを登録</td></tr>
+      <tr><td>2.1.316</td><td>Team・Enterprise のサーバー管理設定は承認なしで適用。検証できない保存コピーは拒否（<a href="#/ch58">Ch58</a>）</td></tr>
+      <tr><td>2.1.309</td><td><code>sed -i</code> は通常の Bash プロンプトになり、<code>/rewind</code> で戻らない。<code>claude ultrareview</code> はワークスペースの信頼が必要（<code>--trust-workspace</code>）</td></tr>
+      <tr><td>2.1.302</td><td>権限モード未設定の <code>claude -p</code>・SDK は、サードパーティ・テレメトリ無効・新規インストールでも <code>default</code> で開始（2.1.285 からの例外を終了）（<a href="#/ch23">Ch23</a>）</td></tr>
+      <tr><td>2.1.300</td><td>PreToolUse・PermissionRequest フックの <code>updatedInput</code> を Claude の入力と同様に検証。未知のキーは削除、不正な入力は拒否</td></tr>
+      <tr><td>2.1.299</td><td>MCP の allow ルールは名前が一致するサーバーだけに効く（<code>mcp__a</code> は <code>a__b</code> を許可しない）。<code>UserPromptSubmit</code> フックは Skill・カスタムコマンドの展開前に動く</td></tr>
+    </tbody>
+  </table>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.299, 2.1.300, 2.1.302, 2.1.309, 2.1.316, 2.1.319, 2.1.321</footer>
+</section>
+
+<section id="ch65-changed-2">
+  <h2>動作の変更（2/2）: サブエージェント・Skill・MCP・出力</h2>
+  <table class="dense">
+    <thead><tr><th style="width:15%">版</th><th>変わった動作</th></tr></thead>
+    <tbody>
+      <tr><td>2.1.321</td><td>Claude が <code>~/.claude/plugins</code> 内のファイルを扱うとき、その中の <code>.claude/skills</code> フォルダは読み込まない。ヘッドレスセッションは <code>.claude/skills</code> 内の mod の変更を再読み込み（<code>CLAUDE_CODE_PLUGIN_DIR_WATCH=0</code> で無効）</td></tr>
+      <tr><td>2.1.319</td><td>self-paced の <code>/loop</code> は、ターンが再スケジュールせずに終わると終了。<code>CLAUDE_CODE_LOOP_KEEPALIVE=1</code> で旧動作（<a href="#/ch43">Ch43</a>）</td></tr>
+      <tr><td>2.1.318</td><td>バックグラウンドのサブエージェントは、シェルコマンドを 3 分でバックグラウンドへ移す（全プロバイダ）</td></tr>
+      <tr><td>2.1.317</td><td>メイン会話と別モデルのサブエージェント・チームメイトは、そのモデルの保存済み effort か既定値を使う</td></tr>
+      <tr><td>2.1.312</td><td>prompt・agent フックはセッション全体で同時 24 個まで（期限超過分は別に 12 個）。1 秒未満の <code>timeout</code> は 1 秒として扱う（<a href="#/ch28">Ch28</a>）</td></tr>
+      <tr><td>2.1.311</td><td>対話ターミナルの <code>ultrathink</code> は、Anthropic API の Opus 5.5・Sonnet 5.5・Haiku 5.5・Fable 5.1 でそのターンを xhigh に。<code>--output-format json</code>・<code>stream-json</code> は制御文字を <code>\uXXXX</code> でエスケープ</td></tr>
+      <tr><td>2.1.302</td><td>fork サブエージェント（<code>subagent_type: "fork"</code>）を <code>-p</code>・SDK・Desktop・VS Code でも既定で有効化（<code>CLAUDE_CODE_FORK_SUBAGENT=0</code> で無効）（<a href="#/ch37">Ch37</a>）</td></tr>
+      <tr><td>2.1.296</td><td>Sonnet 5.5 のキャッシュ読み取りを $0.10/Mtok に訂正（<code>/cost</code>・ステータスライン・<code>--max-budget-usd</code>・SDK）。MCP のツール説明の既定上限を 4,096 文字に</td></tr>
+      <tr><td>2.1.292〜2.1.299</td><td>MCP プロトコル <code>2026-07-28</code> を既定で交渉: stdio（2.1.292）、claude.ai コネクタ（2.1.295）、クラウド・Remote Control のコネクタ（2.1.299）。<code>MCP_PROTOCOL_NEGOTIATION=legacy</code> で戻す。コネクタの 2 段階は flag を取得しないインストールだけ</td></tr>
+    </tbody>
+  </table>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.292, 2.1.295, 2.1.296, 2.1.299, 2.1.302, 2.1.311, 2.1.312, 2.1.317, 2.1.318, 2.1.319, 2.1.321</footer>
+</section>
+
+<section id="ch65-removed-fixed">
+  <h2>削除・非推奨と、主な修正</h2>
+  <div class="cols-2">
+    <div>
+      <h3>削除・非推奨</h3>
+      <table class="dense">
+        <thead><tr><th style="width:18%">版</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>2.1.319</td><td>Claude in Chrome の <code>shortcuts_list</code>・<code>shortcuts_execute</code> を削除</td></tr>
+          <tr><td>2.1.317</td><td>Read ツールの「前回の Read 以降変更なし」の省略表示を削除。毎回内容を返す</td></tr>
+          <tr><td>2.1.316</td><td>Opus 4.8 の fast mode を非推奨。2026-11-30 に削除し、以後はエラー（<a href="#/ch04">Ch4</a>）</td></tr>
+          <tr><td>2.1.312</td><td>OTel の <code>claude_code.safety_event</code>（2.1.307 で追加）の送信を停止</td></tr>
+          <tr><td>2.1.300</td><td><code>claude remote-control</code> の <code>--sandbox</code>・<code>--no-sandbox</code> を削除（指定するとエラー）</td></tr>
+          <tr><td>2.1.299</td><td>mod の <code>Text</code> の <code>bold</code> を非推奨（<code>weight</code> を使う）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>主な修正（セキュリティとデータ消失）</h3>
+      <table class="dense">
+        <thead><tr><th style="width:18%">版</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>2.1.321</td><td>MCP OAuth がリダイレクト先の別ホストへ refresh token などを送っていた</td></tr>
+          <tr><td>2.1.319</td><td>細工した環境変数の接頭辞でコマンドの一部を権限チェックから隠せた。worktree 作成時のサンドボックス脱出</td></tr>
+          <tr><td>2.1.317・2.1.321</td><td>ディスクやクォータが満杯でトランスクリプトを失っても <code>claude -p</code> が 0 で終了していた。現在は text・json 出力で 1 で終了</td></tr>
+          <tr><td>2.1.304</td><td>HEAD が detached か別ブランチのとき、<code>claude --worktree</code> が終了時に確認なしで worktree とブランチを消し、コミットを失うことがあった</td></tr>
+          <tr><td>2.1.292</td><td>PreToolUse フックの承認と auto mode が、ネットワーク（UNC）パスの読み取りで権限プロンプトを飛ばしていた</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.292, 2.1.299, 2.1.300, 2.1.304, 2.1.307, 2.1.312, 2.1.316, 2.1.317, 2.1.319, 2.1.321</footer>
+</section>
+
+</section>

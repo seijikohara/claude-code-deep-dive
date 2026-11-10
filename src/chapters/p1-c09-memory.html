@@ -95,7 +95,7 @@
   <div class="cols-2">
     <div>
       <ul class="small">
-        <li>作業ディレクトリより下の <code>CLAUDE.md</code>・<code>CLAUDE.local.md</code> は起動時に読みません。Claude がそのサブディレクトリのファイルを読む・書く・編集したときに 1 回だけ読みます。</li>
+        <li>作業ディレクトリより下の <code>CLAUDE.md</code>・<code>CLAUDE.local.md</code> は起動時に読みません。Claude がそのサブディレクトリのファイルを読む・書く・編集したときに読みます。</li>
         <li>単一ファイルへの <code>cat</code>・<code>head</code> など、読み取りとみなす Bash コマンドも対象です。Bash での読み取りは 2.1.293、Write・Edit は 2.1.288 で修正されました。</li>
         <li>読み込むとターミナルに <code>Loaded</code> 行とパスが出ます。起動時のファイルではないため、<code>/context all</code> の Memory files には出ません。試すときはシェルでファイルを作り、Claude にそのディレクトリのファイルを読ませます。</li>
         <li>ブロック単位の HTML コメント（<code>&lt;!-- maintainer notes --&gt;</code>）は、注入前に取り除かれます。コードブロック内のコメントと、Read ツールで開いたときの表示は残ります（2.1.72）。</li>
@@ -287,7 +287,7 @@ ln -s ~/company-standards/security.md .claude/rules/security.md</pre>
       <p class="small"><code>/config</code> でも変えられます。設定ファイルは <code>~/.claude/settings.json</code>・<code>--settings</code>・managed だけが有効です。2.1.285 より前の ID は <code>agents-md@builtin</code> です（2.1.285 以降は両方読む）。</p>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/memory#agents-md">memory#agents-md</a> · <a href="https://code.claude.com/docs/en/memory#when-claude-code-reads-agents-md">#when-claude-code-reads-agents-md</a> · <a href="https://code.claude.com/docs/en/memory#choose-which-instruction-files-load">#choose-which-instruction-files-load</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.1.277, 2.1.285</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/memory#agents-md">memory#agents-md</a> · <a href="https://code.claude.com/docs/en/memory#when-claude-code-reads-agents-md">#when-claude-code-reads-agents-md</a> · <a href="https://code.claude.com/docs/en/memory#choose-which-instruction-files-load">#choose-which-instruction-files-load</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.1.277</a></footer>
 </section>
 
 <section id="ch09-agents-md-2">
@@ -374,7 +374,7 @@ localonly/（CLAUDE.local.md と AGENTS.md）
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/memory#load-from-additional-directories">memory#load-from-additional-directories</a> · <a href="https://code.claude.com/docs/en/memory#exclude-specific-claude-md-files">#exclude-specific-claude-md-files</a> · <a href="https://code.claude.com/docs/en/large-codebases#grant-access-across-packages-or-repositories">large-codebases</a> · 実機確認 2.1.321</footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/memory#load-from-additional-directories">memory#load-from-additional-directories</a> · <a href="https://code.claude.com/docs/en/memory#exclude-specific-claude-md-files">#exclude-specific-claude-md-files</a> · <a href="https://code.claude.com/docs/en/large-codebases#grant-access-across-packages-or-repositories">large-codebases</a> · <a href="https://code.claude.com/docs/en/large-codebases#exclude-irrelevant-claude-md-files">#exclude-irrelevant-claude-md-files</a> · 実機確認 2.1.321</footer>
 </section>
 
 <section id="ch09-managed">
@@ -485,7 +485,7 @@ localonly/（CLAUDE.local.md と AGENTS.md）
       <p class="small"><code>-p</code> の init の <code>slash_commands</code> にも <code>memory</code> は含まれません。</p>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/memory#enable-or-disable-auto-memory">memory#enable-or-disable-auto-memory</a> · <a href="https://code.claude.com/docs/en/memory#storage-location">#storage-location</a> · <a href="https://code.claude.com/docs/en/memory#view-and-edit-with-%2Fmemory">#view-and-edit-with-/memory</a> · <a href="https://code.claude.com/docs/en/memory#agents-md">#agents-md</a> · <a href="https://code.claude.com/docs/en/env-vars">env-vars</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.0.70</a> · 実機確認 2.1.321</footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/memory#enable-or-disable-auto-memory">memory#enable-or-disable-auto-memory</a> · <a href="https://code.claude.com/docs/en/memory#storage-location">#storage-location</a> · <a href="https://code.claude.com/docs/en/memory#view-and-edit-with-%2Fmemory">#view-and-edit-with-/memory</a> · <a href="https://code.claude.com/docs/en/memory#my-agents-md-isn’t-loading">#my-agents-md-isn’t-loading</a> · <a href="https://code.claude.com/docs/en/env-vars">env-vars</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.0.70</a> · 実機確認 2.1.321</footer>
 </section>
 
 </section>

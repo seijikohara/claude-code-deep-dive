@@ -146,7 +146,7 @@
       <tr><td><code>TeammateIdle</code></td><td>Agent Teams のチームメイトがアイドルになる直前</td><td>なし</td><td>5</td><td>アイドルにせず、作業を続けさせる</td></tr>
     </tbody>
   </table>
-  <p class="small muted">型 = 使えるハンドラの型（5 は全種、4 は <code>agent</code> 以外、3 は <code>command</code>・<code>http</code>・<code>mcp_tool</code>）。<code>TeammateIdle</code> とチームメイト経路の <code>TaskCompleted</code> は Agent Teams（Experimental、<a href="#/ch39">Ch39</a>）の機能です。</p>
+  <p class="small muted">型 = 使えるハンドラの型（5 は全種、4 は <code>agent</code> 以外、3 は <code>command</code>・<code>http</code>・<code>mcp_tool</code>）。<code>TeammateIdle</code> とチームメイト経路の <code>TaskCompleted</code> は Agent Teams <span class="badge experimental">Experimental</span>（<a href="#/ch39">Ch39</a>）の機能です。</p>
   <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#hook-lifecycle">hooks#hook-lifecycle</a> · <a href="https://code.claude.com/docs/en/hooks#matcher-patterns">#matcher-patterns</a> · <a href="https://code.claude.com/docs/en/hooks#exit-code-2-behavior-per-event">#exit-code-2-behavior-per-event</a> · <a href="https://code.claude.com/docs/en/hooks#prompt-based-hooks">#prompt-based-hooks</a></footer>
 </section>
 
@@ -394,7 +394,7 @@
 }</pre>
       <ul class="small">
         <li>起動時の <code>SessionStart</code>（<code>--continue</code>・<code>--resume</code> を含む）とすべての <code>Setup</code> は MCP の接続前に発火するので、<code>mcp_tool</code> フックはスキップされます。<code>/clear</code> や圧縮の後の <code>SessionStart</code> では動きます。</li>
-        <li>v2.1.321 から、16 MiB を超える応答を返した <code>PreToolUse</code> の <code>mcp_tool</code> フックはツール呼び出しを拒否します。</li>
+        <li>v2.1.321 から、stdio・HTTP サーバーで 16 MiB 超の応答を返す <code>PreToolUse</code> の <code>mcp_tool</code> フックはツール呼び出しを拒否します。</li>
       </ul>
     </div>
   </div>
@@ -588,7 +588,7 @@ Failed with non-blocking status code: something broke</pre>
       <tr><td><code>PermissionRequest</code></td><td><code>decision.behavior</code>（allow/deny）</td></tr>
       <tr><td><code>PermissionDenied</code> / <code>MessageDisplay</code></td><td><code>retry: true</code> / <code>displayContent</code></td></tr>
       <tr><td><code>hookSpecificOutput</code> か <code>decision</code></td><td><code>PreModelSwitch</code> / <code>Elicitation</code> <code>ElicitationResult</code></td><td><code>permissionDecision</code>（allow/deny/ask） / <code>action</code> と <code>content</code></td></tr>
-      <tr><td>パス・終了コード</td><td><code>WorktreeCreate</code> / <code>WorktreeRemove</code></td><td>stdout か <code>worktreePath</code> / 非 0 で失敗</td></tr>
+      <tr><td>パス・終了コード</td><td><code>WorktreeCreate</code> / <code>WorktreeRemove</code></td><td>stdout か <code>worktreePath</code> / 非 0 でディレクトリが残れば失敗</td></tr>
       <tr><td>文脈の追加のみ</td><td><code>SessionStart</code> <code>SubagentStart</code> <code>PostModelSwitch</code></td><td><code>additionalContext</code></td></tr>
       <tr><td>なし</td><td><code>Setup</code> <code>Notification</code> <code>SessionEnd</code> <code>PostCompact</code> <code>InstructionsLoaded</code> <code>StopFailure</code> <code>CwdChanged</code> <code>DirectoryAdded</code> <code>FileChanged</code></td><td>ログや後片付けなどの副作用だけ</td></tr>
     </tbody>
@@ -807,7 +807,7 @@ Failed with non-blocking status code: something broke</pre>
       <h3><code>PostToolBatch</code></h3>
       <ul class="small">
         <li>並列バッチの全呼び出しが解決した後、次のモデル呼び出しの前に 1 回だけ発火します。matcher はありません。</li>
-        <li><code>tool_calls[]</code> の <code>tool_response</code> は、モデルが見る <code>tool_result</code> の直列化文字列です。PostToolUse の構造化出力とは形が違います。</li>
+        <li><code>tool_calls[]</code> の <code>tool_response</code> は、モデルが見る <code>tool_result</code> の内容（直列化文字列かコンテンツブロック配列）です。PostToolUse の構造化出力とは形が違います。</li>
         <li><code>additionalContext</code> は 1 回だけ注入されます。<code>decision: "block"</code>・<code>continue: false</code>・exit 2 で、次のモデル呼び出しの前にループを止めます。</li>
       </ul>
     </div>
@@ -850,13 +850,13 @@ fi
     <div>
       <ul class="small">
         <li><code>SubagentStart</code>・<code>SubagentStop</code> の matcher はエージェント種別です（<code>Explore</code>、カスタムは frontmatter の <code>name</code>、プラグインは <code>^my-plugin:reviewer$</code> のようにアンカー）。<code>agent_transcript_path</code> は <code>subagents/</code> 配下の自分のトランスクリプトです。</li>
-        <li>prompt suggestions や <code>/btw</code> などの内部エージェントでも発火し、<code>agent_type</code> はセッションのエージェント名か空文字です。名前を書いた matcher は空文字に一致しません。</li>
+        <li><code>SubagentStop</code> は prompt suggestions や <code>/btw</code> などの内部エージェントでも発火し、<code>agent_type</code> はセッションのエージェント名か空文字です。名前を書いた matcher は空文字に一致しません。</li>
         <li><code>reason</code> はサブエージェントへの次の指示になります。親に文脈を入れるなら、<code>Agent</code> ツールの <code>PostToolUse</code> を使います。</li>
         <li>v2.1.271 以降、<code>SubagentHandback</code> で報告するサブエージェントでは、<code>last_assistant_message</code> は報告本文ではありません。本文は <code>tool_input.message</code> です。</li>
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#stop">hooks#stop</a> · <a href="https://code.claude.com/docs/en/hooks#stop-decision-control">#stop-decision-control</a> · <a href="https://code.claude.com/docs/en/hooks#subagentstop">#subagentstop</a> · <a href="https://code.claude.com/docs/en/hooks-guide#stop-hook-hits-the-block-cap">hooks-guide#stop-hook-hits-the-block-cap</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#stop">hooks#stop</a> · <a href="https://code.claude.com/docs/en/hooks#stop-decision-control">#stop-decision-control</a> · <a href="https://code.claude.com/docs/en/hooks#subagentstop">#subagentstop</a> · <a href="https://code.claude.com/docs/en/hooks-guide#stop-hook-hits-the-block-cap">hooks-guide#stop-hook-hits-the-block-cap</a> · <a href="https://code.claude.com/docs/en/env-vars">env-vars</a></footer>
 </section>
 
 <!-- ============ プロンプト系・タスク系 ============ -->
@@ -877,7 +877,7 @@ fi
         <li><code>TaskCreated</code>: exit 2（stderr）か <code>decision: "block"</code>（<code>reason</code>）でタスクを削除し、理由をツールエラーとして返します。<code>continue: false</code> は無視します。</li>
         <li><code>TaskCompleted</code>: <code>TaskUpdate</code> での完了時と、チームメイトが進行中のタスクを残して終えたときに発火します。exit 2 で完了にせず、stderr をモデルに返します。<code>continue: false</code> はチームメイト経路でだけ停止です。</li>
         <li><code>TeammateIdle</code>: exit 2 で作業を続けさせ、<code>continue: false</code> で止めます。</li>
-        <li>入力は <code>task_id</code>・<code>task_subject</code> と任意の <code>task_description</code>・<code>teammate_name</code>・<code>team_name</code>（非推奨）、v2.1.290 以降は <code>agent_id</code> です。matcher はなく、チームメイトの経路は Agent Teams（Experimental、<a href="#/ch39">Ch39</a>）の機能です。</li>
+        <li><code>TaskCreated</code>・<code>TaskCompleted</code> の入力は <code>task_id</code>・<code>task_subject</code> と任意の <code>task_description</code>・<code>teammate_name</code>・<code>team_name</code>（非推奨）、v2.1.290 以降は <code>agent_id</code> です。matcher はなく、チームメイトの経路は Agent Teams <span class="badge experimental">Experimental</span>（<a href="#/ch39">Ch39</a>）の機能です。</li>
       </ul>
     </div>
   </div>
@@ -1052,7 +1052,7 @@ jq -nc --arg seq "$seq" '{terminalSequence: $seq}'</pre>
       <ul class="small">
         <li>一致したフックは並列に動き、すべて完了してから結果を合成します。1 つの deny で他のフックは止まりません。</li>
         <li>同じイベントの prompt・agent フックは 12 個ずつ動きます。待機中のフックの <code>timeout</code> は開始時から数えます。</li>
-        <li>v2.1.312 で、セッション全体（サブエージェント含む）で同時 24 個、加えてイベントの timeout より長く待った 12 個まで、という上限が入りました。同じ項目で「1 秒未満の <code>timeout</code> は 1 秒とみなす」ようになりました。</li>
+        <li>v2.1.312 で、prompt・agent フックに、セッション全体（サブエージェント含む）で同時 24 個、加えてイベントの timeout より長く待った 12 個まで、という上限が入りました。同じ項目で「1 秒未満の <code>timeout</code> は 1 秒とみなす」ようになりました。</li>
         <li>複数フックの <code>updatedInput</code> はマージされず、どれが使われるかも保証されません。</li>
       </ul>
     </div>

@@ -274,3 +274,16 @@ export function checkSources(html) {
   });
   return missing;
 }
+
+/**
+ * Return the internal deck links (`href="#/<id>"`) whose target id does not exist in `html`.
+ * A link to a whole chapter (`#/ch05`) and to one slide (`#/ch05-enable`) both need a matching element id.
+ */
+export function checkLinks(html) {
+  const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]));
+  const broken = new Set();
+  for (const m of html.matchAll(/href="#\/([^"]+)"/g)) {
+    if (!ids.has(m[1])) broken.add(m[1]);
+  }
+  return [...broken];
+}

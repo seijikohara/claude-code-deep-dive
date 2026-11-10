@@ -78,7 +78,7 @@
 </section>
 
 <section id="ch31-manifest">
-  <h2><code>plugin.json</code>（1/2）: docs の全キー例と、メタデータの規則</h2>
+  <h2><code>plugin.json</code>（1/2）: docs の主要キー例と、メタデータの規則</h2>
   <div class="cols-2" style="grid-template-columns:1.32fr 1fr">
 <pre data-lang="json" class="compact">{
   "name": "deploy-tools",
@@ -172,7 +172,7 @@
         <li><code>&lt;id&gt;</code> は英数字・<code>_</code>・<code>-</code> 以外を <code>-</code> に置き換えた ID です（<code>my-plugin@my-marketplace</code> は <code>my-plugin-my-marketplace</code>）。</li>
         <li>データディレクトリは、最後のスコープからアンインストールすると消えます。<code>--keep-data</code> で残せます。</li>
         <li>Claude が Bash ツールで実行するコマンドの環境には入りません。Skill の本文に <code>${...}</code> と書けば、読み込み時に展開されます。</li>
-        <li>シェル形式のフックとモニターでは <code>"${CLAUDE_PLUGIN_ROOT}"</code> と二重引用符で囲みます。囲まないと validate が警告します。</li>
+        <li>シェル形式のフックとモニターでは <code>"${CLAUDE_PLUGIN_ROOT}"</code> と二重引用符で囲みます。フックファイルで囲まないと validate が警告します。</li>
       </ul>
     </div>
     <div>
@@ -304,7 +304,7 @@
         </tbody>
       </table>
       <ul class="small">
-        <li><code>.claude-plugin/</code> もコンポーネントも無いフォルダを渡すと、直下で <code>.claude-plugin/plugin.json</code> を持つ子をそれぞれ読み込みます（v2.1.265 以降）。そこにある <code>marketplace.json</code> は読みません。</li>
+        <li><code>.claude-plugin/</code> もコンポーネントも無いフォルダを渡すと、直下で <code>.claude-plugin/plugin.json</code> を持つ子をそれぞれ読み込みます（v2.1.265 以降）。<code>.claude-plugin/</code> に <code>marketplace.json</code> だけがあっても同様で、その <code>marketplace.json</code> は読みません（v2.1.281 以降）。</li>
         <li>ディレクトリはコピーせずにその場で読みます。対話セッションでは、子フォルダの追加と削除にも追従します。</li>
         <li>ID は <code>&lt;name&gt;@inline</code> です。<code>"enabledPlugins": {"hello-plugin@inline": false}</code> で止められます。</li>
       </ul>
@@ -351,7 +351,7 @@ Run /reload-plugins to load it now.</pre>
     </div>
     <div>
       <ul class="small">
-        <li>インストール・更新・有効化・無効化・ディスク上の編集を、再起動せずに反映します。<code>/plugin</code> を閉じると自動で実行されます。</li>
+        <li>インストール・更新・有効化・無効化・ディスク上の編集を、再起動せずに反映します。<code>/plugin</code> で変更して閉じると自動で実行されます。</li>
       </ul>
 <pre data-lang="text" class="compact">Reloaded: N plugins · N skills · N agents · N hooks ·
 N plugin MCP servers · N plugin LSP servers</pre>
@@ -520,7 +520,7 @@ N plugin MCP servers · N plugin LSP servers</pre>
   </table>
   <ul class="small">
     <li>stdin か stdout が TTY でなく、<code>-y</code> も <code>--accept-command</code> も無いと、コマンドを表示するだけで exit 1 になります。Claude の Bash ツールやフックから実行した場合、<code>-y</code> は無視されます。</li>
-    <li><span class="undocumented"><code>install --registry &lt;url&gt;</code> は <code>&lt;package&gt;@npm</code> のインストール先レジストリを指定します。<code>--help</code> にだけあり、docs にはありません。 <span class="badge undocumented">Undocumented</span></span></li>
+    <li><span class="undocumented"><code>install --registry &lt;url&gt;</code> は <code>&lt;package&gt;@npm</code> の取得元の npm レジストリを指定します。<code>--help</code> にだけあり、docs にはありません。 <span class="badge undocumented">Undocumented</span></span></li>
   </ul>
   <footer class="src">出典: <a href="https://code.claude.com/docs/en/plugins/cli-reference#claude-plugin-commands">plugins/cli-reference#claude-plugin-commands</a> · changelog 2.1.321（<code>restore-set-aside</code> はリファレンス未掲載）· 実機確認 2.1.321（<code>--help</code>）</footer>
 </section>
@@ -543,7 +543,7 @@ N plugin MCP servers · N plugin LSP servers</pre>
       </table>
       <ul class="small">
         <li><code>claude plugins</code> は別名です。終了コードは成功 0、失敗 1 です。</li>
-        <li><code>--json</code> は stdout の最終行に <code>command</code>・<code>outcome</code>・<code>message</code> を持つ 1 オブジェクトを出します。</li>
+        <li><code>install</code>・<code>uninstall</code>・<code>update</code>・<code>enable</code>・<code>disable</code> と marketplace の add・remove・update の <code>--json</code> は、stdout の最終行に <code>command</code>・<code>outcome</code>・<code>message</code> を持つ 1 オブジェクトを出します。</li>
       </ul>
     </div>
     <div>
@@ -600,7 +600,7 @@ Per-component (rounded)
       <li><strong>on-invoke</strong> は本文で、呼ばれるたびに払います。コマンド（上の <code>ping</code>）は Skills に数えます。フックと MCP は見積もりません。MCP の分は <code>/context</code> で見ます。</li>
       <li>公式マーケットプレイスのプラグインは、導入前に <strong>Context cost</strong>（<code>Every turn:</code>・<code>When invoked:</code>）を表示します。2,000 トークン以上なら強調されます。</li>
       <li>使用状況: <code>/plugin</code> の <strong>Not used recently</strong>（14 日かつ 10 セッション未使用）、<code>/skill-doctor</code>、<code>/doctor</code>、<code>/usage</code>。</li>
-      <li>組織全体は OTel の <code>claude_code.plugin_loaded</code> などと Analytics API で測ります。公式以外のプラグイン名は既定で <code>third-party</code> に伏せられます（<a href="#/ch61">Ch61</a>）。</li>
+      <li>組織全体は OTel の <code>claude_code.plugin_loaded</code> などと Analytics API で測ります。公式以外のプラグイン名は既定で伏せられるか省かれます（<code>plugin_loaded</code> では <code>third-party</code>）（<a href="#/ch61">Ch61</a>）。</li>
     </ul>
   </div>
   <footer class="src">出典: <a href="https://code.claude.com/docs/en/plugins/measure">plugins/measure</a> · <a href="https://code.claude.com/docs/en/plugins/cli-reference#plugin-details">plugins/cli-reference#plugin-details</a> · 実機確認 2.1.321</footer>
@@ -627,7 +627,7 @@ Per-component (rounded)
       <ul class="small">
         <li><strong>relevance</strong>: marketplace のエントリに書きます。signals は <code>cwd</code>・<code>cli</code>・<code>hosts</code>・<code>filesRead</code>・<code>manifestDeps</code> で、照合は手元だけで行います。</li>
         <li><code>cli</code> は先頭のコマンド名だけを見ます。<code>cd infra &amp;&amp; terraform plan</code> は <code>cd</code> です。</li>
-        <li>スピナーの tip、起動時の通知、Discover の先頭固定で、3 セッションに 1 回まで出ます。ターミナルでは managed の <code>pluginSuggestionMarketplaces</code> に名前が必要です。</li>
+        <li>スピナーの tip と起動時の通知（合わせて 3 セッションに 1 回まで）、Discover の先頭固定（初回のみ）で出ます。ターミナルでは managed の <code>pluginSuggestionMarketplaces</code> に名前が必要です。</li>
       </ul>
     </div>
   </div>

@@ -10,6 +10,7 @@ import {
   checkPrivacy,
   checkCoverage,
   checkSources,
+  checkLinks,
 } from "./lib/lint-rules.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -148,4 +149,10 @@ await test("CLI exits 1 with a grouped report on findings", () => {
   assert.match(bad.stdout, /s-nosrc/);
   const good = run("lint-clean.html");
   assert.equal(good.status, 0, good.stdout + good.stderr);
+});
+
+await test("an internal link without a target slide is reported", () => {
+  const html =
+    '<section id="ch01"><section id="ch01-a"><a href="#/ch01-a">ok</a><a href="#/ch99">bad</a></section></section>';
+  assert.deepEqual(checkLinks(html), ["ch99"]);
 });

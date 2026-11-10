@@ -24,7 +24,7 @@
     <li><code>/config</code> の保存先は、大半が <code>~/.claude/settings.json</code>、<strong>Show tips</strong> など一部が <code>.claude/settings.local.json</code>、global config が <code>~/.claude.json</code> です。<code>/config verbose=true</code> のように <code>key=value</code> でも設定できます。</li>
     <li>設定キーは 249 個です。索引のスコープ列の内訳は Any file 157、Managed 44、User or managed 31、User, local, or managed 4、User 1、Global config 12 です（<a href="#/apx-settings">付録 A</a>）。</li>
   </ul>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/settings#settings-files-and-who-they-affect">settings#settings-files-and-who-they-affect</a> · <a href="https://code.claude.com/docs/en/settings#use-the-config-menu">settings#use-the-config-menu</a> · <a href="https://code.claude.com/docs/en/settings-reference#settings-index">settings-reference#settings-index</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/settings#settings-files-and-who-they-affect">settings#settings-files-and-who-they-affect</a> · <a href="https://code.claude.com/docs/en/settings#use-the-%2Fconfig-menu">settings#use-the-/config-menu</a> · <a href="https://code.claude.com/docs/en/settings-reference#settings-index">settings-reference#settings-index</a></footer>
 </section>
 
 <section id="ch18-paths">
@@ -35,7 +35,7 @@
       <tr><td>User</td><td><code>~/.claude/settings.json</code></td><td>同左</td><td><code>%USERPROFILE%\.claude\settings.json</code></td></tr>
       <tr><td>Managed ファイル</td><td><code>/Library/Application Support/ClaudeCode/managed-settings.json</code></td><td><code>/etc/claude-code/managed-settings.json</code></td><td><code>C:\Program Files\ClaudeCode\managed-settings.json</code></td></tr>
       <tr><td>同じディレクトリ</td><td colspan="3"><code>managed-settings.d/*.json</code>（分割ファイル）と <code>managed-mcp.json</code></td></tr>
-      <tr><td>MDM・OS ポリシー</td><td>構成プロファイル。ドメイン <code>com.anthropic.claudecode</code></td><td>なし</td><td><code>HKLM\SOFTWARE\Policies\ClaudeCode</code> の値 <code>Settings</code>（<code>REG_SZ</code> または <code>REG_EXPAND_SZ</code> の JSON）</td></tr>
+      <tr><td>MDM・OS ポリシー</td><td>構成プロファイル。ドメイン <code>com.anthropic.claudecode</code></td><td>Linux はなし。WSL は条件付き</td><td><code>HKLM\SOFTWARE\Policies\ClaudeCode</code> の値 <code>Settings</code>（<code>REG_SZ</code> または <code>REG_EXPAND_SZ</code> の JSON）</td></tr>
       <tr><td>HKCU</td><td>なし</td><td>WSL は条件付き</td><td><code>HKCU\SOFTWARE\Policies\ClaudeCode</code> の値 <code>Settings</code></td></tr>
     </tbody>
   </table>
@@ -125,7 +125,7 @@
           <tr><td><code>--setting-sources ""</code></td><td><code>claude-opus-5-5</code>（既定モデル）</td></tr>
         </tbody>
       </table>
-      <p class="small muted">プロンプトはローカルコマンド <code>/advisor</code> にして、モデルへのリクエストを送らずに init だけを取りました。既定モデルはサブスクリプションの場合の値です。</p>
+      <p class="small muted">プロンプトはローカルコマンド <code>/advisor</code> にして、モデルへのリクエストを送らずに init だけを取りました。既定モデルは Anthropic API・サブスクリプションの場合の値です。</p>
     </div>
   </div>
   <footer class="src">出典: <a href="https://code.claude.com/docs/en/settings#settings-precedence">settings#settings-precedence</a> · 実機確認 2.1.321</footer>

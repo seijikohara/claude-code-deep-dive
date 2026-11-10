@@ -92,8 +92,8 @@ Your skill instructions here...</pre>
       <ul class="small">
         <li>Skill ディレクトリは <code>name</code> とディレクトリ名のどちらでも呼べます。<code>deploy-staging/</code> に <code>name: deploy</code> なら <code>/deploy</code> も使えます。<code>.claude/commands/frontend/component.md</code> は <code>/frontend:component</code> です。</li>
         <li>プラグインの <code>my-plugin/skills/review/SKILL.md</code> は <code>/my-plugin:review</code>、<code>name: fancy</code> なら <code>/my-plugin:fancy</code> です。空いていれば <code>/fancy</code> でも呼べます。</li>
-        <li>名前の比較は大文字小文字・空白・不可視文字を無視し、全角やダッシュの異体を同一視します（v2.1.228 以降）。</li>
-        <li>拒否される文字: ゼロ幅・制御文字、私用・未割当の文字、方向制御、半角空白 1 個以外の空白、<code>&lt;</code> <code>&gt;</code>。フォルダ名なら読み込まれず、<code>name</code> なら無視されます。<code>claude --debug</code> のログで <code>[names]</code> を探します。</li>
+        <li>同期した Skill と他のコマンドの名前の比較は、大文字小文字・空白・不可視文字を無視し、全角やダッシュの異体を同一視します（v2.1.228 以降）。</li>
+        <li>拒否される文字: ゼロ幅・制御文字、私用・未割当の文字、方向制御、半角空白 1 個以外の空白、<code>&lt;</code> <code>&gt;</code>。プラグイン外のフォルダ名なら読み込まれず、<code>name</code> なら無視されます。<code>claude --debug</code> のログで <code>[names]</code> を探します。</li>
         <li>256 文字を超える <code>name</code> は無視されます（2.1.292）。</li>
         <li>非対話セッションでは <code>help</code>・<code>feedback</code> が予約されず、その名前のプラグイン Skill は短い名前で動きます。<code>/login</code> など他の端末専用の名前は予約されたままです。</li>
       </ul>
@@ -177,7 +177,7 @@ Your skill instructions here...</pre>
       </ul>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/skills#control-who-invokes-a-skill">skills#control-who-invokes-a-skill</a> · <a href="https://code.claude.com/docs/en/skills#stack-several-skills-in-one-message">#stack-several-skills-in-one-message</a> · <a href="https://code.claude.com/docs/en/skills#restrict-claudes-skill-access">#restrict-claudes-skill-access</a> · <a href="https://code.claude.com/docs/en/sub-agents#preload-skills-into-subagents">sub-agents#preload-skills-into-subagents</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.1.222</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/skills#control-who-invokes-a-skill">skills#control-who-invokes-a-skill</a> · <a href="https://code.claude.com/docs/en/skills#stack-several-skills-in-one-message">#stack-several-skills-in-one-message</a> · <a href="https://code.claude.com/docs/en/skills#restrict-claude’s-skill-access">#restrict-claude’s-skill-access</a> · <a href="https://code.claude.com/docs/en/sub-agents#preload-skills-into-subagents">sub-agents#preload-skills-into-subagents</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.1.222・2.1.295</a></footer>
 </section>
 
 <section id="ch29-arguments">
@@ -432,7 +432,7 @@ hooks:
       <div class="callout conflict"><p class="small">skills ページと commands ページは、<code>/skill-doctor</code> を「v2.1.252 以降」と記載しています。</p></div>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/skills#skill-descriptions-are-cut-short">skills#skill-descriptions-are-cut-short</a> · <a href="https://code.claude.com/docs/en/skills#find-unused-skills">#find-unused-skills</a> · <a href="https://code.claude.com/docs/en/settings-reference#skilllistingbudgetfraction">settings-reference#skilllistingbudgetfraction</a> · <a href="https://code.claude.com/docs/en/env-vars">env-vars</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.1.32・2.1.86・2.1.105・2.1.261</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/skills#skill-descriptions-are-cut-short">skills#skill-descriptions-are-cut-short</a> · <a href="https://code.claude.com/docs/en/skills#find-unused-skills">#find-unused-skills</a> · <a href="https://code.claude.com/docs/en/settings-reference#skilllistingbudgetfraction">settings-reference#skilllistingbudgetfraction</a> · <a href="https://code.claude.com/docs/en/env-vars">env-vars</a> · <a href="https://code.claude.com/docs/en/commands#all-commands">commands#all-commands</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.1.32・2.1.86・2.1.105・2.1.261</a></footer>
 </section>
 
 <section id="ch29-reload">
@@ -442,7 +442,7 @@ hooks:
       <ul class="small">
         <li><code>~/.claude/skills/</code>、プロジェクトの <code>.claude/skills/</code>、<code>--add-dir</code> の <code>.claude/skills/</code> を監視し、追加・編集・削除をセッション中に反映します（bare mode を除く）。</li>
         <li>起動後に作ったトップレベルの skills ディレクトリは監視されません。<code>/reload-skills</code> を実行し、その後の変更のたびに再実行します。<code>/reload-skills</code> は Skill とコマンドのディレクトリを再走査し、増減の数を報告します。</li>
-        <li>監視の対象は <code>SKILL.md</code> の本文だけです。プラグインを兼ねる Skill フォルダの <code>hooks/</code>・<code>.mcp.json</code>・<code>agents/</code>・<code>output-styles/</code> には <code>/reload-plugins</code> が要ります。<code>--add-dir</code> の <code>commands/</code>・<code>agents/</code> は再起動が要ります。</li>
+        <li>監視の対象は <code>SKILL.md</code> の内容だけです。プラグインを兼ねる Skill フォルダの <code>hooks/</code>・<code>.mcp.json</code>・<code>agents/</code>・<code>output-styles/</code> には <code>/reload-plugins</code> が要ります。<code>--add-dir</code> の <code>commands/</code>・<code>agents/</code> は再起動が要ります。</li>
         <li><code>SessionStart</code> フックが <code>reloadSkills: true</code> を返すと、Skill のディレクトリを再走査します（2.1.152）。</li>
         <li>2.1.304 以降、圧縮の後は Skill の一覧を送り直し、<code>/reload-skills</code> は新規と変更分だけを送ります。</li>
         <li><code>skillOverrides</code> の別名（<code>/doctor</code> の <code>checkup</code> など）のキーは、managed と <code>--settings</code> でだけ効き、絞る方向にだけ働きます。</li>
@@ -513,7 +513,7 @@ Skill(deploy *)</pre>
     </table>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/skills#restrict-claudes-skill-access">skills#restrict-claudes-skill-access</a> · <a href="https://code.claude.com/docs/en/settings-reference#disablebundledskills">settings-reference#disablebundledskills</a> · <a href="https://code.claude.com/docs/en/settings-reference#strictpluginonlycustomization-skills">#strictpluginonlycustomization-skills</a> · <a href="https://code.claude.com/docs/en/cli-reference#cli-flags">cli-reference#cli-flags</a> · <a href="https://code.claude.com/docs/en/env-vars">env-vars</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.1.139・2.1.260</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/skills#restrict-claude’s-skill-access">skills#restrict-claude’s-skill-access</a> · <a href="https://code.claude.com/docs/en/settings-reference#disablebundledskills">settings-reference#disablebundledskills</a> · <a href="https://code.claude.com/docs/en/settings-reference#strictpluginonlycustomization-skills">#strictpluginonlycustomization-skills</a> · <a href="https://code.claude.com/docs/en/cli-reference#cli-flags">cli-reference#cli-flags</a> · <a href="https://code.claude.com/docs/en/env-vars">env-vars</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.1.139・2.1.260</a></footer>
 </section>
 
 <section id="ch29-lab">

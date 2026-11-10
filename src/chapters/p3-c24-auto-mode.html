@@ -128,7 +128,7 @@
     </div>
     <div>
       <h3>作業ディレクトリ外の初回読み取り</h3>
-      <p class="small">Read・Grep・Glob が初めて外を読むとき 1 度だけ確認します（<code>-p</code> とバックグラウンドでは出ない）。</p>
+      <p class="small">Read・Grep・Glob が初めて外を読むとき確認します（<code>-p</code> とバックグラウンドでは出ない）。</p>
       <ul class="small">
         <li><strong>Yes, and keep allowing any reads outside the working directories</strong></li>
         <li><strong>No, and block reads outside the working directories from now on</strong>: user 設定に <code>permissions.blockReadsOutsideWorkingDirectories: true</code> を書く</li>
@@ -238,7 +238,7 @@ requests in Claude Code. However, this session isn't eligible.</pre>
         <tbody>
           <tr><td><code>claude auto-mode defaults [--label &lt;prefix&gt;]</code></td><td>組み込みルールを JSON で表示。<code>--label</code> はラベルの前方一致（大文字小文字無視）</td></tr>
           <tr><td><code>claude auto-mode config</code></td><td>設定を反映した実効値を JSON で表示</td></tr>
-          <tr><td><code>claude auto-mode critique [--model &lt;model&gt;]</code></td><td>独自ルールの曖昧さや重複を AI が指摘</td></tr>
+          <tr><td><code>claude auto-mode critique [--model &lt;model&gt;]</code></td><td>独自ルールの曖昧さや重複を AI が指摘。<code>--model</code> は help のみ <span class="badge undocumented">Undocumented</span></td></tr>
           <tr><td><code>claude auto-mode reset [-y]</code></td><td>user 設定の <code>autoMode</code> だけを削除。確認文は <code>Reset auto mode configuration to defaults?</code></td></tr>
         </tbody>
       </table>

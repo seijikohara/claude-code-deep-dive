@@ -46,7 +46,7 @@
       <p class="small muted"><code>MessageSelector</code>（<code>/rewind</code> の一覧）は固有のアクションを持たず、<code>select:*</code> をこの一覧だけで変えるために使います。<code>Scroll</code> はフルスクリーン描画（<a href="#/ch17">Ch17</a>、Preview）専用です。</p>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/keybindings#configuration-file">keybindings#configuration-file</a> · <a href="https://code.claude.com/docs/en/keybindings#contexts">#contexts</a> · <a href="https://code.claude.com/docs/en/keybindings#available-actions">#available-actions</a> · <a href="https://code.claude.com/docs/en/cli-reference#cli-flags">cli-reference#cli-flags</a> · changelog 2.1.18</footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/keybindings#configuration-file">keybindings#configuration-file</a> · <a href="https://code.claude.com/docs/en/keybindings#contexts">#contexts</a> · <a href="https://code.claude.com/docs/en/keybindings#available-actions">#available-actions</a> · <a href="https://code.claude.com/docs/en/cli-reference#cli-flags">cli-reference#cli-flags</a> · <a href="https://code.claude.com/docs/en/claude-directory#file-reference">claude-directory#file-reference</a> · changelog 2.1.18</footer>
 </section>
 
 <section id="ch14-syntax">
@@ -74,7 +74,7 @@
       <table class="dense">
         <thead><tr><th style="width:22%">コンテキスト</th><th>既定の <code>ctrl+x</code> コード</th></tr></thead>
         <tbody>
-          <tr><td><code>Chat</code></td><td><code>ctrl+x ctrl+k</code> <code>ctrl+x ctrl+e</code> <code>ctrl+x enter</code>（v2.1.247） <code>ctrl+x ctrl+a</code> <code>ctrl+x tab</code>（v2.1.260） <code>ctrl+x ctrl+s</code>（v2.1.275）</td></tr>
+          <tr><td><code>Chat</code></td><td><code>ctrl+x ctrl+k</code> <code>ctrl+x ctrl+e</code> <code>ctrl+x enter</code>（v2.1.247） <code>ctrl+x ctrl+a</code>（v2.1.260） <code>ctrl+x tab</code>（v2.1.260） <code>ctrl+x ctrl+s</code>（v2.1.275）</td></tr>
           <tr><td><code>Task</code></td><td><code>ctrl+x ctrl+b</code></td></tr>
           <tr><td><code>DiffPanel</code></td><td><code>ctrl+x b</code>（v2.1.260）</td></tr>
           <tr><td><code>Pane</code></td><td><code>ctrl+x left</code> <code>ctrl+x right</code> <code>ctrl+x up</code> <code>ctrl+x down</code> <code>ctrl+x x</code></td></tr>
@@ -106,7 +106,7 @@
       </table>
       <ul class="small">
         <li>端末側との衝突: <kbd>Ctrl</kbd>+<kbd>B</kbd>（tmux の prefix。2 回押す）、<kbd>Ctrl</kbd>+<kbd>A</kbd>（GNU screen）、<kbd>Ctrl</kbd>+<kbd>Z</kbd>（SIGTSTP）。</li>
-        <li>アクションが無く変えられないもの: readline 編集キー、vim のキー、フルスクリーンの履歴検索ダイアログの <kbd>Enter</kbd>/<kbd>Tab</kbd>/<kbd>Esc</kbd>、<code>/effort</code> スライダーの <kbd>Enter</kbd>/<kbd>Esc</kbd>。</li>
+        <li>アクションが無く変えられないもの: 単語系の編集キー、vim のキー、フルスクリーンの履歴検索ダイアログの <kbd>Enter</kbd>/<kbd>Tab</kbd>/<kbd>Esc</kbd>、<code>/effort</code> スライダーの <kbd>Enter</kbd>/<kbd>Esc</kbd>。</li>
         <li>検証の警告は <code>--debug</code> のログに出ます（構造の誤り、不正なコンテキスト、予約キーとの衝突、同一コンテキスト内の重複など）。<code>ctl+k</code> は <code>k</code> に割り当てられ、<code>ctrl+ k</code> は発火しないコードになります。未知のアクションはその行を飛ばし、既定を残します。</li>
       </ul>
     </div>

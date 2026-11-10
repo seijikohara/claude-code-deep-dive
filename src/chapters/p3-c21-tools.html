@@ -70,7 +70,7 @@
       <tbody>
         <tr><td><code>CronCreate</code>・<code>CronDelete</code>・<code>CronList</code></td><td>セッション内の定期実行</td><td>不要</td><td>あり</td></tr>
         <tr><td><code>ScheduleWakeup</code></td><td><code>/loop</code> の次回を決める</td><td>不要</td><td>あり</td></tr>
-        <tr><td><code>RemoteTrigger</code></td><td>クラウドの定期タスク</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>RemoteTrigger</code></td><td>クラウドの定期タスク <span class="badge preview">Preview</span></td><td>不要</td><td>あり</td></tr>
         <tr><td><code>PushNotification</code></td><td>通知とプッシュ</td><td>不要</td><td>あり</td></tr>
         <tr><td><code>SendUserFile</code></td><td>ファイルをユーザーへ送る</td><td>不要</td><td>—</td></tr>
         <tr><td><code>ShareOnboardingGuide</code></td><td><code>ONBOARDING.md</code> の共有</td><td>要</td><td>—</td></tr>
@@ -80,7 +80,7 @@
       </tbody>
     </table>
   </div>
-  <p class="small">「不要」のツールも、作業ディレクトリの外では確認が出ます。<code>Bash</code> は読み取り専用コマンドの組み込みセットを確認なしで実行します。advisor はサーバー側のツールで、権限ルールやフックの <code>matcher</code> に書ける名前を持ちません（<a href="#/ch05">Ch5</a>）。スケジュール系の詳細は <a href="#/ch43">Ch43</a> です。</p>
+  <p class="small">「不要」のファイル系ツール（<code>Read</code>・<code>Glob</code>・<code>Grep</code> など）も、作業ディレクトリの外では確認が出ます。<code>Bash</code> は読み取り専用コマンドの組み込みセットを確認なしで実行します。advisor はサーバー側のツールで、権限ルールやフックの <code>matcher</code> に書ける名前を持ちません（<a href="#/ch05">Ch5</a>）。スケジュール系の詳細は <a href="#/ch43">Ch43</a> です。</p>
   <footer class="src">出典: <a href="https://code.claude.com/docs/en/tools-reference">tools-reference</a> · <a href="https://code.claude.com/docs/en/tools-reference#check-which-tools-are-available">#check-which-tools-are-available</a> · 実機確認 2.1.321</footer>
 </section>
 

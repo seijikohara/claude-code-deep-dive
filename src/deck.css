@@ -727,3 +727,17 @@ body {
 .reveal ol ul {
   list-style: none;
 }
+
+/* the deck TOC lists every chapter (about 75) on one slide */
+.reveal .toc {
+  columns: 4;
+  column-gap: 36px;
+  font-size: 15px;
+  line-height: 1.42;
+}
+.reveal .toc-part {
+  margin-bottom: 10px;
+}
+.reveal .toc-part h3 {
+  font-size: 15px;
+}

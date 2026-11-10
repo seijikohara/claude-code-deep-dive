@@ -198,7 +198,7 @@
           <tr><td><code>CLAUDE_CODE_DISABLE_ULTRATHINK</code></td><td>2.1.316。<code>ultrathink</code> キーワードを無効化</td></tr>
           <tr><td><code>CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL</code></td><td>2.1.296。workflow エージェントを 1 つのモデルで動かす</td></tr>
           <tr><td><code>CLAUDE_CODE_LOOP_KEEPALIVE</code></td><td>2.1.319。self-paced <code>/loop</code> の旧挙動（フォールバックの wakeup）を残す（<a href="#/ch43">Ch43</a>）</td></tr>
-          <tr><td><code>CLAUDE_CODE_DISABLE_MCP_TASKS</code></td><td>2.1.319。MCP タスクを無効化（<a href="#/ch30">Ch30</a>）</td></tr>
+          <tr><td><code>CLAUDE_CODE_DISABLE_MCP_TASKS</code></td><td>2.1.319。MCP タスク <span class="badge beta">Beta</span> を無効化（<a href="#/ch30">Ch30</a>）</td></tr>
         </tbody>
       </table>
     </div>
@@ -235,7 +235,7 @@
         <li>大きな貼り付けを貼り付けとして扱う処理</li>
         <li>API が拒否する入力スキーマを持つ MCP ツールの除外</li>
       </ul>
-      <p class="small">docs は MCP タスクもこの一覧に挙げていますが、2.1.319 から flag の取得なしで動きます（changelog、<a href="#/ch30">Ch30</a>）。</p>
+      <p class="small">docs は MCP タスクもこの一覧に挙げていますが、2.1.319 からターミナルでは flag の取得なしで動きます（changelog、<a href="#/ch30">Ch30</a>）。</p>
     </div>
   </div>
   <footer class="src">出典: <a href="https://code.claude.com/docs/en/env-vars#features-that-need-feature-flag-fetching">env-vars#features-that-need-feature-flag-fetching</a> · <a href="https://code.claude.com/docs/en/env-vars#first-session-after-an-install-or-upgrade">#first-session-after-an-install-or-upgrade</a> · <a href="https://code.claude.com/docs/en/changelog">changelog 2.1.319</a></footer>

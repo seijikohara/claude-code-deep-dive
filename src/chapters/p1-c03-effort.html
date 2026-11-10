@@ -276,7 +276,7 @@ Effort level: auto</pre>
         <li>モデルが Opus 5.5、Sonnet 5.5、Haiku 5.5、Fable 5.2、Fable 5.1 以外の場合。Amazon Bedrock のように引き上げられない環境では、effort を直接設定します。</li>
       </ul>
       <p class="small"><code>CLAUDE_CODE_DISABLE_ULTRATHINK</code> はキーワードを無効にします（2.1.316 で追加。環境変数リファレンスには未掲載）。</p>
-      <p class="small muted">フラグが立ったターンを <code>ultrathink</code> で引き上げていた場合、そのレベルはそのターンだけに効き、フォールバック先のモデルには引き継がれません。</p>
+      <p class="small muted">フラグが立ったターンを <code>ultrathink</code> で引き上げていた場合、そのレベルはそのターンだけに効きます。以降のターンは、フォールバック先のモデルで通常の解決順序に従います。</p>
     </div>
   </div>
   <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#use-ultrathink-for-one-off-deep-reasoning">model-config#use-ultrathink-for-one-off-deep-reasoning</a> · <a href="https://code.claude.com/docs/en/model-config#effort-level-after-a-fallback">#effort-level-after-a-fallback</a> · <a href="https://code.claude.com/docs/en/skills">skills</a> · changelog 2.1.311 · changelog 2.1.316（<code>CLAUDE_CODE_DISABLE_ULTRATHINK</code> はリファレンス未掲載）</footer>

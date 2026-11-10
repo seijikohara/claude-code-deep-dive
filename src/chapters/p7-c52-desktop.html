@@ -1,0 +1,280 @@
+<section id="ch52" data-part="Part VII プラットフォーム" data-chapter="Ch52" data-title="Desktop">
+
+<section id="ch52-title" class="chapter-title">
+  <p class="chapter-label">52</p>
+  <h1>Desktop</h1>
+  <p class="chapter-summary">Claude Desktop アプリの Code タブで Claude Code を使う形態です。この章では、アプリと同梱 CLI の 2 つのバージョン、CLI との行き来、権限モードと diff、PR 監視と Browser ペイン、並列セッション、SSH、管理キー、Computer use と Dispatch、iOS Simulator・Linux・WSL を扱います。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch52-overview">
+  <h2>全体像: Code タブと 2 つのバージョン</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>Desktop アプリには chat・Cowork・Code があり、Claude Code は <strong>Code</strong> タブです。会話ごとに独立した<strong>セッション</strong>（履歴とプロジェクトフォルダ）を持ち、サイドバーで並列に動かせます。</li>
+        <li>最初のメッセージの前に、プロンプト欄の下の行で選びます。
+          <ul>
+            <li>環境: <strong>Local</strong>・<strong>Cloud</strong>・<strong>SSH</strong>・<strong>WSL</strong></li>
+            <li>プロジェクトフォルダ（Cloud はリポジトリ）</li>
+            <li>権限モードとモデル（どちらも途中で変更可）</li>
+          </ul></li>
+        <li>Pro・Max・Ultra・Team・Enterprise のサブスクリプションが必要です。Node.js や CLI のインストールは要りません。</li>
+        <li>配布: macOS はユニバーサルビルド、Windows は x64 と ARM64、Linux は apt（Beta）です。</li>
+        <li>ペイン（チャット・diff・Browser・ターミナル・ファイルエディタ）を並べて配置できます。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>アプリのバージョンと Claude Code のバージョン</h3>
+      <ul class="small">
+        <li>ローカルセッションの Code タブは、<strong>自分専用の Claude Code</strong> を動かします。アプリがダウンロード・更新するため、ターミナルの <code>claude</code> と版が違うことがあり、片方を更新してももう片方は変わりません。</li>
+        <li>Code タブの版は、ローカルセッションで <code>/status</code> を実行し <strong>Claude Code</strong> 行で確認します。更新は <strong>Check for Updates…</strong> のあと新しいセッションを始めます。</li>
+        <li>アプリ自体の版（例: v2.37337.0）は <strong>About Claude</strong> で確認します。docs は Desktop の機能をこのアプリ版で、エンジンの挙動を Claude Code の版で条件付けしています。</li>
+        <li>環境の選択欄がプロンプト欄の<strong>下</strong>にあるのが現行レイアウトです（Claude アカウントでは Desktop v2.37337.0 以降）。上にある旧レイアウトには、セッション詳細パネルと保存済み環境がありません。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/desktop">desktop</a> · <a href="https://code.claude.com/docs/en/desktop#start-a-session">#start-a-session</a> · <a href="https://code.claude.com/docs/en/desktop#check-your-version">#check-your-version</a> · <a href="https://code.claude.com/docs/en/desktop#check-which-layout-you-have">#check-which-layout-you-have</a> · <a href="https://code.claude.com/docs/en/desktop-quickstart">desktop-quickstart</a></footer>
+</section>
+
+<section id="ch52-cli">
+  <h2>CLI との行き来と、共有される設定</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li><code>/desktop</code>（別名 <code>/app</code>）は CLI のセッションを保存して Desktop で開き、CLI を終了します。macOS と x64 Windows で、サブスクリプションでサインインしている場合だけ使えます。API キーや Bedrock・Agent Platform・Foundry では使えません。</li>
+        <li><code>claude --desktop</code>（v2.1.285 以降）はターミナルのセッションを始めずに Desktop を開きます。<code>--continue</code> か <code>--resume &lt;session-id&gt;</code> で既存セッションを開きます（名前は不可）。</li>
+        <li>Desktop のローカルセッションで <code>/resume</code> を実行すると、このマシンで CLI から始めたセッションを選べます。コピーではなく同じセッションを続けます。SSH・WSL・クラウドでは使えません。</li>
+        <li><strong>Open in &gt; Cloud</strong> は、会話を要約してクラウドセッションとして続けます。SSH・WSL のセッションは移せません。</li>
+      </ul>
+<pre data-lang="bash" class="compact">claude --desktop --resume <session-id>
+# Opening session <session-id> in Claude Desktop</pre>
+    </div>
+    <div>
+      <ul class="small">
+        <li>CLAUDE.md・<code>CLAUDE.local.md</code>、<code>~/.claude.json</code>・<code>.mcp.json</code> の MCP サーバー、フック、Skill、<code>~/.claude/settings.json</code> は CLI と共有です。</li>
+        <li>ローカルセッションは <code>claude_desktop_config.json</code> の MCP サーバーも読みます。同じ名前なら <code>claude_desktop_config.json</code> の定義を使います。<code>~/.claude.json</code> と <code>.mcp.json</code> に同名の stdio サーバーがあると <code>~/.claude.json</code> を使い、CLI のスコープ順と異なります。</li>
+        <li><code>--print</code>・<code>--output-format</code> に相当するものはありません。<code>--allowedTools</code> にもセッション単位の代替はありません。</li>
+      </ul>
+      <table class="dense">
+        <thead><tr><th style="width:44%">Code タブで効き方が違うキー</th><th>ローカルセッションでの扱い</th></tr></thead>
+        <tbody>
+          <tr><td><code>askUserQuestionTimeout</code></td><td>適用されず、質問は開いたまま</td></tr>
+          <tr><td><code>defaultShell</code></td><td><code>!</code> はログインシェル（Windows は PowerShell）</td></tr>
+          <tr><td><code>modelPicker</code></td><td>無視。絞るなら <code>availableModels</code></td></tr>
+          <tr><td><code>prUrlTemplate</code></td><td>PR 自身の URL を使う</td></tr>
+          <tr><td><code>skipDangerousModePermissionPrompt</code></td><td>Code タブ独自の Bypass 確認は省けない</td></tr>
+          <tr><td><code>worktree.baseRef</code> など 3 キー</td><td>Code タブが作る worktree には使わない</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/desktop#coming-from-the-cli">desktop#coming-from-the-cli</a> · <a href="https://code.claude.com/docs/en/desktop#shared-configuration">#shared-configuration</a> · <a href="https://code.claude.com/docs/en/desktop#claude-code-settings-that-behave-differently-in-the-code-tab">#claude-code-settings-that-behave-differently-in-the-code-tab</a> · <a href="https://code.claude.com/docs/en/desktop#continue-in-another-surface">#continue-in-another-surface</a> · <a href="https://code.claude.com/docs/en/commands">commands</a></footer>
+</section>
+
+<section id="ch52-modes-diff">
+  <h2>権限モード・diff ビュー・<code>/code-review</code></h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>モード選択欄には Manual（<code>default</code>）・Accept edits・Plan・Auto が並びます。<code>dontAsk</code> は CLI 専用です。モードの詳細は <a href="#/ch23">Ch23</a> で扱います。</li>
+        <li>Bypass permissions は、Pro・Max・Ultra では <strong>Allow bypass permissions mode</strong> を設定でオンにすると現れます。Team・Enterprise には設定がなく、組織ポリシーで決まります。</li>
+        <li>Bypass でも、どのモードでも自動承認されない操作、外部サイトでの安全分類器、セッション削除などのデスクトップ操作は確認します（アーカイブは確認しません）。</li>
+        <li>ローカルセッションで選んだモードはフォルダごとに記憶され、プロジェクトの <code>.claude/</code> の <code>defaultMode</code> より優先されます。<code>~/.claude/settings.json</code> や managed settings の <code>defaultMode</code> で始まることはあります。Plan はそのセッションだけです。</li>
+        <li>クラウドセッションは Accept edits・Plan・Auto です。Accept edits が <code>default</code> に当たります。</li>
+        <li>旧版の表示名は Ask permissions・Auto accept edits・Plan mode です。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>diff ビュー</h3>
+      <ul class="small">
+        <li><strong>Changes</strong> カードの行数（<code>+12 -1</code>）か、タイトルバーの <strong>Changes</strong> で開きます。</li>
+        <li>行番号横の <strong>+</strong> でコメントを書き、<kbd>Cmd</kbd>+<kbd>Enter</kbd>（Windows は <kbd>Ctrl</kbd>+<kbd>Enter</kbd>）でまとめて送ると、Claude が新しい diff を作ります。</li>
+        <li>クラウドセッションのベースブランチとの diff には、未 push の変更が出ないことがあります。</li>
+      </ul>
+      <h3><code>/code-review</code></h3>
+      <ul class="small">
+        <li>ローカル・SSH・WSL では、指摘がファイルごとの <strong>Code review</strong> カードで届きます。</li>
+        <li><strong>Walk through in diff</strong> で 1 件ずつ確認して <strong>Fix this one</strong> か却下、<strong>Apply fixes</strong> で残りをまとめて修正します。コマンド自体は <a href="#/ch47">Ch47</a> で扱います。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/desktop#choose-a-permission-mode">desktop#choose-a-permission-mode</a> · <a href="https://code.claude.com/docs/en/desktop#review-changes-with-diff-view">#review-changes-with-diff-view</a> · <a href="https://code.claude.com/docs/en/desktop#review-your-code">#review-your-code</a></footer>
+</section>
+
+<section id="ch52-pr-browser">
+  <h2>PR の監視と Browser ペイン</h2>
+  <div class="cols-2">
+    <div>
+      <h3>PR の監視</h3>
+      <ul class="small">
+        <li>PR を作ると <strong>Changes</strong> カードに CI の状態が出ます。PR の <strong>⋮</strong> メニューで自動化を選びます。</li>
+        <li><strong>Auto-fix</strong>: 失敗したチェックを Claude が直します。ローカルセッションでは、他人の新しいレビューコメントにも対応します（所有者・組織メンバー・コラボレーター・GitHub App のコメントに限る）。</li>
+        <li><strong>Merge when ready</strong>: GitHub の auto-merge をオンにします。ローカルでは、マージキューがなければ squash merge を要求します。SSH・WSL では使えません。</li>
+        <li>PR 監視には認証済みの <code>gh</code> が必要です。SSH セッションでは、push と <code>gh pr create</code> をリモートで実行するため、リモートに <code>gh</code> を用意します。</li>
+        <li><strong>Auto-archive after PR merge or close</strong> で、PR のマージ・クローズ時にセッションを自動アーカイブします（クラウドと実行中のセッションは対象外）。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Browser ペイン</h3>
+      <ul class="small">
+        <li>Claude が dev サーバーを起動してペインで開き、スクリーンショット・DOM 確認・クリック・入力で変更を検証します。auto-verify は既定でオンで、<code>.claude/launch.json</code> の <code>"autoVerify": false</code> で止めます。SSH セッションにはこのツールがありません。</li>
+        <li>外部サイトも開けます（<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>）。書き込み操作はすべてのモードで安全分類器が確認し、Auto・Bypass 以外では新しいサイトへの移動前にドメイン許可リストも確認します。</li>
+        <li>初めて操作するサイトでは <strong>Allow once</strong>・<strong>Always allow</strong>・<strong>Deny</strong> を選びます（サブドメインごと）。</li>
+        <li>ペインは個人のログイン情報を持たないクリーンなプロファイルです。ログイン済みのブラウザで操作させるなら Claude in Chrome（<a href="#/ch54">Ch54</a>）を使います。</li>
+                <li>管理キー: <code>browserExternalPageTools: "disabled"</code> は外部ページでのツールを止め、<code>disableBrowserExternalNavigation: true</code> は外部への移動自体を止めます。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/desktop#monitor-pull-request-status">desktop#monitor-pull-request-status</a> · <a href="https://code.claude.com/docs/en/desktop#preview-your-app">#preview-your-app</a> · <a href="https://code.claude.com/docs/en/desktop#browse-external-sites">#browse-external-sites</a> · <a href="https://code.claude.com/docs/en/desktop#archive-a-session">#archive-a-session</a> · <a href="https://code.claude.com/docs/en/desktop#managed-settings">#managed-settings</a></footer>
+</section>
+
+<section id="ch52-parallel">
+  <h2>並列セッション・worktree・セッション間の操作</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li><strong>+ New</strong>（<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>N</kbd>）で新しいセッション、<kbd>Ctrl</kbd>+<kbd>Tab</kbd> で切り替えます。<kbd>Option</kbd>/<kbd>Alt</kbd>+クリックで分割表示、<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+クリックで別ウィンドウです。</li>
+        <li><strong>Worktree</strong> をオンにして始めると、セッションは専用の Git worktree で動きます（既定はオフ）。保存先は既定で <code>&lt;project-root&gt;/.claude/worktrees/</code> です。</li>
+        <li>ローカルは設定の <strong>Worktree location</strong>、SSH は接続の <strong>Worktree folder</strong> で保存先を変えます。<strong>Branch prefix</strong> は worktree ブランチ名の前に付きます。</li>
+        <li><code>.worktreeinclude</code> で <code>.env</code> などの gitignore 対象を新しい worktree にコピーします。<strong>+</strong> の <strong>Add folder</strong> で追加したフォルダは worktree を使いません。</li>
+        <li>アーカイブ時に worktree の未コミット変更を失うことがあります。残った worktree は、ローカルではアーカイブか最終オープンの遅い方から約 30 日後に削除されます。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>セッション間の操作</h3>
+      <ul class="small">
+        <li>Claude は他の Code タブのセッションを一覧し、内容を読み、メッセージを送り、名前変更やアーカイブもできます。</li>
+        <li>対象は Desktop 自身が動かすローカル・SSH・WSL のセッションです。クラウド、ターミナルの CLI、VS Code のセッションは見えません。既定では直近 20 件です。</li>
+        <li>アーカイブ前には承認カードが出ます（Auto・Bypass を除く）。受信側の <code>crossSessionInbound</code> が <code>refuse</code> なら破棄されます。</li>
+        <li>2.1.321 から、Code タブのセッションが入力を待たずに他セッションへ送れるメッセージは 10 件から 20 件になりました。仕組みは <a href="#/ch40">Ch40</a> で扱います。</li>
+        <li>ローカルセッションを他の端末に出すかは、Remote Control の設定（<strong>Connect new sessions to Remote Control</strong>、<code>remoteControlAtStartup</code>）で決まります（<a href="#/ch49">Ch49</a>）。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/desktop#work-in-parallel-with-sessions">desktop#work-in-parallel-with-sessions</a> · <a href="https://code.claude.com/docs/en/desktop#run-a-session-in-its-own-worktree">#run-a-session-in-its-own-worktree</a> · <a href="https://code.claude.com/docs/en/desktop#keep-uncommitted-changes-when-a-session-is-archived">#keep-uncommitted-changes-when-a-session-is-archived</a> · <a href="https://code.claude.com/docs/en/desktop#work-across-sessions">#work-across-sessions</a> · <a href="https://code.claude.com/docs/en/desktop#control-which-sessions-appear-on-your-other-devices">#control-which-sessions-appear-on-your-other-devices</a> · changelog 2.1.321</footer>
+</section>
+
+<section id="ch52-ssh">
+  <h2>SSH セッション</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li><strong>New environment</strong> の <strong>SSH</strong> タブで接続を追加します。項目は Name・SSH host（<code>user@hostname</code> か <code>~/.ssh/config</code> のホスト）・SSH port（既定 22）・SSH key・Worktree folder です。</li>
+        <li>リモートは Linux・macOS・Windows です。初回接続時に Desktop が Claude Code を <code>~/.claude/remote/</code> に自動インストールします（1 ユーザーあたり約 1 GB）。</li>
+        <li>Linux・macOS のリモートには x86_64 か arm64、SFTP サブシステム、<code>noexec</code> でないインストール先、SSH 経由でコマンドを実行できるシェルが必要です。</li>
+        <li>SSH セッションは <code>~/.claude/skills/</code> や managed settings ファイルをリモート側から読みます。</li>
+        <li>Claude Code はリモート上のバックグラウンドヘルパーの下で動くため、スリープ・切断・終了のあともタスクは続きます（Desktop v2.31226.0 以降）。ただし Claude アカウントのサインインは Desktop が接続中にしか更新されず、数分で切れることもあります。夜通しの作業はクラウドセッションを使います。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>リンクと、コマンドで作る接続</h3>
+      <ul class="small">
+        <li><code>claude://code/new</code> リンクは SSH 接続を指定して新規セッション画面を開きます（Desktop v2.110.0 以降）。必須は <code>ssh_host</code> だけです（下の例）。</li>
+        <li><code>sshHostCommands</code>（<code>~/.claude/settings.json</code>）は、オンデマンドでマシンを作るコマンドを登録し、出力されたホストを接続として保存します。Desktop はマシンを停止・削除しないため、課金が続くことがあります。</li>
+        <li>チーム向けには managed settings の <code>sshConfigs</code>（接続の配布）、<code>sshHostAllowlist</code>（解決後のホスト名で許可。空配列で SSH を無効化。踏み台ホストも一致が必要）、<code>disableDesktopLocalSessions</code> を組み合わせます。<code>sshHostAllowlist</code> は Desktop だけが読み、Bash の <code>ssh</code> は制限しません。</li>
+      </ul>
+    </div>
+  </div>
+  <pre data-lang="text" class="compact">claude://code/new?ssh_host=dev%40build.example.com&ssh_port=2222&ssh_folder=/srv/payments&q=Investigate%20the%20failed%20deploy</pre>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/desktop#ssh-sessions">desktop#ssh-sessions</a> · <a href="https://code.claude.com/docs/en/desktop#keep-a-task-running-while-desktop-is-disconnected">#keep-a-task-running-…</a> · <a href="https://code.claude.com/docs/en/desktop#open-an-ssh-session-from-a-link">#open-an-ssh-session-from-a-link</a> · <a href="https://code.claude.com/docs/en/desktop#create-an-ssh-connection-from-a-command">#create-an-ssh-connection-from-a-command</a> · <a href="https://code.claude.com/docs/en/desktop#restrict-which-ssh-hosts-users-can-connect-to">#restrict-which-ssh-hosts-users-can-connect-to</a></footer>
+</section>
+
+<section id="ch52-admin">
+  <h2>コネクタ・プラグインと管理キー</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>コネクタは GUI で設定する MCP サーバーです。ローカルと SSH のセッションで、プロンプト欄の <strong>+</strong> から追加し、サイドバーの <strong>Customize</strong> で管理します。</li>
+        <li>ローカル・SSH では、Desktop が claude.ai のコネクタを Claude Code に直接渡します。MCP 設定や <code>managed-mcp.json</code> はこれらに効かないため、組織のコネクタツール制御で止めます。</li>
+        <li>プラグインはローカル・SSH で <strong>+</strong> の <strong>Add plugins</strong> から入れます。クラウドと WSL では使えません。</li>
+        <li>管理コンソールでは、Desktop での Claude Code の利用、クラウドセッション、Remote Control をそれぞれオン・オフできます。</li>
+        <li>managed settings の届き方: ローカルはディスク上の managed settings ファイルと（条件を満たすログインなら）server-managed settings、クラウドは server-managed settings、SSH はリモートの managed settings ファイルです。</li>
+        <li>デバイス管理は macOS が <code>com.anthropic.claudefordesktop</code>、Windows が <code>SOFTWARE\Policies\Claude</code>、Linux が <code>/etc/claude-desktop/managed-settings.json</code>（root 所有）です。</li>
+      </ul>
+    </div>
+    <table class="dense">
+      <thead><tr><th style="width:46%">managed settings のキー</th><th>効果</th></tr></thead>
+      <tbody>
+        <tr><td><code>permissions.disableBypassPermissionsMode</code></td><td><code>"disable"</code> で Bypass を禁止</td></tr>
+        <tr><td><code>disableAutoMode</code></td><td><code>"disable"</code> で Auto を選択欄から外す</td></tr>
+        <tr><td><code>browserExternalPageTools</code></td><td><code>"disabled"</code> で外部ページのツールを止める</td></tr>
+        <tr><td><code>disableBrowserExternalNavigation</code></td><td><code>true</code> で外部サイトへの移動を禁止</td></tr>
+        <tr><td><code>disableMobileSimulatorTools</code></td><td><code>true</code> で iOS Simulator の Claude 用ツールを止める</td></tr>
+        <tr><td><code>sshConfigs</code> / <code>sshHostCommands</code></td><td>SSH 接続の配布 / コマンドで作る接続の配布</td></tr>
+        <tr><td><code>sshHostAllowlist</code></td><td>SSH 先の許可リスト（managed のみ）</td></tr>
+        <tr><td><code>disableDesktopLocalSessions</code></td><td>ローカルセッションを無効化（managed のみ）</td></tr>
+        <tr><td><code>disableSshSavedPasswords</code></td><td>SSH パスワードの保存・利用を止める（managed のみ）</td></tr>
+        <tr><td><code>managedMcpServers</code></td><td>MCP サーバーを配布（3P デプロイのみ）</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/desktop#connect-external-tools">desktop#connect-external-tools</a> · <a href="https://code.claude.com/docs/en/desktop#install-plugins">#install-plugins</a> · <a href="https://code.claude.com/docs/en/desktop#admin-console-controls">#admin-console-controls</a> · <a href="https://code.claude.com/docs/en/desktop#managed-settings">#managed-settings</a> · <a href="https://code.claude.com/docs/en/desktop#device-management-policies">#device-management-policies</a></footer>
+</section>
+
+<section id="ch52-computer-use">
+  <h2>Computer use と Dispatch</h2>
+  <div class="cols-2">
+    <div>
+      <h3>Computer use <span class="badge preview">Preview</span></h3>
+      <ul class="small">
+        <li>Claude がアプリを開き、画面を操作します。macOS と Windows の research preview で、Pro・Max・Ultra だけです（Team・Enterprise 不可）。macOS は 14 以降が必要で、Linux 版にはありません。</li>
+        <li>既定はオフです。<strong>Settings</strong> の <strong>This computer &gt; System</strong>（なければ <strong>Capabilities</strong>）で <strong>Enable computer use</strong> をオンにします。macOS ではアクセシビリティと画面収録の許可も要ります。</li>
+        <li>Claude はコネクタ、Bash、Claude in Chrome、iOS Simulator ペインの順に精密な手段を試し、どれも当てはまらないときに画面操作を使います。</li>
+        <li>アプリごとの権限は、初回に <strong>Allow for this session</strong> か <strong>Deny</strong> で決めます。操作の段階はアプリの種類で固定です。</li>
+      </ul>
+      <table class="dense">
+        <tbody>
+          <tr><td>View only</td><td>ブラウザ、取引プラットフォーム</td></tr>
+          <tr><td>Click only</td><td>ターミナル、IDE（入力・ショートカット不可）</td></tr>
+          <tr><td>Full control</td><td>その他すべて</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>Dispatch</h3>
+      <ul class="small">
+        <li>Dispatch は Cowork にある継続的な会話です。モバイルアプリからタスクを送ると、Dispatch が扱い方を決めます。</li>
+        <li>開発作業（バグ修正、依存の更新、テスト、PR 作成）は Code セッションになります。明示的に頼むこともできます。調査・文書・表計算は Cowork に残ります。</li>
+        <li>起動したセッションはサイドバーに並び、完了や承認待ちでスマートフォンに通知が届きます。</li>
+        <li>Dispatch が起動したセッションも Computer use を使えます。アプリの承認は 30 分で失効し、再確認になります。</li>
+        <li>Pro・Max・Ultra のみで、Team・Enterprise では使えません。ペアリングの手順はヘルプ記事にあります。</li>
+      </ul>
+      <p class="small">CLI の Computer use は <a href="#/ch54">Ch54</a> で扱います。</p>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/desktop#let-claude-use-your-computer">desktop#let-claude-use-your-computer</a> · <a href="https://code.claude.com/docs/en/desktop#app-permissions">#app-permissions</a> · <a href="https://code.claude.com/docs/en/desktop#sessions-from-dispatch">#sessions-from-dispatch</a> · <a href="https://code.claude.com/docs/en/desktop-linux#whats-not-in-the-linux-beta-yet">desktop-linux</a></footer>
+</section>
+
+<section id="ch52-more">
+  <h2>スケジュールタスク・iOS Simulator・Linux・WSL</h2>
+  <div class="cols-2">
+    <div>
+      <h3>ローカルのスケジュールタスク</h3>
+      <p class="small">Desktop の <strong>Scheduled tasks</strong> ページには、ローカルとクラウドのタスクが並びます。ローカルのタスクはアプリが開いていてマシンが起きている間だけ動きます。比較は <a href="#/ch43">Ch43</a> で扱います。</p>
+      <h3>iOS Simulator ペイン <span class="badge beta">Beta</span></h3>
+      <ul class="small">
+        <li>Claude がアプリをビルド・起動すると、Apple の iOS Simulator の画面がペインに流れます。画面操作を使わないため Computer use は不要です。</li>
+        <li>macOS・Desktop v1.24012.0 以降・iOS プラットフォーム入りの Xcode が必要です。ローカルセッション専用で、HIPAA 構成の Enterprise 組織では使えません。</li>
+        <li>デバイスごとに初回だけ許可します。URL を開く、ビルド、インストールと起動は権限モードに従います。</li>
+        <li>Claude が起動したシミュレータは、アプリ終了時、セッションのアーカイブ時、または切り離しから 10 分後に停止します。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Linux 版 <span class="badge beta">Beta</span></h3>
+      <ul class="small">
+        <li>Ubuntu 22.04 以降か Debian 12 以降、x86_64 か arm64 です。Anthropic の apt リポジトリから入れます。</li>
+        <li>Computer use と音声入力はまだありません。Fedora・RHEL は対象外です。Cowork には KVM と QEMU が必要です。</li>
+      </ul>
+      <h3>WSL セッション</h3>
+      <ul class="small">
+        <li>Windows 10・11 の WSL 2（WSL 1 は不可）で、ディストリビューション内に <code>git</code> が必要です。Claude Code・ツール・git はディストリビューション内で動きます。</li>
+        <li>フォルダの信頼はディストリビューションとフォルダの組ごとです。</li>
+        <li>並列セッション・diff・PR 状態・worktree は使えます。プラグインは使えず、ファイルペインでは編集できません。ターミナルとコネクタは提供状況によります。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/desktop-scheduled-tasks">desktop-scheduled-tasks</a> · <a href="https://code.claude.com/docs/en/desktop-ios-simulator">desktop-ios-simulator</a> · <a href="https://code.claude.com/docs/en/desktop-linux">desktop-linux</a> · <a href="https://code.claude.com/docs/en/desktop-wsl">desktop-wsl</a></footer>
+</section>
+
+</section>

@@ -1,0 +1,550 @@
+<section id="ch45" data-part="Part VI 自動化" data-chapter="Ch45" data-title="Agent SDK">
+
+<section id="ch45-title" class="chapter-title">
+  <p class="chapter-label">45</p>
+  <h1>Agent SDK</h1>
+  <p class="chapter-summary">Claude Code をライブラリとして TypeScript と Python から使う SDK です。この章では、パッケージと認証、最小例、ループの上限とメッセージ型、CLI と既定値が違うオプション、セッションと SessionStore、権限・フック・カスタムツール・MCP、サブエージェントとシステムプロンプト、運用時のコストと分離を扱います。SDK のコード例は docs からの転記で、実行はしていません。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch45-packages">
+  <h2>パッケージ・要件・認証</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:22%"></th><th>TypeScript</th><th>Python</th></tr></thead>
+        <tbody>
+          <tr><td>パッケージ</td><td><code>@anthropic-ai/claude-agent-sdk</code></td><td><code>claude-agent-sdk</code>（import は <code>claude_agent_sdk</code>）</td></tr>
+          <tr><td>要件</td><td>Node.js 18.14 以上</td><td>Python 3.10 以上</td></tr>
+          <tr><td>旧名</td><td><code>@anthropic-ai/claude-code</code></td><td><code>claude-code-sdk</code>。<code>ClaudeCodeOptions</code> は <code>ClaudeAgentOptions</code> に改名</td></tr>
+          <tr><td>バイナリが同梱されない場合</td><td><code>npm ci --omit=optional</code> など。ネイティブ版を入れて <code>pathToClaudeCodeExecutable</code> を指定</td><td>sdist で入った場合（ARM64 Windows など）。ネイティブ版を入れると <code>PATH</code> から見つける</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>SDK は <code>claude</code> CLI をサブプロセスとして起動し、stdio で通信します。1 セッションが 1 サブプロセスです。</li>
+        <li>同梱バイナリは SDK のバージョンに固定され、SDK の更新が CLI の更新になります。SDK は semver に従います。例: TS v0.3.290・Python v0.2.164 から CLI v2.1.290 以降を同梱します。</li>
+        <li>TS の V2 セッション API（<code>unstable_v2_createSession</code> など）は試験的な API で、TS SDK 0.3.142 で削除されました。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>認証</h3>
+      <ul class="small">
+        <li><code>ANTHROPIC_API_KEY</code> を、エージェントを動かすプロセスの環境に設定します。SDK は <code>.env</code> を自動では読みません。</li>
+        <li>Bedrock は <code>CLAUDE_CODE_USE_BEDROCK=1</code>、Claude Platform on AWS は <code>CLAUDE_CODE_USE_ANTHROPIC_AWS=1</code> と <code>ANTHROPIC_AWS_WORKSPACE_ID</code>、Agent Platform は <code>CLAUDE_CODE_USE_VERTEX=1</code>、Foundry は <code>CLAUDE_CODE_USE_FOUNDRY=1</code> です。</li>
+        <li>事前の承認がない限り、サードパーティの製品（SDK で作ったエージェントを含む）で claude.ai のログインやレート制限を提供することは認められていません。</li>
+      </ul>
+      <h3>ブランドとライセンス</h3>
+      <ul class="small">
+        <li>使える表記: 「Claude Agent」、Agents メニュー内の「Claude」、「{YourAgentName} Powered by Claude」</li>
+        <li>使えない表記: 「Claude Code」「Claude Code Agent」、Claude Code に似せた ASCII アートや見た目</li>
+        <li>利用は Anthropic の Commercial Terms of Service に従います。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/overview">agent-sdk/overview</a> · <a href="https://code.claude.com/docs/en/agent-sdk/quickstart">agent-sdk/quickstart</a> · <a href="https://code.claude.com/docs/en/agent-sdk/migration-guide">agent-sdk/migration-guide</a> · <a href="https://code.claude.com/docs/en/agent-sdk/hosting">agent-sdk/hosting</a> · <a href="https://code.claude.com/docs/en/agent-sdk/streaming-output">agent-sdk/streaming-output</a> · <a href="https://code.claude.com/docs/en/agent-sdk/typescript-v2-preview">agent-sdk/typescript-v2-preview</a></footer>
+</section>
+
+<section id="ch45-minimal-py">
+  <h2>最小例 (1/2): Python</h2>
+<pre data-lang="python" class="compact">import asyncio
+from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, ResultMessage
+
+
+async def main():
+    # Agentic loop: streams messages as Claude works
+    async for message in query(
+        prompt="Review utils.py for bugs that would cause crashes. Fix any issues you find.",
+        options=ClaudeAgentOptions(
+            allowed_tools=["Read", "Edit", "Glob"],  # Auto-approve these tools
+            permission_mode="acceptEdits",  # Auto-approve file edits
+        ),
+    ):
+        # Print human-readable output
+        if isinstance(message, AssistantMessage):
+            for block in message.content:
+                if hasattr(block, "text"):
+                    print(block.text)  # Claude's reasoning
+                elif hasattr(block, "name"):
+                    print(f"Tool: {block.name}")  # Tool being called
+        elif isinstance(message, ResultMessage):
+            print(f"Done: {message.subtype}")  # Final result
+
+
+asyncio.run(main())</pre>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/quickstart#build-an-agent-that-finds-and-fixes-bugs">agent-sdk/quickstart#build-an-agent-that-finds-and-fixes-bugs</a>（docs のコードを転記。未実行）</footer>
+</section>
+
+<section id="ch45-minimal-ts">
+  <h2>最小例 (2/2): TypeScript</h2>
+  <div class="cols-2" style="grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr)">
+<pre data-lang="typescript" class="compact">import { query } from "@anthropic-ai/claude-agent-sdk";
+
+// Agentic loop: streams messages as Claude works
+for await (const message of query({
+  prompt: "Review utils.py for bugs that would cause crashes. Fix any issues you find.",
+  options: {
+    allowedTools: ["Read", "Edit", "Glob"], // Auto-approve these tools
+    permissionMode: "acceptEdits" // Auto-approve file edits
+  }
+})) {
+  // Print human-readable output
+  if (message.type === "assistant" && message.message?.content) {
+    for (const block of message.message.content) {
+      if ("text" in block) {
+        console.log(block.text); // Claude's reasoning
+      } else if ("name" in block) {
+        console.log(`Tool: ${block.name}`); // Tool being called
+      }
+    }
+  } else if (message.type === "result") {
+    console.log(`Done: ${message.subtype}`); // Final result
+  }
+}</pre>
+    <div>
+      <ul class="small">
+        <li><code>query()</code> は非同期イテレータを返し、作業の進行に合わせてメッセージを流します。</li>
+        <li><code>allowedTools</code> は列挙したツールを確認なしで通します。使えるツールを絞る指定ではありません。</li>
+        <li><code>permissionMode: "acceptEdits"</code> はファイル編集を自動で承認します。</li>
+        <li>結果メッセージ（<code>type: "result"</code>）の後にも <code>prompt_suggestion</code> などが届くことがあります。結果で <code>break</code> せず、最後まで読み切ります。</li>
+        <li>同じ例を Python で書いたものが前のスライドです。Python は <code>isinstance</code> で型を判定します。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/quickstart#build-an-agent-that-finds-and-fixes-bugs">agent-sdk/quickstart</a>（docs のコードを転記。未実行） · <a href="https://code.claude.com/docs/en/agent-sdk/agent-loop#message-types">agent-sdk/agent-loop#message-types</a> · <a href="https://code.claude.com/docs/en/agent-sdk/typescript#options">agent-sdk/typescript#options</a></footer>
+</section>
+
+<section id="ch45-loop">
+  <h2>ループの上限・メッセージ型・結果の扱い</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th>オプション（TS / Python）</th><th>既定</th><th>到達時</th></tr></thead>
+        <tbody>
+          <tr><td><code>maxTurns</code> / <code>max_turns</code></td><td>無制限</td><td><code>error_max_turns</code></td></tr>
+          <tr><td><code>maxBudgetUsd</code> / <code>max_budget_usd</code></td><td>無制限</td><td><code>error_max_budget_usd</code></td></tr>
+          <tr><td><code>effort</code></td><td>Claude Code が解決</td><td><code>low</code>〜<code>max</code>。<code>AgentDefinition</code> で個別に上書き</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>ターン数は「ツールを呼ぶターン + 最後の文章だけのターン 1」で数えます。足りないと最終応答なしで終わります。</li>
+        <li>予算の判定は応答の到着後です。超過は最大で応答 1 回分と、実行中のサブエージェントの支出です。上限後のサブエージェント起動は <code>Budget limit reached</code> で失敗します（v2.1.217 以降）。</li>
+        <li>セッション全体のタイムアウトはありません。<code>maxTurns</code> で抑えます。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>主なメッセージ型</h3>
+      <ul class="small">
+        <li><code>SystemMessage</code>: <code>init</code>・<code>compact_boundary</code>・<code>informational</code>・<code>worker_shutting_down</code>。TS では init 以外が別の型です。</li>
+        <li><code>AssistantMessage</code>: 内容ブロック 1 つにつき 1 件。同じ応答のものは同じメッセージ ID を共有します。</li>
+        <li><code>UserMessage</code>・<code>StreamEvent</code>（部分メッセージ有効時）・<code>ResultMessage</code></li>
+      </ul>
+      <h3>結果の扱い</h3>
+      <ul class="small">
+        <li><code>result</code> があるのは <code>success</code> だけです。全 subtype が <code>total_cost_usd</code>・<code>usage</code>・<code>num_turns</code>・<code>session_id</code> を持ちます。</li>
+        <li>単発の <code>query()</code> はエラー結果を出した後に例外を投げます（意図した動作）。ストリーミング入力のセッションは、クラッシュ以外では続きます。</li>
+        <li>拒否は <code>stop_reason === "refusal"</code> で判定します。クラッシュ後は <code>stop_reason</code> が <code>null</code> で、費用が 0 になることがあります。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/agent-loop#turns-and-budget">agent-sdk/agent-loop#turns-and-budget</a> · <a href="https://code.claude.com/docs/en/agent-sdk/agent-loop#message-types">#message-types</a> · <a href="https://code.claude.com/docs/en/agent-sdk/agent-loop#handle-the-result">#handle-the-result</a> · <a href="https://code.claude.com/docs/en/agent-sdk/hosting">agent-sdk/hosting</a></footer>
+</section>
+
+<section id="ch45-options">
+  <h2>オプションと CLI の対応・既定値の違い</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th>TS オプション</th><th>CLI</th></tr></thead>
+        <tbody>
+          <tr><td><code>allowedTools</code> / <code>disallowedTools</code> / <code>tools</code></td><td><code>--allowedTools</code> / <code>--disallowedTools</code> / <code>--tools</code></td></tr>
+          <tr><td><code>permissionMode</code> / <code>permissionPrompts</code> / <code>permissionPromptToolName</code></td><td><code>--permission-mode</code> / <code>--permission-prompts</code> / <code>--permission-prompt-tool</code></td></tr>
+          <tr><td><code>additionalDirectories</code></td><td><code>--add-dir</code>（docs が明記）</td></tr>
+          <tr><td><code>settingSources</code> / <code>settings</code> / <code>strictMcpConfig</code></td><td><code>--setting-sources</code> / <code>--settings</code> / <code>--strict-mcp-config</code></td></tr>
+          <tr><td><code>maxTurns</code> / <code>maxBudgetUsd</code> / <code>fallbackModel</code></td><td><code>--max-turns</code> / <code>--max-budget-usd</code> / <code>--fallback-model</code></td></tr>
+          <tr><td><code>outputFormat: { type: 'json_schema', schema }</code></td><td><code>--json-schema</code></td></tr>
+          <tr><td><code>continue</code> / <code>resume</code> / <code>forkSession</code> / <code>sessionId</code></td><td><code>--continue</code> / <code>--resume</code> / <code>--fork-session</code> / <code>--session-id</code></td></tr>
+          <tr><td><code>persistSession: false</code>（TS のみ）</td><td><code>--no-session-persistence</code></td></tr>
+          <tr><td><code>extraArgs</code></td><td>任意のフラグ（値なしは <code>null</code>）</td></tr>
+        </tbody>
+      </table>
+      <p class="small muted"><code>--add-dir</code> 以外の対応は名前と説明による照合です。</p>
+    </div>
+    <div>
+      <h3>CLI と既定値が違う点</h3>
+      <ul class="small">
+        <li><code>systemPrompt</code> の既定は<strong>最小のプロンプト</strong>です（v0.1.0 以降）。ツール呼び出しだけを扱い、Claude Code の安全・コーディングの指示を含みません。<code>claude -p</code> は Claude Code のプロンプトを使います。</li>
+        <li>TS の <code>env</code> はサブプロセスの環境を<strong>置き換えます</strong>。<code>{ ...process.env, YOUR_VAR: 'value' }</code> と渡します。Python の <code>env</code> は継承した環境に重ねます。</li>
+        <li><code>settingSources</code> の既定は CLI と同じ全ソースです。v0.1.0 で一時的に「なし」に変わり、戻されました。</li>
+        <li>Python で <code>skills</code> を指定し <code>setting_sources</code> を省くと、user と project だけを読みます。</li>
+        <li><code>bypassPermissions</code> には TS で <code>allowDangerouslySkipPermissions: true</code> も必要です。</li>
+        <li><code>taskBudget</code>（API 側のトークン予算）と <code>loadTimeoutMs</code>（既定 60000）は docs が <em>Alpha</em> と記しています。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/typescript#options">agent-sdk/typescript#options</a> · <a href="https://code.claude.com/docs/en/agent-sdk/python#claudeagentoptions">agent-sdk/python#claudeagentoptions</a> · <a href="https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts">agent-sdk/modifying-system-prompts</a> · <a href="https://code.claude.com/docs/en/agent-sdk/migration-guide">agent-sdk/migration-guide</a></footer>
+</section>
+
+<section id="ch45-setting-sources">
+  <h2><code>settingSources</code>: 読み込むファイル系の設定</h2>
+  <table class="dense">
+    <thead><tr><th style="width:11%">ソース</th><th style="width:40%">読み込むもの</th><th>場所（<code>&lt;cwd&gt;</code> は <code>cwd</code> オプション）</th></tr></thead>
+    <tbody>
+      <tr><td><code>"project"</code></td><td>プロジェクトの <code>settings.json</code> とフック、CLAUDE.md と <code>.claude/rules/*.md</code>、skill・コマンド・サブエージェント</td><td><code>settings.json</code> は <code>&lt;cwd&gt;/.claude/</code> だけ（親へは遡らない）。CLAUDE.md と rules は親ディレクトリすべて。skill などはリポジトリのルートまで</td></tr>
+      <tr><td><code>"user"</code></td><td>ユーザーの <code>settings.json</code>、CLAUDE.md と <code>~/.claude/rules/*.md</code>、skill・コマンド・サブエージェント</td><td><code>~/.claude/</code> と、その <code>skills/</code>・<code>commands/</code>・<code>agents/</code></td></tr>
+      <tr><td><code>"local"</code></td><td>CLAUDE.local.md、<code>.claude/settings.local.json</code></td><td><code>settings.local.json</code> は <code>&lt;cwd&gt;/.claude/</code>（git 内ならリポジトリのルートからも）。CLAUDE.local.md は <code>&lt;cwd&gt;</code> と親ディレクトリすべて</td></tr>
+    </tbody>
+  </table>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>省略は <code>["user", "project", "local"]</code> と同じです。<code>[]</code> で 3 つとも読みません。</li>
+        <li>2.1.281 以降、<code>settingSources</code> と <code>--setting-sources</code> はチームメイトや <code>/bg</code> など、起動したセッションにも引き継がれます。</li>
+        <li><code>additionalDirectories</code> の各ディレクトリは <code>--add-dir</code> として渡され、<code>project</code> ソースがあればその skill・コマンド・サブエージェントも読み込みます。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><code>settingSources</code> が制御しないもの</h3>
+      <ul class="small">
+        <li>managed ポリシーと server-managed settings</li>
+        <li><code>~/.claude.json</code>（<code>CLAUDE_CONFIG_DIR</code> で移す）</li>
+        <li>auto memory（<code>CLAUDE_CODE_DISABLE_AUTO_MEMORY=1</code> か <code>autoMemoryEnabled: false</code>）</li>
+        <li>claude.ai の MCP コネクタ。<code>mcpServers: {}</code> では消えません（<code>strictMcpConfig: true</code> などで止める）</li>
+        <li><code>sandbox.credentials</code> の <code>deny</code> と <code>mask</code></li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/claude-code-features">agent-sdk/claude-code-features</a> · <a href="https://code.claude.com/docs/en/agent-sdk/typescript#options">agent-sdk/typescript#options</a> · changelog 2.1.281</footer>
+</section>
+
+<section id="ch45-sessions">
+  <h2>セッションと SessionStore</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th>作るもの</th><th>使うもの</th></tr></thead>
+        <tbody>
+          <tr><td>単発のタスク</td><td>何も要らない。<code>query()</code> 1 回</td></tr>
+          <tr><td>1 プロセス内の複数ターン</td><td>Python は <code>ClaudeSDKClient</code>、TS は <code>continue: true</code></td></tr>
+          <tr><td>再起動後に続ける</td><td><code>continue_conversation=True</code> / <code>continue: true</code>（最新のセッション）</td></tr>
+          <tr><td>特定のセッションを再開</td><td>ID を保存して <code>resume</code> に渡す</td></tr>
+          <tr><td>元を残して別案を試す</td><td>fork（<code>forkSession</code>）</td></tr>
+          <tr><td>ディスクに何も書かない</td><td><code>persistSession: false</code>（TS のみ）。Python は <code>env</code> に <code>CLAUDE_CODE_SKIP_PROMPT_HISTORY</code></td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>保存先は <code>~/.claude/projects/&lt;encoded-cwd&gt;/</code> の <code>.jsonl</code> です。保存されるのは会話で、ファイルシステムではありません。ファイルの巻き戻しは <code>enableFileCheckpointing</code> と <code>rewindFiles()</code> です（<a href="#/ch08">Ch8</a>）。</li>
+        <li>別ホストで再開するには、SessionStore を使うか、<code>.jsonl</code> を新ホストの <code>~/.claude/projects/</code> 配下に置きます。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>SessionStore</h3>
+      <ul class="small">
+        <li>必須は <code>append(key, entries)</code> と <code>load(key)</code>。任意で <code>listSessions</code>・<code>listSessionSummaries</code>・<code>delete</code>・<code>listSubkeys</code>。キーは <code>{ projectKey, sessionId, subpath? }</code> です。</li>
+        <li><code>projectKey</code> は作業ディレクトリから作るので、同じ <code>cwd</code> から再開します。</li>
+        <li>サブプロセスがまずローカルに書き、SDK がストアへ複製します。ストアから再開した実行は終了時にローカルの写しを消すため、ストアが唯一の写しになります。</li>
+        <li><code>append</code> の失敗は計 3 回まで試し、だめなら <code>mirror_error</code> を出してそのバッチを捨てます。<code>entry.uuid</code> で重複を除きます。</li>
+        <li><code>persistSession: false</code> やファイルチェックポイントとの併用は、起動時に例外です。SDK はストアから削除しません。</li>
+        <li>開発用に <code>InMemorySessionStore</code> があり、S3・Redis・Postgres の参考実装が各 SDK リポジトリにあります。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/sessions">agent-sdk/sessions</a> · <a href="https://code.claude.com/docs/en/agent-sdk/session-storage">agent-sdk/session-storage</a> · <a href="https://code.claude.com/docs/en/agent-sdk/file-checkpointing">agent-sdk/file-checkpointing</a></footer>
+</section>
+
+<section id="ch45-streaming-input">
+  <h2>ストリーミング入力と単発入力</h2>
+  <div class="cols-2" style="grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr)">
+    <div>
+<pre data-lang="typescript" class="compact">import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { readFile } from "fs/promises";
+
+async function* generateMessages(): AsyncGenerator<SDKUserMessage> {
+  // First message
+  yield {
+    type: "user",
+    message: {
+      role: "user",
+      content: "Analyze this codebase for security issues"
+    },
+    parent_tool_use_id: null
+  };</pre>
+      <p class="small muted">docs の例の冒頭部分です。この後、2 秒待って画像付きの 2 通目を <code>yield</code> します。</p>
+      <ul class="small">
+        <li>CLI では <code>--input-format stream-json</code> で、1 行 1 メッセージの JSON を流します。改行なしで 268,435,456 文字を超えると終了コード 1 です。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>ストリーミング入力（推奨）</h3>
+      <ul class="small">
+        <li><code>prompt</code> に <code>AsyncIterable</code> を渡します。</li>
+        <li>画像の添付、メッセージのキュー、途中の割り込み、権限の確認、自然な複数ターンを扱えます。</li>
+      </ul>
+      <h3>単発入力</h3>
+      <ul class="small">
+        <li><code>prompt</code> に文字列を渡します。単発の応答や、Lambda のような状態を持たない環境向けです。</li>
+        <li>画像の直接添付、動的なキュー、リアルタイムの割り込み、自然な複数ターンは使えません。</li>
+        <li>エラー結果のあと例外を投げます。</li>
+      </ul>
+      <p class="small">画像ブロックの <code>source</code> が欠けてもエラーにはならず、代わりの文字列が Claude に渡されます。</p>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/streaming-vs-single-mode">agent-sdk/streaming-vs-single-mode</a>（コードは転記。未実行） · <a href="https://code.claude.com/docs/en/errors#stream-json-input-carried-over-256m-characters-with-no-newline">errors</a></footer>
+</section>
+
+<section id="ch45-permissions">
+  <h2>権限の評価順・<code>canUseTool</code>・AskUserQuestion</h2>
+  <div class="cols-2">
+    <div>
+      <h3>評価の 6 段階</h3>
+      <ol class="small">
+        <li><strong>フック</strong>: 拒否するか次へ渡す。<code>allow</code> を返しても deny・ask ルールは評価される</li>
+        <li><strong>deny ルール</strong>（<code>disallowedTools</code>・設定）: <code>bypassPermissions</code> でも拒否</li>
+        <li><strong>ask ルール</strong>: <code>canUseTool</code> へ回す。<code>AskUserQuestion</code> と <code>requiresUserInteraction</code> の MCP ツールもここで止まる</li>
+        <li><strong>モード</strong>: <code>bypassPermissions</code> は承認、<code>acceptEdits</code> はファイル操作を承認、<code>default</code>・<code>dontAsk</code> は次へ</li>
+        <li><strong>allow ルール</strong>（<code>allowedTools</code>・設定）と、作業ディレクトリ内の読み取りなど自己承認する呼び出し</li>
+        <li><strong><code>canUseTool</code></strong>: <code>dontAsk</code> では呼ばれず拒否。<code>permissionPrompts: 'none'</code> でも呼ばれない</li>
+      </ol>
+      <p class="small">モード未指定の SDK は v2.1.302 以降 <code>default</code> で始まり、コールバックがなければ承認待ちは拒否です（<a href="#/ch23">Ch23</a>）。<code>bypassPermissions</code> などでは、TS が <code>CLAUDE_SDK_CAN_USE_TOOL_SHADOWED</code> 警告を出します。</p>
+      <p class="small">Python の docs の例は、ストリーミングの <code>prompt</code> と、<code>{"continue_": True}</code> を返すダミーの <code>PreToolUse</code> フックを「必須の回避策」として併用しています。</p>
+    </div>
+    <div>
+      <h3><code>canUseTool</code> の戻り値</h3>
+      <table class="dense">
+        <thead><tr><th></th><th>Python</th><th>TypeScript</th></tr></thead>
+        <tbody>
+          <tr><td>許可</td><td><code>PermissionResultAllow(updated_input=...)</code></td><td><code>{ behavior: "allow", updatedInput }</code></td></tr>
+          <tr><td>拒否</td><td><code>PermissionResultDeny(message=...)</code></td><td><code>{ behavior: "deny", message }</code></td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>3 番目の引数の <code>suggestions</code> を <code>updatedPermissions</code> で返すと「次から聞かない」になります。<code>updatedInput</code> は v2.1.207 以降省略可です。</li>
+      </ul>
+      <h3>AskUserQuestion</h3>
+      <ul class="small">
+        <li>1 回に質問 1〜4 個、各 2〜4 択。<code>header</code> は 12 文字まで、<code>multiSelect</code> で複数選択です。</li>
+        <li>回答は <code>answers: { "&lt;質問文&gt;": "&lt;label&gt;" }</code> で返します。サブエージェントでは使えません。<code>tools</code> を指定する場合は <code>AskUserQuestion</code> を含めます。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/permissions#how-permissions-are-evaluated">agent-sdk/permissions#how-permissions-are-evaluated</a> · <a href="https://code.claude.com/docs/en/agent-sdk/user-input">agent-sdk/user-input</a> · <a href="https://code.claude.com/docs/en/permission-modes#tool-calls-denied-in-claude--p-and-agent-sdk-runs">permission-modes</a></footer>
+</section>
+
+<section id="ch45-hooks-1">
+  <h2>フック (1/2): 登録・入出力・判定</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li><code>hooks</code> にイベント名をキー、matcher の配列を値として渡します。matcher は <code>matcher</code>・<code>hooks</code>（必須）・<code>timeout</code>（秒）・<code>onFailure</code> を持ちます。</li>
+        <li>コールバックは TS で <code>(input, toolUseID, { signal })</code>、Python で <code>(input_data, tool_use_id, context)</code> です。</li>
+        <li>出力形式は設定ファイルのコマンドフックと同じ JSON です。<code>{}</code> で何もせず通します。</li>
+        <li><code>PreToolUse</code> は <code>hookSpecificOutput</code> に <code>permissionDecision</code>（<code>allow</code>・<code>deny</code>・<code>ask</code>・<code>defer</code>）、<code>permissionDecisionReason</code>、<code>updatedInput</code> を返します。<code>defer</code> は <code>stop_reason</code> が <code>tool_deferred</code> の結果でターンを終えます。</li>
+        <li>判定が割れたら <code>deny</code> &gt; <code>defer</code> &gt; <code>ask</code> &gt; <code>allow</code> の順で強い方を採ります。一致したフックは並列に動き、完了順は決まりません。</li>
+        <li>非同期にするには <code>{ async: true, asyncTimeout: 30000 }</code> を返します（Python は <code>async_</code>）。</li>
+        <li><code>settingSources</code> で読んだ設定ファイルのシェルフックも同じイベントで動きます。</li>
+      </ul>
+    </div>
+    <div>
+<pre data-lang="typescript" class="compact">for await (const message of query({
+  prompt: "Your prompt",
+  options: {
+    hooks: {
+      PreToolUse: [{ matcher: "Bash", hooks: [myCallback] }]
+    }
+  }
+})) {
+  console.log(message);
+}</pre>
+      <p class="small muted">docs の登録例（TypeScript）です。<code>myCallback</code> は別途定義したコールバックです。</p>
+      <p class="small">イベントの詳細と終了コードの意味は <a href="#/ch28">Ch28</a> です。</p>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/hooks#configure-hooks">agent-sdk/hooks#configure-hooks</a>（コードは転記。未実行） · <a href="https://code.claude.com/docs/en/agent-sdk/hooks#callback-functions">#callback-functions</a></footer>
+</section>
+
+<section id="ch45-hooks-2">
+  <h2>フック (2/2): TS と Python の違い・失敗時の扱い</h2>
+<pre data-lang="python" class="compact">options = ClaudeAgentOptions(
+    hooks={"PreToolUse": [HookMatcher(matcher="Bash", hooks=[my_callback])]}
+)
+
+async with ClaudeSDKClient(options=options) as client:
+    await client.query("Your prompt")
+    async for message in client.receive_response():
+        print(message)</pre>
+  <div class="cols-2">
+    <div>
+      <h3>イベントの対応</h3>
+      <ul class="small">
+        <li>33 イベントのうち、Python で使えるのは 10 個です: <code>PreToolUse</code>・<code>PostToolUse</code>・<code>PostToolUseFailure</code>・<code>UserPromptSubmit</code>・<code>Stop</code>・<code>SubagentStart</code>・<code>SubagentStop</code>・<code>PreCompact</code>・<code>PermissionRequest</code>・<code>Notification</code>。</li>
+        <li>残る 23 個（<code>SessionStart</code>・<code>SessionEnd</code>・<code>PostToolBatch</code>・<code>Setup</code> など）は TS だけです。Python では <code>SessionStart</code>・<code>SessionEnd</code> を設定ファイルのシェルフックとしてだけ使えます。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>コールバックの失敗</h3>
+      <ul class="small">
+        <li>既定では、例外や検証に通らない出力があっても処理は進み、<code>SDKInformationalMessage</code> の警告が届きます。</li>
+        <li><code>onFailure: "block"</code>（Python は <code>on_failure="block"</code>）で、失敗時に処理を止めます。TS SDK v0.3.317・Python SDK v0.2.177 以降、CLI 2.1.317 以降です。</li>
+        <li>止めたときのツール結果には <code>failed; blocking because onFailure is "block"</code> が入り、元のエラー文は Claude に見せません。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/hooks#available-hooks">agent-sdk/hooks#available-hooks</a> · <a href="https://code.claude.com/docs/en/agent-sdk/hooks#block-the-action-when-a-callback-fails">#block-the-action-when-a-callback-fails</a>（コードは転記。未実行） · changelog 2.1.317</footer>
+</section>
+
+<section id="ch45-custom-tools">
+  <h2>カスタムツール（SDK MCP サーバー）</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>ツールを同じプロセス内の MCP サーバーに包みます。TS は <code>tool(name, description, schema, handler, extras?)</code> と <code>createSdkMcpServer({ name, version, tools })</code>、Python は <code>@tool</code> と <code>create_sdk_mcp_server()</code> です。</li>
+        <li>ツール名は <code>mcp__{server_name}__{tool_name}</code> です。<code>{server_name}</code> は <code>mcpServers</code> のキーで、<code>.</code> や空白は <code>_</code> に置き換えます。</li>
+        <li>ハンドラーは <code>content</code>（<code>text</code>・<code>image</code>・<code>audio</code>・<code>resource</code>・<code>resource_link</code>）と任意の <code>isError</code> を返します。</li>
+        <li>捕まえない例外は生のメッセージのままエラー結果になり、ループは続きます。文面を決めるなら <code>isError: true</code> を返します。</li>
+        <li>TS だけ、<code>createSdkMcpServer()</code> の戻り値の <code>tools</code> 配列に <code>permission_policy</code> を書けます。<code>always_ask</code> は <code>allowedTools</code> の承認を無効にして <code>canUseTool</code> へ回し（<code>destructiveHint: true</code> を明示）、<code>always_deny</code> は deny ルールの段階で拒否します。</li>
+        <li>注釈はメタデータで、強制ではありません。</li>
+      </ul>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th>注釈</th><th>既定</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td><code>readOnlyHint</code></td><td>false</td><td>環境を変えない（並列に呼べる）</td></tr>
+          <tr><td><code>destructiveHint</code></td><td>true</td><td>破壊的な更新がありうる</td></tr>
+          <tr><td><code>idempotentHint</code></td><td>false</td><td>同じ引数の繰り返しで追加の効果がない</td></tr>
+          <tr><td><code>openWorldHint</code></td><td>true</td><td>プロセス外のシステムに届く</td></tr>
+        </tbody>
+      </table>
+<pre data-lang="typescript" class="compact">import { query } from "@anthropic-ai/claude-agent-sdk";
+
+for await (const message of query({
+  prompt: "What's the temperature in San Francisco?",
+  options: {
+    mcpServers: { weather: weatherServer },
+    allowedTools: ["mcp__weather__get_temperature"]
+  }
+})) {
+  // "result" is the final message after all tool calls complete
+  if (message.type === "result" && message.subtype === "success") {
+    console.log(message.result);
+  }
+}</pre>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/custom-tools">agent-sdk/custom-tools</a>（コードは転記。未実行）</footer>
+</section>
+
+<section id="ch45-mcp">
+  <h2>MCP サーバーと tool search</h2>
+  <div class="cols-2">
+    <div>
+      <h3>MCP</h3>
+      <ul class="small">
+        <li><code>mcpServers</code> に stdio・HTTP/SSE・SDK（同一プロセス）のサーバーを渡します。HTTP は <code>"type": "http"</code> です。</li>
+        <li>init の <code>status</code> は <code>connected</code>・<code>failed</code>・<code>needs-auth</code>・<code>pending</code>・<code>disabled</code> のどれかです。</li>
+        <li>最初のターンの待ち: stdio とキャッシュのない HTTP/SSE、SDK サーバーは <code>MCP_TIMEOUT</code>（既定 30 秒）まで待ちます。キャッシュ済みのリモートは待ちません。</li>
+        <li>設定ファイル・プラグインのサーバーは、tool search が有効なら、<code>alwaysLoad: true</code> か名前を挙げたサーバー（<code>allowedTools</code> に <code>mcp__github__*</code> など）だけを最大 2 秒待ちます。<code>CLAUDE_CODE_MCP_STARTUP_WAIT_MS</code> で変えられます（v2.1.274 以降）。</li>
+        <li>SDK はブラウザでの OAuth を行いません。トークンがなければ <code>needs-auth</code> になり、トークンを <code>headers</code> で渡します。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>tool search（既定で有効）</h3>
+      <table class="dense">
+        <thead><tr><th><code>ENABLE_TOOL_SEARCH</code></th><th>動作</th></tr></thead>
+        <tbody>
+          <tr><td>未設定・<code>true</code></td><td>有効。定義を後から検索して読み込む。古いモデルや Azure 上の Foundry では最初から全部読む</td></tr>
+          <tr><td><code>auto</code></td><td>後回しにできる定義がコンテキストの 10% に達するまで無効</td></tr>
+          <tr><td><code>auto:N</code></td><td>しきい値を N% にする（例 <code>auto:5</code>）</td></tr>
+          <tr><td><code>false</code></td><td>無効。毎ターン全定義を読む</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>1 回の検索で最大 5 個を読み込み、カタログは最大 10,000 ツールです。</li>
+        <li>対応モデルは Opus 4・Sonnet 4・Haiku 4.5 以降（Agent Platform では 4.5 以降）です。</li>
+        <li><code>ANTHROPIC_BASE_URL</code> のゲートウェイ越しでも v2.1.304 以降は既定で有効です。<code>CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS</code> があると無効のままです。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/mcp">agent-sdk/mcp</a> · <a href="https://code.claude.com/docs/en/agent-sdk/tool-search">agent-sdk/tool-search</a> · <a href="https://code.claude.com/docs/en/agent-sdk/typescript#mcpserverstatus">agent-sdk/typescript#mcpserverstatus</a></footer>
+</section>
+
+<section id="ch45-extend">
+  <h2>サブエージェント・システムプロンプト・skills・plugins</h2>
+  <div class="cols-2">
+    <div>
+      <h3>サブエージェント</h3>
+      <ul class="small">
+        <li><code>agents</code> に <code>AgentDefinition</code> を渡します。必須は <code>description</code> と <code>prompt</code>、任意は <code>tools</code>・<code>model</code>・<code>skills</code>（先頭 32 個）・<code>maxTurns</code>・<code>effort</code> などです。既定でバックグラウンドで動きます（<code>status: "async_launched"</code>）。</li>
+        <li>v2.1.302 以降、fork は設定なしで使えます。止めるには <code>disallowedTools: ["Agent(fork)"]</code> です。</li>
+        <li>呼び出しは <code>tool_use</code> では <code>"Agent"</code>、init の <code>tools</code> では <code>"Task"</code> です。両方で照合します。</li>
+        <li>上限: 深さ <code>CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH</code>（既定 3）、同時数 <code>CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS</code>（既定 20）。詳細は <a href="#/ch37">Ch37</a> です。</li>
+      </ul>
+      <h3>skills</h3>
+      <ul class="small">
+        <li>skill はファイル（<code>SKILL.md</code>）だけで、登録 API はありません。<code>skills</code> に <code>"all"</code>・名前の配列・<code>[]</code> を渡すと、<code>Skill</code> が <code>allowedTools</code> に加わります。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>システムプロンプト</h3>
+      <ul class="small">
+        <li>既定（指定なし）は最小のプロンプトです。Claude Code のものを使うには <code>{ type: "preset", preset: "claude_code" }</code> を渡し、<code>append</code> で追記します。</li>
+        <li><code>excludeDynamicSections: true</code> は利用者固有の文脈を最初のユーザーメッセージへ移し、同じプロンプトのキャッシュを共有します。プリセット形だけで、TS v0.2.98・Python v0.1.58 以降です。</li>
+        <li>TS の独自プロンプトは文字列の配列にでき、<code>SYSTEM_PROMPT_DYNAMIC_BOUNDARY</code> で静的部と動的部を分けます。</li>
+        <li>CLAUDE.md や出力スタイル、フックの <code>additionalContext</code> などの system reminder は会話に入るため、独自プロンプトでも多くが届きます。</li>
+      </ul>
+      <h3>plugins とコマンド</h3>
+      <ul class="small">
+        <li>plugin は <code>plugins: [{ type: "local", path }]</code> だけです。プロンプトに <code>/&lt;name&gt;</code> を送るとコマンドや skill を実行し、未知の名前は通常のターンになります（v2.1.274 以降）。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/subagents">agent-sdk/subagents</a> · <a href="https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts">agent-sdk/modifying-system-prompts</a> · <a href="https://code.claude.com/docs/en/agent-sdk/skills">agent-sdk/skills</a> · <a href="https://code.claude.com/docs/en/agent-sdk/plugins">agent-sdk/plugins</a></footer>
+</section>
+
+<section id="ch45-ops">
+  <h2>コスト・OTel・ホスティング・セキュアな運用</h2>
+  <div class="cols-2">
+    <div>
+      <h3>コストと OTel</h3>
+      <ul class="small">
+        <li><code>total_cost_usd</code> と <code>costUSD</code> は同梱の価格表（か <code>modelPricing</code>）によるクライアント側の推定です。<code>inference_geo: "us"</code> は 1.1 倍します。利用者への請求に使ってはいけません。</li>
+        <li>ステップごとの使用量はメッセージ ID で重複を除き、<code>output_tokens</code> は結果メッセージから読みます。</li>
+        <li>テレメトリは子プロセスの CLI が OTLP で送ります。traces は <code>CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1</code> が要る beta です。送信間隔は metrics 60 秒、traces・logs 5 秒です。stdout は SDK の通信路なので <code>console</code> exporter は使いません（<a href="#/ch61">Ch61</a>）。</li>
+      </ul>
+      <h3>ホスティング</h3>
+      <ul class="small">
+        <li>出発点は 1 エージェントあたり RAM 1 GiB・ディスク 5 GiB・1 CPU です。コンテナは 1 時間約 $0.05 で、費用の大半はトークンです。</li>
+        <li>マルチテナントでは <code>settingSources: []</code>、<code>CLAUDE_CODE_DISABLE_AUTO_MEMORY=1</code>、テナントごとの <code>CLAUDE_CONFIG_DIR</code> と <code>cwd</code> を使います。認証情報はサンドボックス外のプロキシで注入します。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>分離の選択肢</h3>
+      <table class="dense">
+        <thead><tr><th>技術</th><th>分離の強さ</th><th>負荷</th></tr></thead>
+        <tbody>
+          <tr><td>Sandbox runtime</td><td>良い（安全な既定値）</td><td>とても低い</td></tr>
+          <tr><td>コンテナ（Docker）</td><td>設定次第</td><td>低い</td></tr>
+          <tr><td>gVisor</td><td>非常に強い（正しく設定した場合）</td><td>中〜高</td></tr>
+          <tr><td>VM（Firecracker・QEMU）</td><td>非常に強い（正しく設定した場合）</td><td>高い</td></tr>
+        </tbody>
+      </table>
+<pre data-lang="bash" class="compact">docker run \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --security-opt seccomp=/path/to/seccomp-profile.json \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=100m \
+  --tmpfs /home/agent:rw,noexec,nosuid,size=500m \
+  --network none \
+  --memory 2g \
+  --cpus 2 \
+  --pids-limit 100 \
+  --user 1000:1000 \
+  -v /path/to/code:/workspace:ro \
+  -v /var/run/proxy.sock:/var/run/proxy.sock:ro \
+  agent-image</pre>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/agent-sdk/cost-tracking">agent-sdk/cost-tracking</a> · <a href="https://code.claude.com/docs/en/agent-sdk/observability">agent-sdk/observability</a> · <a href="https://code.claude.com/docs/en/agent-sdk/hosting">agent-sdk/hosting</a> · <a href="https://code.claude.com/docs/en/agent-sdk/secure-deployment">agent-sdk/secure-deployment</a>（コードは転記）</footer>
+</section>
+
+</section>

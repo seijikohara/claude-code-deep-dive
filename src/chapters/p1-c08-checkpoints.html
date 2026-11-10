@@ -34,7 +34,7 @@
       </table>
     </div>
   </div>
-  <footer class="src">出典: <a href="https://code.claude.com/docs/en/checkpointing#how-checkpoints-work">checkpointing#how-checkpoints-work</a> · <a href="https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically">claude-directory#cleaned-up-automatically</a> · <a href="https://code.claude.com/docs/en/settings-reference#filecheckpointingenabled">settings-reference#filecheckpointingenabled</a> · <a href="https://code.claude.com/docs/en/how-claude-code-works#undo-changes-with-checkpoints">how-claude-code-works</a></footer>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/checkpointing#how-checkpoints-work">checkpointing#how-checkpoints-work</a> · <a href="https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically">claude-directory#cleaned-up-automatically</a> · <a href="https://code.claude.com/docs/en/settings-reference#filecheckpointingenabled">settings-reference#filecheckpointingenabled</a> · <a href="https://code.claude.com/docs/en/how-claude-code-works#undo-changes-with-checkpoints">how-claude-code-works</a> · <a href="https://code.claude.com/docs/en/agent-sdk/file-checkpointing">agent-sdk/file-checkpointing</a></footer>
 </section>
 
 <section id="ch08-rewind">
@@ -77,7 +77,7 @@
         <thead><tr><th style="width:30%">変更の種類</th><th>巻き戻しの扱い</th></tr></thead>
         <tbody>
           <tr><td>Bash による変更</td><td>Claude がファイル編集ツールで一度編集したファイルなら、その後の Bash の変更も戻る。Bash だけが触ったファイルは追跡されない。<code>sed -i</code> も 2.1.309 からほかの Bash 編集と同じ扱い</td></tr>
-          <tr><td>サブエージェント</td><td>原則として記録されない。例外は前景で動く <code>context: fork</code> の Skill（<code>background: false</code>）。背景の fork Skill と背景の <code>/code-review --fix</code> は戻らない</td></tr>
+          <tr><td>サブエージェント</td><td>原則として記録されない。例外は前景で動く <code>context: fork</code> の Skill（<code>background: false</code>）。それ以外（背景の fork Skill、背景の <code>/code-review --fix</code> を含む）は、会話で Claude が編集済みのファイルだけ戻る</td></tr>
           <tr><td>外部の変更</td><td>エディタでの手動編集や並行する別セッションの編集は、同じファイルに当たらない限り記録されない</td></tr>
           <tr><td>ターン途中に送ったメッセージ</td><td><strong>No code restore</strong> と表示され、自身のチェックポイントを持たない。ターンを開始したプロンプトから戻す</td></tr>
           <tr><td>symlink・ハードリンク</td><td>スキップして <code>Restored the code, but skipped N files</code> と警告する（2.1.216）。<code>/debug</code> を有効にすると <code>~/.claude/debug/&lt;session-id&gt;.txt</code> にパスが出る</td></tr>
