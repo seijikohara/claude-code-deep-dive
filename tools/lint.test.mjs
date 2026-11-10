@@ -12,6 +12,7 @@ import {
   checkSources,
   checkLinks,
   checkChapterNumbers,
+  checkLinkLabels,
 } from "./lib/lint-rules.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -29,6 +30,24 @@ await test("chapter numbers and appendix letters are reported in site pages", ()
     ["/ja/c/", "<script>const Ch1 = 1;</script><style>.Ch2{}</style><code>xCh3</code>"],
   ];
   assert.deepEqual(checkChapterNumbers(pages), ["/ja/a/: Ch18", "/ja/a/: 付録 A"]);
+});
+
+await test("internal links labeled with a bare number or 後述 are reported", () => {
+  const pages = [
+    [
+      "/ja/a/",
+      '<a href="/b/ja/x/">37</a> <a href="#ch1-y">後述</a> <a href="/b/ja/x/"><code>37</code></a>',
+    ],
+    [
+      "/ja/c/",
+      '<a href="/b/ja/x/">サブエージェント</a> <a href="https://example.com/">37</a> <a href="#z">2.1.300 で追加</a>',
+    ],
+  ];
+  assert.deepEqual(checkLinkLabels(pages, "/b"), [
+    '/ja/a/: "37" -> /b/ja/x/',
+    '/ja/a/: "後述" -> #ch1-y',
+    '/ja/a/: "37" -> /b/ja/x/',
+  ]);
 });
 
 const find = (ids, kind, value) => ids.find((i) => i.kind === kind && i.value === value);
