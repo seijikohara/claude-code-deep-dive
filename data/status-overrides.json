@@ -1,5 +1,5 @@
 {
-  "_comment": "Feature-level status from docs/ledger.md §2, applied by tools/build.mjs on top of the per-row status that tools/extract.mjs derives from each row's own text.",
+  "_comment": "Feature-level status from docs/ledger.md §2 and §6, applied on top of the per-row status that tools/extract.mjs derives from each row's own text. Rows for settings and env vars that only exist for a non-GA feature carry that feature's status; flags and subcommands seen only in --help carry Undocumented.",
   "commands": {
     "/advisor": "experimental",
     "/schedule": "preview",
@@ -13,11 +13,36 @@
   "env": {
     "CLAUDE_CODE_DISABLE_ADVISOR_TOOL": "experimental",
     "ENABLE_BETA_TRACING_DETAILED": "beta",
-    "BETA_TRACING_ENDPOINT": "beta"
+    "BETA_TRACING_ENDPOINT": "beta",
+    "CLAUDE_CODE_ALT_SCREEN_FULL_REPAINT": "preview",
+    "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "preview",
+    "CLAUDE_CODE_DISABLE_MOUSE": "preview",
+    "CLAUDE_CODE_DISABLE_MOUSE_CLICKS": "preview",
+    "CLAUDE_CODE_DISABLE_VIRTUAL_SCROLL": "preview",
+    "CLAUDE_CODE_SCROLL_SPEED": "preview",
+    "CLAUDE_CODE_USE_POWERSHELL_TOOL": "preview",
+    "CLAUDE_CODE_POWERSHELL_RESPECT_EXECUTION_POLICY": "preview",
+    "CLAUDE_CODE_DISABLE_POWERSHELL_CMD_RM_DENY": "preview",
+    "CLAUDE_CODE_DISABLE_WINDOWS_SHELL_LAUNCHER": "preview",
+    "CLAUDE_CODE_DISABLE_AGENT_VIEW": "preview",
+    "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF": "preview",
+    "CLAUDE_CODE_DISABLE_BG_STABLE_PATH": "preview",
+    "CLAUDE_JOB_DIR": "preview",
+    "CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND": "beta"
   },
   "settings": {
     "advisorModel": "experimental",
-    "teammateMode": "experimental"
+    "teammateMode": "experimental",
+    "tui": "preview",
+    "autoScrollEnabled": "preview",
+    "wheelScrollAccelerationEnabled": "preview",
+    "copyOnSelect": "preview",
+    "allowedChannelPlugins": "preview",
+    "channelsEnabled": "preview",
+    "disableAgentView": "preview",
+    "defaultToAgentsView": "preview",
+    "leftArrowOpensAgents": "preview",
+    "worktree.bgIsolation": "preview"
   },
   "tools": {
     "PowerShell": "preview",
@@ -26,11 +51,14 @@
   "cli-flags": {
     "--advisor": "experimental",
     "--teammate-mode": "experimental",
-    "--bg": "preview"
+    "--bg": "preview",
+    "--brief": "undocumented",
+    "--file": "undocumented"
   },
   "cli-commands": {
     "claude agents": "preview",
     "claude ultrareview": "preview",
-    "claude self-hosted-runner": "beta"
+    "claude self-hosted-runner": "beta",
+    "claude plugin restore-set-aside": "undocumented"
   }
 }
