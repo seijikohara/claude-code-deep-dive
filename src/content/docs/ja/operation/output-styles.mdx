@@ -1,0 +1,75 @@
+---
+title: "出力スタイル"
+description: "セッション全体の応答の役割・口調・形式を、システムプロンプトへの指示で切り替える仕組みです。この章では、組み込みの 5 スタイルと切り替え経路、カスタムスタイルのファイル・frontmatter・効き方を扱います。"
+sidebar:
+  order: 16
+---
+
+セッション全体の応答の役割・口調・形式を、システムプロンプトへの指示で切り替える仕組みです。この章では、組み込みの 5 スタイルと切り替え経路、カスタムスタイルのファイル・frontmatter・効き方を扱います。
+
+<span id="ch16-builtin" />
+
+## 組み込みスタイルと切り替え方
+
+| スタイル      | 変わること                                                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default`     | スタイル指示を足さない。ソフトウェア開発向けの標準システムプロンプトだけで動く                                                              |
+| `Proactive`   | すぐ実装に入り、定型の判断は仮定で進める。頼まれない限り plan mode に入らない。削除や本番系の変更の前は会話で確認する。権限モードは変えない |
+| `Concise`     | 1 文目で結果を述べ、前置き・逐次説明・まとめを省く。頼まれた説明とエラー・警告・破壊的操作の確認は省略しない（v2.1.237 以降）               |
+| `Explanatory` | 判断理由を 2〜3 点まとめた `★ Insight` ブロックを会話内に添える。ファイルにはコメントとして書かない                                         |
+| `Learning`    | Insight に加え、設計判断を含む数行を `TODO(human)` で残し、`● Learn by Doing` の依頼を出して待つ                                            |
+
+- `/output-style <style>` は大文字小文字を区別しません。引数なしで一覧を出します（v2.1.269 以降。`-p`・SDK・Remote Control でも動く）。
+- `/config` の **Output style** とコマンドは、`.claude/settings.local.json` に保存します。
+- 設定値 `"outputStyle": "Explanatory"` は大文字小文字を区別します。`explanatory` は Default になります。
+- 途中の切り替えは次のメッセージから効きます（v2.1.251 以降）。キャッシュへの影響は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/) で扱います。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "/output-style"
+Output style: default
+
+Available styles:
+- default (current)
+- Proactive: Claude executes immediately, minimizes …
+- Concise: Claude responds tersely, leading with results …
+- Explanatory: Claude explains its implementation choices …
+- Learning: Claude pauses and asks you to write small …
+
+Usage: /output-style <style>
+```
+
+<div class="src">
+  出典: [output-styles#built-in-output-styles](https://code.claude.com/docs/en/output-styles#built-in-output-styles) · [#change-your-output-style](https://code.claude.com/docs/en/output-styles#change-your-output-style) · [settings-reference#outputstyle](https://code.claude.com/docs/en/settings-reference#outputstyle) · changelog 2.1.73（`/output-style` 非推奨化）・2.1.269（再追加） · 実機確認 2.1.321
+</div>
+
+<span id="ch16-custom" />
+
+## カスタムスタイル: 置き場所・frontmatter・効き方
+
+```markdown
+---
+name: Diagrams first
+description: Lead every explanation with a diagram
+keep-coding-instructions: true
+---
+
+When explaining code, architecture, or data flow, start with a Mermaid diagram showing the structure, then explain in prose.
+…
+```
+
+| frontmatter                | 意味（既定値）                                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `name`                     | ピッカーに出る名前（ファイル名）                                                                     |
+| `description`              | ピッカーに出る説明                                                                                   |
+| `keep-coding-instructions` | 組み込みの開発指示を残す（`false`）                                                                  |
+| `force-for-plugin`         | プラグイン専用。有効な間は `outputStyle` を上書きして自動適用。複数あれば最初に読んだもの（`false`） |
+
+綴りを誤ったフィールドは黙って無視されます。YAML が壊れると、フィールドなしで読み込まれます（原因は `claude --debug`）。
+
+- 置き場所は `~/.claude/output-styles`、`.claude/output-styles`（作業ディレクトリからリポジトリルートまで。同名は近いものが勝つ）、管理設定ディレクトリ、プラグインの `output-styles/` です。ターミナルは起動時に読むので、編集後は再起動します。
+- カスタムスタイルは、完全版システムプロンプトの開発指示の節を外します。短縮版にはその節が無く、`keep-coding-instructions` は効きません。`CLAUDE_CODE_SIMPLE_SYSTEM_PROMPT=0` で完全版に固定します。
+- 効くのはメインの会話とフォークだけです。他のサブエージェントは自分のシステムプロンプトで動きます。
+
+<div class="src">
+  出典: [output-styles#create-a-custom-output-style](https://code.claude.com/docs/en/output-styles#create-a-custom-output-style) · [#frontmatter-reference](https://code.claude.com/docs/en/output-styles#frontmatter-reference) · [#how-output-styles-work](https://code.claude.com/docs/en/output-styles#how-output-styles-work) · [env-vars](https://code.claude.com/docs/en/env-vars) · changelog 2.1.94（プラグインのスタイルで `keep-coding-instructions`）
+</div>

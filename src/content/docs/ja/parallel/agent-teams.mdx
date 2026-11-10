@@ -1,0 +1,192 @@
+---
+title: "Agent Teams"
+description: "lead となるメインセッションが複数のチームメイト（別の Claude Code インスタンス）を起動し、共有タスクリストとメッセージで協調させる機能です。既定で無効です。この章では、有効化と副作用、構成要素と保存場所、表示モード、モデルとサブエージェント定義の流用、権限と plan 承認、フックと制限事項を扱います。"
+sidebar:
+  order: 39
+  badge:
+    text: "Experimental"
+    variant: caution
+---
+
+lead となるメインセッションが複数のチームメイト（別の Claude Code インスタンス）を起動し、共有タスクリストとメッセージで協調させる機能です。既定で無効です。この章では、有効化と副作用、構成要素と保存場所、表示モード、モデルとサブエージェント定義の流用、権限と plan 承認、フックと制限事項を扱います。
+
+<span id="ch39-enable" />
+
+## 有効化と注意 <span class="badge experimental">Experimental</span>
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+- `settings.json` の `env` かシェルで設定します。
+- 無効のままなら、起動時にチームを作らず、チーム用ディレクトリも書かず、Claude はチームメイトを起動も提案もしません。
+- チームメイトの起動には対話セッションが必要です。`-p` と Agent SDK では起動せず、名前付きのサブエージェントは通常のサブエージェントとして動きます。
+- 実機では、変数を付けた `-p` の init にツール・エージェント・コマンドの変化はありませんでした。
+- 2.1.32 の追加時の表記は research preview でした。
+
+* 有効な間は、メイン会話から `name` つきで Agent を呼ぶとチームメイトとして起動します。例外はフォークと、呼び出し自体に `isolation` を渡した場合です。frontmatter の `isolation` では防げず、チームメイトはメインの作業ディレクトリで動きます。
+* Claude は自分でサブエージェントに名前を付けるため、頼まなくてもチームができることがあります。起動の確認はありません。
+* 止めるには値を `"0"` にします。保存で反映され、次の起動から通常のサブエージェントです。user 設定の `0` はシェルの export に勝ち、project・local・`--settings`・managed の `1` に負けます。
+
+:::danger[食い違い]
+チームが無効でもサブエージェントに名前を付けられるか、2 ページの記述が分かれています。
+
+- **sub-agents**: チームを有効にして始めたセッションでは、Claude が `name` を渡せる。
+- **agent-teams**: 無効にした後も Claude は名前を付けることがあり、名前は `SendMessage` の宛先として使える。
+  :::
+
+<div class="src">
+  出典: [agent-teams#enable-agent-teams](https://code.claude.com/docs/en/agent-teams#enable-agent-teams) · [#how-claude-starts-agent-teams](https://code.claude.com/docs/en/agent-teams#how-claude-starts-agent-teams) · [#claude-spawns-teammates-instead-of-subagents](https://code.claude.com/docs/en/agent-teams#claude-spawns-teammates-instead-of-subagents) · [sub-agents#subagent-names](https://code.claude.com/docs/en/sub-agents#subagent-names) · changelog 2.1.32 · 実機確認 2.1.321
+</div>
+
+<span id="ch39-architecture" />
+
+## lead・チームメイト・タスクリスト・mailbox <span class="badge experimental">Experimental</span>
+
+| 構成要素     | 役割と保存場所                                                                                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| lead         | チームメイトを起動し、作業を調整するメインセッション。寿命の間ずっと lead で、交代や昇格はできない                                                                                   |
+| チームメイト | それぞれ自分のコンテキストを持つ別の Claude Code インスタンス。lead が全員に名前を付け、互いに名前で送信できる                                                                       |
+| タスクリスト | `~/.claude/tasks/{team-name}/`。pending・in progress・completed の 3 状態。依存先が未完了なら blocked で、完了すると自動で解除。セッション終了後も残り、`cleanupPeriodDays` で消える |
+| mailbox      | `~/.claude/teams/{team-name}/inboxes/{agent-name}.json`。形式に合わないエントリはエラーとして報告して取り除く。書き込みに成功したときだけ送信済みになる                              |
+| チーム設定   | `~/.claude/teams/{team-name}/config.json`。`members` に名前・エージェント ID・種別（lead は `team-lead`）。実行時の状態なので手で編集しない。セッション終了で消える                  |
+
+- チーム名は `session-` とセッション ID の先頭 8 文字です。`.claude/teams/teams.json` のようなプロジェクト側の設定はありません。
+- 割り当ては lead が行うか、チームメイトが終わり次第、未割り当てで blocked でないタスクを自分で取ります。取り合いはファイルロックで防ぎます。
+- Task ツールのないエージェントは、メッセージだけで協調します。
+
+* メッセージは自動で届き、lead がポーリングする必要はありません。1 通の宛先は 1 人で、全員へはそれぞれ送ります。
+* チームメイトが止まると、最終回答（API エラーならその内容）つきで lead に通知します。
+* チームメイトは CLAUDE.md・MCP・Skill を通常のセッションと同じく読み、lead の起動プロンプトを受け取ります。lead の会話履歴は渡りません。lead の `--setting-sources` の制限も引き継ぎます。
+
+<div class="src">
+  出典: [agent-teams#architecture](https://code.claude.com/docs/en/agent-teams#architecture) · [#assign-and-claim-tasks](https://code.claude.com/docs/en/agent-teams#assign-and-claim-tasks) · [#context-and-communication](https://code.claude.com/docs/en/agent-teams#context-and-communication)
+</div>
+
+<span id="ch39-display" />
+
+## 表示モード: in-process・tmux・iTerm2 <span class="badge experimental">Experimental</span>
+
+| `teammateMode`         | 動作                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| `"in-process"`（既定） | 全員がメインの端末内で動く。どの端末でも使える                                        |
+| `"auto"`               | tmux の中か、`it2` がある・tmux が入った iTerm2 なら分割ペイン。それ以外は in-process |
+| `"tmux"`               | 分割ペイン。tmux か iTerm2 かを端末から判定                                           |
+| `"iterm2"`             | `it2` CLI で iTerm2 の分割ペイン。`it2` がなければインストール方法つきのエラー        |
+
+- どの設定ファイルにも書けます（旧版が `~/.claude.json` に残した値も読む）。
+- `claude --teammate-mode auto` はそのセッションだけ上書きします。このフラグは Experimental で `--help` に出ませんが、値は検証されます。
+
+* 分割ペインには tmux か、iTerm2 と `it2` CLI が要ります。iTerm2 では Settings → General → Magic → Enable Python API を有効にします。`tmux -CC` からの利用が推奨です。残った tmux セッションは `tmux kill-session -t <session-name>` で消します。
+* VS Code の統合ターミナル、Windows Terminal、Ghostty は分割ペインに対応しません。
+* in-process のパネル: <kbd>↑</kbd>/<kbd>↓</kbd> で選び、<kbd>Enter</kbd> でトランスクリプトを開いて直接送信、<kbd>x</kbd> で停止、<kbd>Ctrl</kbd>+<kbd>T</kbd> でタスクリストを開閉します。表示中の <kbd>Esc</kbd> はそのチームメイトのターンを中断します。
+* 全員がアイドルになると行は 30 秒後に隠れます。アイドルが 4 人以上なら、4 人目以降は `N idle agents` の 1 行になります。
+* 表示中の入力と Skill はチームメイトへ、組み込みコマンドは lead へ届きます（`/model`・`/fast` は実行されない）。チームメイトのモデルと fast mode は起動時に固定です。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --teammate-mode bogus "x"
+error: option '--teammate-mode <mode>' argument 'bogus' is invalid. Allowed choices are auto, tmux, iterm2, in-process.
+```
+
+<div class="src">
+  出典: [agent-teams#choose-a-display-mode](https://code.claude.com/docs/en/agent-teams#choose-a-display-mode) · [#talk-to-teammates-directly](https://code.claude.com/docs/en/agent-teams#talk-to-teammates-directly) · [settings-reference#teammatemode](https://code.claude.com/docs/en/settings-reference#teammatemode) · 実機確認 2.1.321
+</div>
+
+<span id="ch39-model" />
+
+## チームメイトのモデルと、サブエージェント定義の流用 <span class="badge experimental">Experimental</span>
+
+### モデルの決まり方（先に当たったもの）
+
+1. 起動プロンプトがそのチームメイトに指定したモデル（mod の `agent.spawn` があればそちら）
+2. サブエージェント定義から起動した場合は、その `model`（`inherit` は lead のモデル）
+3. `inherit` 以外の `CLAUDE_CODE_SUBAGENT_MODEL`
+4. lead の現在のモデル
+
+- `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` では 1・2 を使いません（v2.1.257 以降）。v2.1.251 より前は 3 が先頭でした。
+- `teammateDefaultModel` は v2.1.234 で削除され、残っていても無視されます。
+- `availableModels` で止められたファミリーは、Anthropic API と Claude Platform on AWS では許可された最新版に、他では lead のモデルになります（`CLAUDE_CODE_SUBAGENT_MODEL` があれば先に試す）。
+- lead と同じモデルなら lead の effort を継承します（分割ペインは v2.1.186 以降）。
+
+| 定義の部分                  | in-process                                                    | 分割ペイン       |
+| --------------------------- | ------------------------------------------------------------- | ---------------- |
+| `tools`                     | その一覧に限定し、`SendMessage` と（あれば）Task ツールを足す | その一覧に限定   |
+| `model`                     | 起動プロンプトが指定しなければ使う                            |                  |
+| `disallowedTools`・`effort` | 適用（足したツールは残る）                                    | —                |
+| `autoCompactWindow`         | 適用（v2.1.296 以降）                                         | 無視             |
+| 本文                        | 既定のシステムプロンプトに追記                                | 既定を置き換える |
+| `skills`                    | 適用しない。project・user の Skill を読む                     |                  |
+| `mcpServers`                | 無視。project・user の MCP を使う                             | 適用             |
+
+- project・user・managed・プラグインの定義を名前で指定します。例: `Spawn a teammate using the security-reviewer agent type to audit the auth module.`
+- 止まった in-process のチームメイトに送信すると、同じセッション内で会話ごと復活します。project の定義を再適用するのは、そのフォルダを信頼している場合だけです。
+
+<div class="src">
+  出典: [agent-teams#specify-teammates-and-models](https://code.claude.com/docs/en/agent-teams#specify-teammates-and-models) · [#use-subagent-definitions-for-teammates](https://code.claude.com/docs/en/agent-teams#use-subagent-definitions-for-teammates)
+</div>
+
+<span id="ch39-permissions" />
+
+## 権限モードと plan 承認 <span class="badge experimental">Experimental</span>
+
+- 新しいチームメイトは lead のモードで始まります。`bypassPermissions` も同じです。lead が `dontAsk` なら Manual で始まります（lead が Manual・`dontAsk` の分割ペインでは v2.1.317 以降）。起動時にチームメイトごとのモードは指定できません。
+- 動作中のモードは <kbd>Shift</kbd>+<kbd>Tab</kbd> で切り替えます。分割ペインはそのペインで、in-process は表示中に押し、次のターンから効きます。
+- lead が `acceptEdits`・`auto`・`bypassPermissions` の間、plan mode でない in-process のチームメイトは、Manual と表示されていても lead のモードで動きます。
+- in-process は lead の allow・deny ルールをそのまま使い、`--disallowedTools`・`--tools`・`--allowedTools` が効きます。分割ペインには `--disallowedTools` と `--tools` だけが渡ります（v2.1.309 以降）。
+
+```bash
+claude --settings '{"permissions":{"allow":["Bash(npm *)"]}}'
+```
+
+分割ペインで事前に許可したい操作は、`--allowedTools` でなくこの形で lead に渡します。権限確認は lead のセッションに出ます。
+
+### plan 承認
+
+- lead が plan mode の間に起動したチームメイトは、計画ができるまで plan mode で動き、lead に plan 承認の要求を送ります。
+- 起動後にそのチームメイトのモードを変えていなければ、Claude Code が要求をすぐ承認します。lead もあなたも確認しません。
+- 承認後は lead の現在のモードで実装に移ります。lead が plan mode なら Manual です。
+- in-process のチームメイトを <kbd>Shift</kbd>+<kbd>Tab</kbd> で plan mode にした場合は、lead が計画を審査し、承認するか差し戻します。
+
+### エージェント間のメッセージ
+
+- 受け手には「別の Claude セッションからのメッセージ」と伝わります。チームメイトはあなたの代わりに承認できず、拒否された操作を他のチームメイトに回して迂回することもできません。
+- auto mode の分類器は、転送された承認を信用せず、各メッセージを配送前に審査します。止めたメッセージは届きません。
+
+<div class="src">
+  出典: [agent-teams#permissions](https://code.claude.com/docs/en/agent-teams#permissions) · [#have-teammates-plan-before-implementing](https://code.claude.com/docs/en/agent-teams#have-teammates-plan-before-implementing) · [#messages-between-agents](https://code.claude.com/docs/en/agent-teams#messages-between-agents)
+</div>
+
+<span id="ch39-limits" />
+
+## チーム用フック・制限事項・コスト <span class="badge experimental">Experimental</span>
+
+### フック（詳細は [Ch28](/claude-code-deep-dive/ja/extensions/hooks/#ch28-prompt-tasks)）
+
+- `TeammateIdle`: アイドルになる直前。exit 2 で stderr を返して作業を続けさせます。
+- `TaskCreated`: タスク作成時。exit 2 で作成を止めます。
+- `TaskCompleted`: 完了にするとき。exit 2 で完了を止めます。
+
+### コストと規模
+
+- トークン消費は単一セッションより大幅に多く、動いているチームメイトの数に比例して増えます。
+- in-process のチームメイトのキャッシュは既定 5 分です。`subagentPromptCacheTtl` を `1h` にすると 1 時間になり、書き込み単価は上がります。
+- 目安は 3〜5 人、1 人あたり 5〜6 タスクです。人数の上限はありません。
+
+### 制限事項
+
+- `/resume`・`/rewind` は in-process のチームメイトを復元しません。lead がいないチームメイトに送ろうとしたら、新しく起動させます。
+- タスクの完了マークが遅れ、依存タスクが止まることがあります。
+- 停止は、チームメイトが実行中のリクエストやツール呼び出しを終えるまで待ちます。
+- 1 セッションに 1 チームだけです。名前付きの追加チームやセッション間の共有はできません。
+- チームのネストはできません。チームメイトはチームメイトを起動できません。
+- in-process のチームメイトのサブエージェントは前面で動きます。`background: true` の定義はエラーになり、`run_in_background: true` はエラーか、黙って前面で動きます。
+- チームメイトは worktree で分離されません。担当ファイルを分けます。
+- Claude がチームでなくサブエージェントを使うことがあります。パネルは同じに見えるので、明示的にチームを頼みます。
+
+<div class="src">
+  出典: [agent-teams#limitations](https://code.claude.com/docs/en/agent-teams#limitations) · [#token-usage](https://code.claude.com/docs/en/agent-teams#token-usage) · [#choose-an-appropriate-team-size](https://code.claude.com/docs/en/agent-teams#choose-an-appropriate-team-size) · [hooks#teammateidle](https://code.claude.com/docs/en/hooks#teammateidle)
+</div>

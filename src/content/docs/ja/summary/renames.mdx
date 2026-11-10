@@ -1,0 +1,53 @@
+---
+title: "改名・廃止・削除"
+description: "2.1.x の間に名前が変わったもの、非推奨になったもの、削除されたものを版付きで一覧します。古い名前が今も動くかどうかも併記します。"
+sidebar:
+  order: 66
+---
+
+2.1.x の間に名前が変わったもの、非推奨になったもの、削除されたものを版付きで一覧します。古い名前が今も動くかどうかも併記します。
+
+<span id="ch66-commands" />
+
+## スラッシュコマンドの改名・エイリアス化・削除
+
+| 版                | 変更                                                            | 2.1.321 での扱い                                                                                         |
+| ----------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 2.1.3             | スラッシュコマンドと Skill を統合                               | 動作の変更はなし                                                                                         |
+| 2.1.73 → 2.1.269  | `/output-style` を非推奨（`/config` へ）                        | 2.1.269 で `/output-style [name]` を再追加                                                               |
+| 2.1.77 → 2.1.212  | `/fork` を `/branch` に改名                                     | `/fork` は 2.1.212 から別コマンド（会話を新しいバックグラウンドセッションへコピー）。旧動作は `/subtask` |
+| 2.1.91・2.1.92    | `/pr-comments`（docs に v2.1.91 と記載）、`/tag`、`/vim` を削除 | Vim モードは `/config` の Editor mode                                                                    |
+| 2.1.105・2.1.108  | `/proactive` を `/loop` の、`/undo` を `/rewind` のエイリアスに | エイリアスとして有効                                                                                     |
+| 2.1.118           | `/cost` と `/stats` を `/usage` に統合                          | 入力用のショートカットとして残る                                                                         |
+| 2.1.144           | `/extra-usage` を `/usage-credits` に改名                       | 旧名も動く                                                                                               |
+| 2.1.147 → 2.1.154 | `/simplify` を `/code-review` に改名（正しさのバグを報告）      | 2.1.154 から `/simplify` は整理専用のレビューとして別に動く                                              |
+| 2.1.198 → 2.1.281 | `/agents` ウィザードを削除。2.1.281 でメニューの残りも削除      | `/agents` は案内を表示するだけ（[Ch37](/claude-code-deep-dive/ja/parallel/subagents/)）                  |
+| 2.1.205           | `/doctor` を全体のセットアップチェックに変更                    | `/checkup` がエイリアス                                                                                  |
+| 2.1.222・2.1.223  | Ultraplan を削除。`/review` を `/code-review` のエイリアスに    | 深いクラウドレビューは `/code-review ultra`（[Ch47](/claude-code-deep-dive/ja/automation/code-review/)） |
+
+<div class="src">
+  出典: [changelog](https://code.claude.com/docs/en/changelog) 2.1.3, 2.1.73, 2.1.77, 2.1.92, 2.1.105, 2.1.108, 2.1.118, 2.1.144, 2.1.147, 2.1.154, 2.1.198, 2.1.205, 2.1.212, 2.1.222, 2.1.223, 2.1.269, 2.1.281 · [commands](https://code.claude.com/docs/en/commands)（`/pr-comments`、`/ultraplan`、`/vim` の Removed 行）
+</div>
+
+<span id="ch66-tools-settings" />
+
+## ツール・権限モード・CLI・設定・モデルの変更
+
+| 版                        | 変更                                                                                                       | 2.1.321 での扱い                                                                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 2.1.63                    | `Task` ツールを `Agent` に改名（sub-agents ページの記載）                                                  | `Task(...)` は別名として有効。`-p` の init は今も `Task` と表示                                                      |
+| 2.1.83 → 2.1.277          | `TaskOutput` ツールを非推奨にし、2.1.277 で削除                                                            | 出力ファイルを Read で読む。`taskOutputMaxChars` は効果なし                                                          |
+| 2.1.178                   | Agent Teams の `TeamCreate`・`TeamDelete` を削除                                                           | Agent Teams 有効時は、セッションごとに暗黙のチームが 1 つ（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)） |
+| 2.1.212                   | Task ツールの `mode` パラメータを非推奨                                                                    | 無視され、親の権限モードを引き継ぐ                                                                                   |
+| 2.1.233・2.1.268          | 新しいモデルでは `TodoWrite` と `TaskCreate` 系を提供しない                                                | `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` で戻せる                                                                           |
+| 2.1.200                   | 権限モード `default` の表示名を Manual に変更                                                              | 設定値は `default`。`manual` も受け付ける（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)）            |
+| 2.1.160                   | Dynamic workflows のトリガー語を `workflow` から `ultracode` に                                            | 自分の言葉で頼む方法は引き続き有効                                                                                   |
+| 2.1.288                   | `claude project purge` を `claude purge` に改名                                                            | 旧名も通知付きで動く                                                                                                 |
+| 2.1.300                   | `claude remote-control` の `--sandbox`・`--no-sandbox` を削除                                              | 指定するとエラー。`sandbox.enabled` を使う                                                                           |
+| 2.1.2 → 2.1.75            | Windows の managed settings の旧パス `C:\ProgramData\ClaudeCode\` を廃止（破壊的変更）                     | `C:\Program Files\ClaudeCode\managed-settings.json` だけ                                                             |
+| 2.1.232                   | `additionalMarketplaces`・`allowedMarketplaces` を別名として追加                                           | 正式名は `extraKnownMarketplaces`・`strictKnownMarketplaces`                                                         |
+| 2.1.219・2.1.316・2.1.321 | Opus 4.7 の fast mode を削除。Opus 4.8 の fast mode を非推奨。保存済みの Fable 5.1 の選択を `fable` に移行 | Opus 4.8 の fast mode は 2026-11-30 に削除予定（[Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）           |
+
+<div class="src">
+  出典: [sub-agents](https://code.claude.com/docs/en/sub-agents) · [tools-reference](https://code.claude.com/docs/en/tools-reference) · [changelog](https://code.claude.com/docs/en/changelog) 2.1.2, 2.1.75, 2.1.83, 2.1.160, 2.1.178, 2.1.200, 2.1.212, 2.1.219, 2.1.232, 2.1.233, 2.1.268, 2.1.277, 2.1.288, 2.1.300, 2.1.316, 2.1.321
+</div>

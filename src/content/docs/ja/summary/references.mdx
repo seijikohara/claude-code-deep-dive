@@ -1,0 +1,50 @@
+---
+title: "参考資料"
+description: "本資料の情報源と調査方法、各節の出典表記の読み方をまとめます。"
+sidebar:
+  order: 69
+---
+
+本資料の情報源と調査方法、各節の出典表記の読み方をまとめます。
+
+<span id="ch69-sources" />
+
+## 情報源と調査方法
+
+### 公開情報
+
+- ドキュメントの索引: [code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)。各ページは `https://code.claude.com/docs/en/<page>` にあります。
+- changelog: [code.claude.com/docs/en/changelog](https://code.claude.com/docs/en/changelog)。GitHub の [CHANGELOG.md](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md) から生成されています。
+- What's New: [code.claude.com/docs/en/whats-new](https://code.claude.com/docs/en/whats-new)。W13（2.1.83〜）から W37（〜2.1.269）までの週次まとめで、W31 はありません。2.1.270 以降は changelog だけが情報源です。
+
+### 調査方法（2026-11-10、2.1.321）
+
+- **ドキュメントのミラー**: 索引に載る英語版 228 ページを Markdown で取得し、すべての事実をページ内の記述と照合しました。
+- **`--help` の保存**: `claude --help` と各サブコマンドの help を 60 ファイル保存しました。
+- **ヘッドレスの init イベント**: `--safe-mode --setting-sources project` と最小限の環境変数で `-p` を実行し、`system/init` を保存しました。ツール 24、コマンド 55 などの数はこの実行の値です。
+- **実験**: 分野別の空ディレクトリで `--no-session-persistence --setting-sources project` を付け、主に `--model haiku` で実行しました。課金や設定変更を伴うコマンド（`ultrareview`、クラウドセッション、インストール・更新など）は help の確認だけです。
+- **バイナリの文字列**: `strings` の出力は候補の発見にだけ使いました。
+
+<div class="src">
+  出典: [Claude Code docs index](https://code.claude.com/docs/llms.txt) · [changelog](https://code.claude.com/docs/en/changelog) · [whats-new](https://code.claude.com/docs/en/whats-new) · 実機確認 2.1.321
+</div>
+
+<span id="ch69-evidence" />
+
+## 証拠の段階と出典表記の読み方
+
+| 根拠                            | 本文での扱い                                                                                                                                                                                         |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ドキュメント                    | 事実。出典欄にページへのリンク。バッジはページの現在の表記に従う（[Ch62](/claude-code-deep-dive/ja/summary/status-board/)）                                                                          |
+| changelog だけ                  | 事実。出典欄は「changelog 2.1.x（リファレンス未掲載）」。Undocumented バッジは付けない                                                                                                               |
+| 保存した実行出力                | 事実。出典欄に「実機確認 2.1.321」。伏せ字を入れたうえで原文のまま引用                                                                                                                               |
+| 実行したが出力は未保存          | 出典欄に「実機確認 2.1.321」。調査メモに残る範囲を超えて出力を引用しない                                                                                                                             |
+| `--help` や実行結果にだけ現れる | <span class="badge undocumented">Undocumented</span> と「実機確認 2.1.321」                                                                                                                          |
+| バイナリの文字列だけ            | <span class="badge undocumented">Undocumented</span>。[Ch63](/claude-code-deep-dive/ja/summary/candidates/) と [Ch67](/claude-code-deep-dive/ja/summary/conflicts/) にだけ載せ、手順としては書かない |
+
+- 3 つの情報源が食い違う箇所は、各節の食い違い枠に両方の記述と出典を示し、[Ch67](/claude-code-deep-dive/ja/summary/conflicts/) に一覧しました。
+- 判定の基本は、新しく明示的な changelog が古いドキュメントより優先、実機の観察が strings からの推測より優先、です。
+
+<div class="src">
+  出典: 本資料の編集方針 · [changelog](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>

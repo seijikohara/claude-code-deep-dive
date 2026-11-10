@@ -1,0 +1,360 @@
+---
+title: "Effort と思考"
+description: "effort は、モデルが各ステップでどれだけ考えるかを決める設定です。この章では、モデル別のレベルと既定値、解決順序、/effort と --effort、設定キーと上限、effort が送られない条件、ultrathink・Ultracode、拡張思考の制御、サブエージェントと Skill の effort を扱います。"
+sidebar:
+  order: 3
+---
+
+effort は、モデルが各ステップでどれだけ考えるかを決める設定です。この章では、モデル別のレベルと既定値、解決順序、`/effort` と `--effort`、設定キーと上限、effort が送られない条件、`ultrathink`・Ultracode、拡張思考の制御、サブエージェントと Skill の effort を扱います。
+
+<span id="ch03-levels" />
+
+## レベルとモデル別の既定値（実測）
+
+| モデル                                     | レベル                         | 既定     |
+| ------------------------------------------ | ------------------------------ | -------- |
+| Fable 5.2, Opus 5.5, Sonnet 5.5, Haiku 5.5 | `low`〜`max`（5 段階）         | `medium` |
+| Opus 4.7                                   | `low`〜`max`（5 段階）         | `xhigh`  |
+| その他の Fable, Opus 5, Sonnet 5, Opus 4.8 | `low`〜`max`（5 段階）         | `high`   |
+| Opus 4.6, Sonnet 4.6                       | `low`, `medium`, `high`, `max` | `high`   |
+| 表にないモデル（例: Haiku 4.5）            | effort 非対応                  | —        |
+
+- 5 段階は `low`, `medium`, `high`, `xhigh`, `max` です。
+- モデルが対応しないレベルを指定すると、それ以下で最も高いレベルで動きます。例: Opus 4.6 の `xhigh` は `high` で動きます。
+- スケールはモデルごとに調整されているため、同じレベル名でもモデル間で中身は一致しません。
+- 組織が組織既定モデルに既定の effort を設定している場合、そのモデルではその値が既定です。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --model opus "/effort status"
+Effort level: auto (currently medium)
+  （sonnet・haiku・fable も同じ）
+
+$ claude -p --model claude-fable-5-1 "/effort status"
+Effort level: auto (currently high)
+  （claude-opus-5・claude-opus-4-8・claude-opus-4-6・
+    claude-sonnet-4-6 も同じ）
+
+$ claude -p --model claude-opus-4-7 "/effort status"
+Effort level: auto (currently xhigh)
+
+$ claude -p --model claude-haiku-4-5 "/effort status"
+Effort level: auto
+```
+
+user / local 設定を読まず、到達しない `ANTHROPIC_BASE_URL` で実行（リクエストは送られない）
+
+`auto (currently <level>)` は、保存済みのレベルがなく、モデルの既定が送られる状態です。括弧のない `auto` は effort を送らない状態です。
+
+<div class="src">
+  出典: [model-config#adjust-effort-level](https://code.claude.com/docs/en/model-config#adjust-effort-level) · [#send-no-effort-level](https://code.claude.com/docs/en/model-config#send-no-effort-level) · 実機確認 2.1.321
+</div>
+
+<span id="ch03-choose" />
+
+## レベルの選び方
+
+| レベル      | 向いている作業（ドキュメントの説明）                                                                                                                              |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `low`       | 結果を毎回確認する短いやり取り。ブレインストーミング、最初のたたき台、リネームのような小さな変更                                                                  |
+| `medium`    | Fable 5.2・Opus 5.5・Sonnet 5.5・Haiku 5.5 の既定。範囲がはっきりした日常の開発（新機能の実装など）。既定が高いモデルでは、多少の知能と引き換えにトークンを減らす |
+| `high`      | 検証が重要な作業や、エッジケースが出やすい作業。既存コードのバグ修正など                                                                                          |
+| `xhigh`     | より深い推論。トークン消費は増える。Opus 4.7 の既定                                                                                                               |
+| `max`       | 手を離して任せる難題（脆弱性の発見など）。効果が頭打ちになりやすく考えすぎる傾向があるため、広く使う前に試す                                                      |
+| `ultracode` | レベルではなく Claude Code の設定。どのレベルでも、実質的なタスクごとに dynamic workflow を計画する                                                               |
+
+- Anthropic の評価では、Opus 5.5 の `medium` は Opus 5 の `high` と同等以上です。Opus 5 から移行するときは、以前のレベルを持ち越さず `medium` から始めるよう推奨されています。
+- 同じレベルなら、Opus 5.5 は Opus 5 よりターンあたりの思考量が多い傾向があります。
+
+<div class="src">
+  出典: [model-config#choose-an-effort-level](https://code.claude.com/docs/en/model-config#choose-an-effort-level)
+</div>
+
+<span id="ch03-resolution" />
+
+## 解決順序（実測）
+
+最初に当てはまったものを使います。
+
+1. 環境変数 `CLAUDE_CODE_EFFORT_LEVEL`
+2. セッション中に選んだレベル（`/effort`、`/model` ピッカー、Agent SDK の `applyFlagSettings()`）
+3. 起動時の `--effort`
+4. 設定: `modelSettings` に保存したモデル別のレベル、またはトップレベルの `effortLevel`
+5. モデルの既定値
+
+- 上限（`maxEffortLevel` と組織の上限）は、この順序で決まったレベルに後からかかります。
+- managed 設定の `effortLevel` も手順 4 の扱いです。ユーザーは `/effort` や `--effort` で変えられるため、上限を強制するには `maxEffortLevel` を使います。
+- `--effort` がメイン会話のモデルに対して設定を上書きするのは、そのセッションだけです。保存はされません。
+
+```text title="実測 2.1.321" frame="terminal"
+$ CLAUDE_CODE_EFFORT_LEVEL=low \
+    claude -p --effort high "/effort status"
+Current effort level: low (Quick, straightforward
+implementation with minimal overhead)
+
+$ claude -p --effort xhigh \
+    --settings '{"effortLevel":"low"}' "/effort status"
+Current effort level: xhigh (…)
+
+$ claude -p --settings '{"effortLevel":"low",
+    "modelSettings":{"claude-opus-5-5":
+      {"effortLevel":"high"}}}' "/effort status"
+Current effort level: high (…)
+
+$ claude -p --settings '{"effortLevel":"max"}' \
+    "/effort status"
+Effort level: auto (currently medium)
+```
+
+環境変数がフラグに勝ち、フラグが設定に勝ち、同じファイル内ではモデル別の値が勝ちます。設定の `max` は受け付けられず、警告なしで無視されました。
+
+<div class="src">
+  出典: [model-config#adjust-effort-level](https://code.claude.com/docs/en/model-config#adjust-effort-level) · [#set-the-effort-level](https://code.claude.com/docs/en/model-config#set-the-effort-level) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · 実機確認 2.1.321
+</div>
+
+<span id="ch03-command" />
+
+## `/effort` サブコマンドと `--effort`
+
+| 書き方                        | 動作                                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `/effort`                     | スライダー。<kbd>Enter</kbd> で既定として保存、<kbd>s</kbd> でこのセッションだけ（v2.1.257 以降）、<kbd>Tab</kbd> で Ultracode |
+| `/effort <level>`             | レベルを直接設定し、既定として保存。`max` はこのセッションだけ（`CLAUDE_CODE_EFFORT_LEVEL` で指定した場合を除く）              |
+| `/effort auto`                | 使用中のモデルの保存済みレベルを消す。他モデルの値とトップレベルの `effortLevel` は残る                                        |
+| `/effort status`              | 設定されたレベルを表示                                                                                                         |
+| `/effort ultracode [on\|off]` | Ultracode をこのセッションで切り替え（[Ultracode](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-ultracode)）             |
+| `--effort <level>`            | 起動したセッションだけ。`low\|medium\|high\|xhigh\|max\|ultracode`                                                             |
+
+- `/model` ピッカーでも左右キーで変えられます。保存の扱いは同じです。
+- `-p`（v2.1.205 以降）、Agent SDK、リモートワーカー、Remote Control 端末からの変更は、そのセッションだけです。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "/effort xhigh"
+Set effort level to xhigh (this session only): Deeper
+reasoning than high, just below maximum (on supported
+models)
+
+$ claude -p --effort bogus "/effort status"
+Warning: Unknown --effort value 'bogus' — ignoring it
+and using the default effort. Valid values: low, medium,
+high, xhigh, max.
+Effort level: auto (currently medium)      → exit 0
+```
+
+- 不正な `--effort` は警告だけで処理を続けます。`CLAUDE_CODE_EFFORT_LEVEL=bogus` は警告なしで無視されました。
+- `claude --help` と上の警告の候補一覧には `ultracode` がありません。`--effort ultracode` 自体は受け付けます。
+- 新しいレベルは確定後の次のメッセージから効きます。作業中なら `keep going` などをキューに入れます。
+
+<div class="src">
+  出典: [commands](https://code.claude.com/docs/en/commands) · [model-config#set-the-effort-level](https://code.claude.com/docs/en/model-config#set-the-effort-level) · [#when-a-new-effort-level-starts](https://code.claude.com/docs/en/model-config#when-a-new-effort-level-starts) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · 実機確認 2.1.321
+</div>
+
+<span id="ch03-settings" />
+
+## `modelSettings` と `effortLevel`
+
+```json
+{
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "high"
+    }
+  }
+}
+```
+
+- 対話セッションで `low`〜`xhigh` を既定として保存すると、user 設定の `modelSettings` にモデル別に書かれます（v2.1.251 以降。それ以前はトップレベルの `effortLevel`）。
+- キーは正規名（例: `claude-opus-5-5`）です。エイリアス、日付付き ID、`[1m]` 付き ID、認識できるプロバイダ ID も同じエントリに対応します。
+- エントリには `effortLevel`、`maxEffortLevel`、`autoCompactWindow`（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/)）を書けます。
+
+### 優先順位
+
+- 同じファイル内では、モデル別の値がトップレベルの `effortLevel` に勝ちます。
+- ファイルをまたぐと、モデルごとに、どちらかを設定している最も優先度の高いファイルが決めます。managed の `effortLevel` は、user 設定に保存したレベルより優先されます。
+- どちらのキーも値は `low`, `medium`, `high`, `xhigh` だけです。`max` は受け付けず、`ultracode` には専用の `ultracode` キーがあります。
+
+:::caution[注意]
+user 設定（`~/.claude/settings.json`）のトップレベル `effortLevel` は旧形式です。Opus 5、Fable 5.1 以前のモデルには効き続けますが、Opus 5.5 以降のモデルは無視し、自分の既定値で始まります。project・local・managed 設定と `--settings` では、すべてのモデルに効きます。
+:::
+
+<div class="src">
+  出典: [settings-reference#modelsettings](https://code.claude.com/docs/en/settings-reference#modelsettings) · [#effortlevel](https://code.claude.com/docs/en/settings-reference#effortlevel) · [model-config#adjust-effort-level](https://code.claude.com/docs/en/model-config#adjust-effort-level) · changelog 2.1.280
+</div>
+
+<span id="ch03-caps" />
+
+## 上限: `maxEffortLevel` と組織の effort 上限
+
+```json
+{
+  "maxEffortLevel": "medium",
+  "modelSettings": {
+    "claude-sonnet-4-6": {
+      "maxEffortLevel": "max"
+    }
+  }
+}
+```
+
+- 上限より高いレベルは、どこから来ても上限で動きます。対象は `/effort`、`/model` ピッカー、`--effort`、`CLAUDE_CODE_EFFORT_LEVEL`、Skill・サブエージェントの `effort`、モデルの既定値です。
+- どのファイルにも書けます（v2.1.267 以降）。複数のスコープが設定すると最も低い値が効くため、他のスコープからは引き上げられません。`"max"` は上限なしです。
+- `modelSettings` 内の値は、同じ設定ソースの中でだけトップレベルを置き換えます。上の例は Sonnet 4.6 以外を `medium` に抑えます。
+- クライアントが各リクエストの前にかけるため、Bedrock・Agent Platform・Foundry でも効きます。
+
+### 組織の上限（Enterprise、v2.1.195 以降）
+
+- 管理者がカスタムロールごと・モデルごとに上限を設定します。上限を超えるレベルは `/effort` に出ず、指定しても上限で動きます。
+- 複数のロールが同じモデルを許可する場合は、最も緩い上限が効きます。`maxEffortLevel` と両方ある場合は低い方です。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --effort max \
+    --settings '{"maxEffortLevel":"high"}' "/effort status"
+Effort 'max' exceeds the cap for claude-opus-5-5 set by
+your settings or organization; using 'high'.
+Current effort level: max (…)
+```
+
+警告は plain-text の `-p` では stderr に出て、`stream-json` では出ませんでした（docs は組織の上限について、その場合はデバッグログに書くと説明）。`/effort status` は上限前のレベルを表示します。
+
+<div class="src">
+  出典: [settings-reference#maxeffortlevel](https://code.claude.com/docs/en/settings-reference#maxeffortlevel) · [model-config#organization-effort-limits](https://code.claude.com/docs/en/model-config#organization-effort-limits) · 実機確認 2.1.321
+</div>
+
+<span id="ch03-applies" />
+
+## effort が効く場面と、送られない場合
+
+- effort が送られるのは、レベル表のモデルと、`effort` 能力を宣言したピン留めモデル（`ANTHROPIC_DEFAULT_*_MODEL_SUPPORTED_CAPABILITIES`、[Ch2](/claude-code-deep-dive/ja/fundamentals/models/)）です。
+- `CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1` は、認識できないモデル ID にも effort を送ります（ゲートウェイ向け）。API が effort を拒否するモデル（Opus 4.1、Sonnet 4.5、Haiku 4.5 以前）は除外されます。
+- Anthropic API で思考を OFF にしている場合、その組み合わせを受け付けないモデル（Opus 5 など）には、高いレベルの代わりに `high` を送ります。
+- effort の変更は、多くのモデルでプロンプトキャッシュを無効にします。API キーかサブスクリプションでは、Fable 5.1 以降・Opus 5.5・Sonnet 5.5・Haiku 5.5 のキャッシュは残ります。ただし Bedrock・Agent Platform・Claude apps gateway・HIPAA 構成などでは無効になります（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/)）。
+- 安全分類器による自動フォールバックの後は、フラグが立ったリクエストのレベルを引き継ぎます（[Ch2](/claude-code-deep-dive/ja/fundamentals/models/)）。
+
+### effort を送らない
+
+```bash
+export CLAUDE_CODE_EFFORT_LEVEL=auto   # unset も同じ
+```
+
+- effort を送らないと、Claude Code ではなく API の既定値が使われます。ヘッダーとフッターにレベルは出ません。
+- `/effort status` が `Effort level: auto` なら送っていません。`auto (currently <level>)` なら送っています。
+- 使用中のモデルに `max` 未満の `maxEffortLevel` がかかっていると、モデルの既定値を上限まで下げて送ります。送らないようにするには、設定を外すか `max` にします。
+
+```text title="実測 2.1.321" frame="terminal"
+$ CLAUDE_CODE_EFFORT_LEVEL=auto claude -p "/effort status"
+Effort level: auto
+```
+
+<div class="src">
+  出典: [model-config#send-no-effort-level](https://code.claude.com/docs/en/model-config#send-no-effort-level) · [#extended-thinking](https://code.claude.com/docs/en/model-config#extended-thinking) · [prompt-caching#changing-effort-level](https://code.claude.com/docs/en/prompt-caching#changing-effort-level) · [env-vars](https://code.claude.com/docs/en/env-vars) · 実機確認 2.1.321
+</div>
+
+<span id="ch03-ultrathink" />
+
+## `ultrathink` キーワード
+
+- プロンプトのどこかに `ultrathink` を含めると、そのターンだけ深い推論を求めます。Claude Code はキーワードを認識し、コンテキスト内の指示を追加します。セッションの effort 設定は変わりません。
+- "think"、"think hard"、"think more" などはキーワードではなく、普通のプロンプト文として渡されます。
+- Skill の本文に `ultrathink` を書くと、その Skill の実行時に深い推論を求められます。
+- ターミナルのプロンプトに入力すると、そのターンを `xhigh` に引き上げることもあります（v2.1.311 以降）。引き上げられる場合、単語が虹色で表示されます。作業中に入力すると、そのターンの残りが引き上げられます。
+- VS Code でも 2.1.316 から同じく `xhigh` に引き上げ、虹色で表示します。
+
+### 虹色にならないとき
+
+- 引用符・括弧・パス・コマンドの中に書いた場合、または `/` で始まるプロンプトの場合。外に書き直します。
+- `CLAUDE_CODE_EFFORT_LEVEL` が `xhigh` 未満の場合、または `maxEffortLevel` や組織の上限が `xhigh` 未満の場合。
+- モデルが Opus 5.5、Sonnet 5.5、Haiku 5.5、Fable 5.2、Fable 5.1 以外の場合。Amazon Bedrock のように引き上げられない環境では、effort を直接設定します。
+
+`CLAUDE_CODE_DISABLE_ULTRATHINK` はキーワードを無効にします（2.1.316 で追加。環境変数リファレンスには未掲載）。
+
+フラグが立ったターンを `ultrathink` で引き上げていた場合、そのレベルはそのターンだけに効きます。以降のターンは、フォールバック先のモデルで通常の解決順序に従います。
+
+<div class="src">
+  出典: [model-config#use-ultrathink-for-one-off-deep-reasoning](https://code.claude.com/docs/en/model-config#use-ultrathink-for-one-off-deep-reasoning) · [#effort-level-after-a-fallback](https://code.claude.com/docs/en/model-config#effort-level-after-a-fallback) · [skills](https://code.claude.com/docs/en/skills) · changelog 2.1.311 · changelog 2.1.316（`CLAUDE_CODE_DISABLE_ULTRATHINK` はリファレンス未掲載）
+</div>
+
+<span id="ch03-ultracode" />
+
+## Ultracode
+
+Ultracode は effort のレベルではなく、Claude Code の設定です。ON の間、Claude は実質的なタスクに dynamic workflow を組みます（中身は [Ch41](/claude-code-deep-dive/ja/parallel/workflows/)）。どの effort レベルでも動きます。
+
+| 方法                                                     | effort レベル              |
+| -------------------------------------------------------- | -------------------------- |
+| `/effort ultracode` / `/effort ultracode off`            | 変えない（セッション限り） |
+| `/effort` スライダーで <kbd>Tab</kbd> → <kbd>Enter</kbd> | 変えない                   |
+| `"ultracode": true`（設定、`--settings`、SDK）           | 変えない                   |
+| `claude --effort ultracode`                              | `xhigh` にする             |
+| SDK `applyFlagSettings()` の `effortLevel: "ultracode"`  | `xhigh` にする             |
+
+- スライダーや `/model` でレベルを選んでも、Ultracode の状態は変わりません。
+- Claude Code は `ultracode` キーを読むだけで、書き込みません。
+
+* workflow が無効な場合と、モデルが `xhigh` 非対応の場合は使えません。このとき `--effort ultracode` は Ultracode OFF で、モデルと上限が許す最も高いレベル（最大 `xhigh`）で起動します。
+* `effortLevel` と `CLAUDE_CODE_EFFORT_LEVEL` は `ultracode` を受け付けません。環境変数や上限がレベルを決めている場合も、Ultracode はそのレベルで ON のままです。
+* `on`/`off` 引数、スライダーのトグル、`xhigh` 以外での維持は v2.1.284 以降です。`--effort ultracode` は v2.1.203 以降です（それ以前は `Unknown --effort value 'ultracode'`）。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --effort ultracode "/effort status"
+Current effort level: xhigh (Deeper reasoning than
+high, just below maximum (on supported models)) ·
+Ultracode on
+```
+
+<div class="src">
+  出典: [model-config#adjust-effort-level](https://code.claude.com/docs/en/model-config#adjust-effort-level) · [settings-reference#ultracode](https://code.claude.com/docs/en/settings-reference#ultracode) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · 実機確認 2.1.321
+</div>
+
+<span id="ch03-thinking" />
+
+## adaptive reasoning・固定の思考予算と思考の制御
+
+- adaptive reasoning では、モデルがステップごとに考えるかどうかと量を決めます。Fable、Sonnet 5 以降、Haiku 5.5、Opus 4.7 以降は常に adaptive です。
+- Opus 4.6 と Sonnet 4.6 だけは、`CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING=1` で `MAX_THINKING_TOKENS` による固定予算に戻せます。
+- `MAX_THINKING_TOKENS` は、最大出力トークンより 1 少ない値が上限で、1,024 未満にはなりません。adaptive なモデルでは数値は無視されます。
+- Opus 5.5、Sonnet 5.5、Haiku 5.5、Fable は思考を OFF にできません。トグルと `/config` には `Thinking can't be turned off` と表示されます。
+- 思考トークンは、折りたたみ表示や redacted でもすべて課金されます。
+- サブエージェントはメイン会話の思考の ON/OFF を引き継ぎます（v2.1.198 以降）。サブエージェント個別の設定はありません。
+
+| 制御                             | 方法と効果                                                                             |
+| -------------------------------- | -------------------------------------------------------------------------------------- |
+| セッション中の切り替え           | macOS は <kbd>Option</kbd>+<kbd>T</kbd>、Windows・Linux は <kbd>Alt</kbd>+<kbd>T</kbd> |
+| 全体の既定                       | `/config` で切り替え、`alwaysThinkingEnabled` に保存。`false` で OFF                   |
+| `MAX_THINKING_TOKENS=0`          | Anthropic API で OFF。正の値は `alwaysThinkingEnabled: false` でも ON にする           |
+| `CLAUDE_CODE_DISABLE_THINKING=1` | `thinking` パラメータを送らない（パラメータを拒否するゲートウェイ向け）                |
+| 思考の表示                       | <kbd>Ctrl</kbd>+<kbd>O</kbd> で展開。`showThinkingSummaries: true` で要約全文を表示    |
+
+- サードパーティプロバイダでは、OFF にしてもパラメータを省くだけなので、adaptive なモデルは思考することがあります。
+- Anthropic API の対話セッションは、既定で redacted な思考ブロックを受け取ります。
+
+<div class="src">
+  出典: [model-config#adaptive-reasoning-and-fixed-thinking-budgets](https://code.claude.com/docs/en/model-config#adaptive-reasoning-and-fixed-thinking-budgets) · [#extended-thinking](https://code.claude.com/docs/en/model-config#extended-thinking) · [settings-reference#alwaysthinkingenabled](https://code.claude.com/docs/en/settings-reference#alwaysthinkingenabled) · [env-vars](https://code.claude.com/docs/en/env-vars) · [sub-agents#choose-a-model](https://code.claude.com/docs/en/sub-agents#choose-a-model)
+</div>
+
+<span id="ch03-subagents" />
+
+## サブエージェントと Skill の effort
+
+### サブエージェント・チームメイト
+
+- 定義の frontmatter に `effort`（`low`〜`max`）を書くと、そのサブエージェントの実行中はそのレベルで動きます。
+- フォーク以外のサブエージェントでは、Agent ツールの `effort` パラメータが frontmatter に勝ち、再開後も効きます（v2.1.292 以降）。
+- `CLAUDE_CODE_EFFORT_LEVEL` は両方に勝ちます。上限も効きます。
+- どちらもない場合、メイン会話と同じモデルなら、`/effort` や `--effort` で決めたセッションのレベルで動きます。別のモデルなら、そのモデルの保存済みレベルか既定値で動きます（2.1.317 で変更）。
+- `CLAUDE_CODE_SUBAGENT_EFFORT` は、何もレベルを決めていないサブエージェントのレベルを決めます（2.1.316 で追加。環境変数リファレンスには未掲載）。
+- `/tasks` は各サブエージェントのモデルと、設定されている effort を表示します（v2.1.242 以降）。
+
+### Skill
+
+- Skill の `effort` は、その Skill が動いたターンの終わりまで効きます。`context: fork` の場合は、フォークしたサブエージェントの実行中に効きます。
+- 効いている間は、起動時・保存済み・選択したレベルより優先されます。`CLAUDE_CODE_EFFORT_LEVEL` がある場合はそちらが勝ちます。
+- 省略すると、通常の解決順序に従います。
+
+:::note[補足]
+Skill・サブエージェントの `effort` も、`maxEffortLevel` と組織の上限を超えられません。
+:::
+
+モデルの選び方は [Ch2](/claude-code-deep-dive/ja/fundamentals/models/)、サブエージェントそのものは [Ch37](/claude-code-deep-dive/ja/parallel/subagents/) を参照してください。
+
+<div class="src">
+  出典: [sub-agents#choose-an-effort-level](https://code.claude.com/docs/en/sub-agents#choose-an-effort-level) · [model-config#effort-level-of-subagents-and-teammates](https://code.claude.com/docs/en/model-config#effort-level-of-subagents-and-teammates) · [skills#frontmatter-reference](https://code.claude.com/docs/en/skills#frontmatter-reference) · changelog 2.1.316（`CLAUDE_CODE_SUBAGENT_EFFORT` はリファレンス未掲載）· changelog 2.1.317
+</div>

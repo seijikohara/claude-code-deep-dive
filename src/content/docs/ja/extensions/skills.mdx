@@ -1,0 +1,520 @@
+---
+title: "Skills"
+description: "SKILL.md で Claude に手順や知識を足す仕組みです。この章では、配置と名前の解決、frontmatter の全フィールド、呼び出し制御、引数と動的コンテキスト注入、allowed-tools と信頼モデル、context: fork、説明文の予算、可視性と権限ルールを扱います。バンドル Skill の一覧は Ch12 にあります。"
+sidebar:
+  order: 29
+---
+
+`SKILL.md` で Claude に手順や知識を足す仕組みです。この章では、配置と名前の解決、frontmatter の全フィールド、呼び出し制御、引数と動的コンテキスト注入、`allowed-tools` と信頼モデル、`context: fork`、説明文の予算、可視性と権限ルールを扱います。バンドル Skill の一覧は [Ch12](/claude-code-deep-dive/ja/operation/commands/#ch12-catalog-bundled-1) にあります。
+
+<span id="ch29-overview" />
+
+## 全体像: `SKILL.md` と custom commands の統合
+
+- Skill は `SKILL.md`（YAML frontmatter と Markdown の本文）です。Claude が `Skill` ツールで呼ぶか、ユーザーが `/skill-name` で呼びます。毎ターン文脈に載るのは名前と説明文だけです。
+- **custom commands は Skills に統合されました。**`.claude/commands/deploy.md` と `.claude/skills/deploy/SKILL.md` は、どちらも `/deploy` を作り、同じように動きます。
+- コマンドファイルは `name` と `paths` を除く同じ frontmatter を受け付けますが、supporting files は持てません。同名なら Skill が勝ちます。
+- Agent Skills のオープン標準に準拠し、呼び出し制御・サブエージェント実行・動的注入を拡張しています。
+- 経緯: 2.0.20 で追加、2.1.0 でホットリロード・`context: fork`・frontmatter のフック、2.1.3 でスラッシュコマンドと統合。
+- claude.ai へのアップロード、Skills API、`package_skill.py` は `name`・`description`・`license`・`compatibility`・`metadata`・`allowed-tools` の 6 つだけを受け付け、他はエラーになります。
+
+```yaml
+---
+name: my-skill
+description: What this skill does
+disable-model-invocation: true
+allowed-tools: Read Grep
+---
+
+Your skill instructions here...
+```
+
+### frontmatter の解析規則
+
+- frontmatter として読むのは、1 行目が `---` のときだけです。それ以外はファイル全体が本文になります。
+- フィールドはすべて任意で、推奨は `description` だけです。表に無いフィールド名は、エラーなしで無視されます。
+- 真偽値は `true`・`false` に加え、`yes`・`no`・`on`・`off`・`1`・`0` を大文字小文字を問わず受け付けます。
+- YAML が解析できないと、フィールドなしで読み込まれます。`claude plugin validate .claude/skills`（v2.1.233 以降）か `--debug` で見つけます。
+
+<div class="src">
+  出典: [skills](https://code.claude.com/docs/en/skills) · [#frontmatter-reference](https://code.claude.com/docs/en/skills#frontmatter-reference) · [#using-skill-frontmatter-outside-claude-code](https://code.claude.com/docs/en/skills#using-skill-frontmatter-outside-claude-code) · [changelog 2.0.20・2.1.0・2.1.3・2.1.218](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-locations" />
+
+## 配置場所と読み込みの規則
+
+| 場所             | パス                                                                     | 読み込まれるセッション                                          |
+| ---------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| Enterprise       | managed settings ディレクトリ内の `.claude/skills/<skill-name>/SKILL.md` | 組織が配布したマシンの全ユーザー                                |
+| Personal         | `~/.claude/skills/<skill-name>/SKILL.md`                                 | このマシンの全プロジェクト（Cowork・クラウドを除く）            |
+| Project          | `.claude/skills/<skill-name>/SKILL.md`                                   | このリポジトリのセッション（Projects のクラウドスレッドを除く） |
+| Nested           | `<subdir>/.claude/skills/<skill-name>/SKILL.md`                          | `<subdir>` 以下で始めたセッション（下記）                       |
+| 追加ディレクトリ | `--add-dir` で渡したディレクトリの `.claude/skills/`                     | そのセッション                                                  |
+| Plugin           | `<plugin>/skills/<skill-name>/SKILL.md`                                  | プラグインが有効な場所。`/plugin-name:skill-name` になる        |
+| claude.ai        | アカウントで有効な Skill（端末では `~/.claude/skills/synced/`）          | Cowork、クラウド、サインインした端末                            |
+
+- 起動ディレクトリからリポジトリのルートまで、各階層の `.claude/skills/` を読みます（linked worktree はそのルートまで）。
+- 下位の Skill は、そこのファイルを扱った時点で読まれます。2.1.319 以降、サンドボックス有効時はそこで起動か `/cd` した場合だけです。
+
+* `--add-dir` は `.claude/skills/`・`commands/`・`agents/` を読みます。`permissions.additionalDirectories` は何も読みません。
+* symlink は実体ごとに 1 回だけ読みます。`synced` と、プラグイン外の `anthropic-skills` 系の名前は読み込まれません。
+
+:::danger[食い違い]
+端末での claude.ai の Skill の同期: skills ページは v2.1.273 以降、changelog は 2.1.275 で追加と記載。
+:::
+
+<div class="src">
+  出典: [skills#where-skills-live](https://code.claude.com/docs/en/skills#where-skills-live) · [#discovery-from-parent-and-nested-directories](https://code.claude.com/docs/en/skills#discovery-from-parent-and-nested-directories) · [#skills-from-additional-directories](https://code.claude.com/docs/en/skills#skills-from-additional-directories) · [#where-synced-skills-load](https://code.claude.com/docs/en/skills#where-synced-skills-load) · [changelog 2.1.275](https://code.claude.com/docs/en/changelog) · [changelog 2.1.319（リファレンス未掲載）](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-names" />
+
+## 同名の解決とコマンド名の決まり方
+
+| 同じ名前がある場所                        | 実行されるもの                                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| Enterprise・Personal・Project のうち 2 つ | Enterprise ＞ Personal ＞ Project                                                     |
+| 上記とバンドル Skill                      | 自作が置き換える。別名は置き換えない（`code-review` を作っても `/review` はバンドル） |
+| 上記と組み込みコマンド                    | ローカル端末では自作が置き換える。別名は残る（`usage` を作っても `/cost` は組み込み） |
+| Skill と `.claude/commands/`              | Skill                                                                                 |
+| ルートと nested                           | 両方を読む。`/deploy` はルート、`/apps/web:deploy` は nested                          |
+| 上記と `--add-dir` の Skill               | 上記。追加側は `/cli:verify` の形（v2.1.309 以降）                                    |
+| `--add-dir` 同士                          | 先に追加した方。他方は接頭辞付き                                                      |
+| プラグインの Skill                        | 両方（`/plugin-name:skill-name` で分かれる）                                          |
+| claude.ai の Skill の短い名前             | 他方。同期側は `/anthropic-skills:<name>` だけで動く                                  |
+
+- Skill ディレクトリは `name` とディレクトリ名のどちらでも呼べます。`deploy-staging/` に `name: deploy` なら `/deploy` も使えます。`.claude/commands/frontend/component.md` は `/frontend:component` です。
+- プラグインの `my-plugin/skills/review/SKILL.md` は `/my-plugin:review`、`name: fancy` なら `/my-plugin:fancy` です。空いていれば `/fancy` でも呼べます。
+- 同期した Skill と他のコマンドの名前の比較は、大文字小文字・空白・不可視文字を無視し、全角やダッシュの異体を同一視します（v2.1.228 以降）。
+- 拒否される文字: ゼロ幅・制御文字、私用・未割当の文字、方向制御、半角空白 1 個以外の空白、`<` `>`。プラグイン外のフォルダ名なら読み込まれず、`name` なら無視されます。`claude --debug` のログで `[names]` を探します。
+- 256 文字を超える `name` は無視されます（2.1.292）。
+- 非対話セッションでは `help`・`feedback` が予約されず、その名前のプラグイン Skill は短い名前で動きます。`/login` など他の端末専用の名前は予約されたままです。
+
+<div class="src">
+  出典: [skills#resolve-skills-that-share-a-name](https://code.claude.com/docs/en/skills#resolve-skills-that-share-a-name) · [#how-a-skill-gets-its-command-name](https://code.claude.com/docs/en/skills#how-a-skill-gets-its-command-name) · [#characters-a-skill-name-cant-hold](https://code.claude.com/docs/en/skills#characters-a-skill-name-cant-hold) · [#how-synced-skills-behave](https://code.claude.com/docs/en/skills#how-synced-skills-behave) · [changelog 2.1.292（リファレンス未掲載）](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-frontmatter-1" />
+
+## frontmatter 全フィールド (1/2): 名前・説明・呼び出し・ツール
+
+| フィールド                 | 意味と既定値                                                                                                                                                                      |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                     | `/` メニューに出るコマンド名。既定はディレクトリ名。コマンドファイルでは使えない                                                                                                  |
+| `description`              | 何をし、いつ使うか。Claude が自動で呼ぶかの判断材料。省略時は本文の最初の空でない行。`when_to_use` と合わせて一覧では 1,536 文字で切られる。`<` `>` は `&lt;` `&gt;` と表示される |
+| `when_to_use`              | 呼ぶきっかけ（言い回しや依頼の例）。`description` の後ろに付き、1,536 文字に含まれる                                                                                              |
+| `argument-hint`            | 補完時のヒント。例: `[issue-number]`、`[filename] [format]`                                                                                                                       |
+| `arguments`                | `$name` 置換用の名前付き位置引数。空白区切りの文字列か YAML リスト。宣言順に位置へ対応                                                                                            |
+| `disable-model-invocation` | `true` で Claude による自動の読み込みを禁止。サブエージェントへのプリロードと、session-scoped scheduled task からの実行も止まる。既定 `false`                                     |
+| `user-invocable`           | `false` で `/` メニューから隠し、`/name` を入力しても実行しない。Claude は呼べる。既定 `true`                                                                                     |
+| `allowed-tools`            | 呼び出したターンの間、確認なしで使えるツール。次のメッセージで解除。空白・カンマ区切りの文字列か YAML リスト                                                                      |
+| `disallowed-tools`         | Skill が有効な間、ツールプールから外すツール。次のメッセージで解除。他のツールが残る限り `EndConversation` は外せない                                                             |
+| `paths`                    | 自動で読み込む対象ファイルの glob。カンマ区切りか YAML リスト（2.1.84 以降）。Claude の作業ディレクトリ基準で、外のファイルは一致しない。コマンドファイルでは使えない             |
+
+<div class="src">
+  出典: [skills#frontmatter-reference](https://code.claude.com/docs/en/skills#frontmatter-reference) · [changelog 2.1.84](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-frontmatter-2" />
+
+## frontmatter 全フィールド (2/2): 実行環境・フック・メタデータ
+
+| フィールド      | 意味と既定値                                                                                                                                                                                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model`         | このターンの残りで使うモデル（設定には保存しない）。`/model` と同じ値か `inherit`。`availableModels` で除外された値は使われない。auto mode と classifier が審査する plan mode では、auto mode が対応しないモデルも使われない。`context: fork` ではフォーク先のモデル |
+| `effort`        | このターンの残りの effort（`low` `medium` `high` `xhigh` `max`。モデル次第）。セッションの値は上書きするが、`CLAUDE_CODE_EFFORT_LEVEL` は上書きしない。`context: fork` ではフォーク先の effort                                                                       |
+| `context`       | `fork` でサブエージェントの別コンテキストで実行する                                                                                                                                                                                                                  |
+| `agent`         | `context: fork` で使うサブエージェントの型。既定 `general-purpose`                                                                                                                                                                                                   |
+| `background`    | `context: fork` のときだけ有効。`false` で、呼び出したターンで結果を待つ。既定 `true`                                                                                                                                                                                |
+| `hooks`         | 呼び出し時に登録し、セッションの終わりまで動かすフック                                                                                                                                                                                                               |
+| `shell`         | `` !`command` `` と ` ```! ` を実行するシェル。`bash`（既定）か `powershell`（PowerShell ツールが有効な場合）                                                                                                                                                        |
+| `metadata`      | 自前のツール用の自由な YAML マップ。Claude Code は使わず、マップ以外の値は捨てる。`paths` などのフィールド名をキーにしない                                                                                                                                           |
+| `license`       | Agent Skills 仕様のフィールド。受け付けるが使わない                                                                                                                                                                                                                  |
+| `compatibility` | Agent Skills 仕様のフィールド。500 文字までの文字列。受け付けるが使わない                                                                                                                                                                                            |
+
+changelog 2.1.186 は `display-name`・`default-enabled`・`fallback` のキー表記にも触れていますが、skills ページには記載がなく、意味は不明です。
+
+<div class="src">
+  出典: [skills#frontmatter-reference](https://code.claude.com/docs/en/skills#frontmatter-reference) · [changelog 2.1.186（リファレンス未掲載）](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-invocation" />
+
+## 呼び出し制御: 誰が・どこで・いくつ
+
+| frontmatter                      | ユーザー | Claude         | 文脈への載り方                 |
+| -------------------------------- | -------- | -------------- | ------------------------------ |
+| （既定）                         | 可       | 可             | 説明文は常時。本文は呼び出し時 |
+| `disable-model-invocation: true` | 可       | 自分からは不可 | 説明文も載らない               |
+| `user-invocable: false`          | 不可     | 可             | 説明文は常時。本文は呼び出し時 |
+
+- `disable-model-invocation` の Skill を Claude が呼ぼうとすると、Claude Code が止めます。2.1.222 以降は、手順を別の方法で再現せず、ユーザーに実行を頼むよう指示します。
+- `user-invocable: false` は Claude の呼び出しを止めません。止めるには `disable-model-invocation: true` を使います。
+- `/init`・`/security-review` など一部の組み込みコマンドも `Skill` ツールで呼べます。`/compact` などは呼べません。
+- サブエージェントの `skills` フィールドは、起動時に本文全体を注入します。対象は先頭の 32 個の異なる名前までです（2.1.295）。
+
+| 名前を書く位置                                      | 動作                                                                                           |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| メッセージの先頭: `/deploy staging`                 | その場で実行する                                                                               |
+| 文中の独立した語: `go ahead and /deploy to staging` | 直接は実行しない。その応答で Claude が実行してよいという許可になる。スラッシュを外せば言及だけ |
+
+- 端末のプロンプトでは、`/write-tests /fix-issue 123` のように先頭に重ねられます。末尾の `123` は各 Skill の `$ARGUMENTS` になります。
+- 展開するのは、最初の Skill と続く最大 5 個までです。インラインでユーザーが呼べる Skill でない語、フォークで動く Skill（`/code-review` など）、引数がコマンドで始まりうる Skill（`/loop` など）で止まり、そこから後ろは全 Skill の引数になります。
+- Agent SDK と `claude -p` では最初の Skill だけを読み込み、残りはその引数になります。
+
+<div class="src">
+  出典: [skills#control-who-invokes-a-skill](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill) · [#stack-several-skills-in-one-message](https://code.claude.com/docs/en/skills#stack-several-skills-in-one-message) · [#restrict-claude’s-skill-access](https://code.claude.com/docs/en/skills#restrict-claude’s-skill-access) · [sub-agents#preload-skills-into-subagents](https://code.claude.com/docs/en/sub-agents#preload-skills-into-subagents) · [changelog 2.1.222・2.1.295](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-arguments" />
+
+## 引数と置換変数
+
+| 変数                    | 値                                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `$ARGUMENTS`            | 入力どおりの引数全体                                                                           |
+| `$ARGUMENTS[N]` / `$N`  | 0 始まりの位置の引数（`$0`、`$1`…）                                                            |
+| `$name`                 | `arguments` で宣言した名前付き引数                                                             |
+| `${CLAUDE_SESSION_ID}`  | セッション ID                                                                                  |
+| `${CLAUDE_EFFORT}`      | 現在の effort レベル                                                                           |
+| `${CLAUDE_SKILL_DIR}`   | `SKILL.md` のあるディレクトリ。プラグインではプラグインのルートでなく Skill のサブディレクトリ |
+| `${CLAUDE_PROJECT_DIR}` | プロジェクトのルート。フック・MCP の `CLAUDE_PROJECT_DIR` と同じ                               |
+| `${CLAUDE_PLUGIN_ROOT}` | プラグインのインストール先（プラグインの Skill だけ）                                          |
+| `${CLAUDE_PLUGIN_DATA}` | 更新後も残るプラグインのデータ（同上）                                                         |
+
+- 位置引数はシェル風に引用します。`/my-skill "hello world" second` では `$0` が `hello world`、`$1` が `second` です。
+- 引数の無い位置の `$2` は文字のまま残ります（2.1.210 以降）。引数の無い名前付き引数は空文字になります。
+- どの placeholder も引数を受け取らないと、本文の末尾に `ARGUMENTS: <value>` が付きます。
+- 引数の値は再展開しません。`\$1.00` で `$` を文字として残します（`\\$1` では残らない）。`${CLAUDE_*}` は引数の挿入後にも置換され、バックスラッシュでも止まりません。
+- 埋めるのは先頭 64 個の名前、各 64 文字までです（2.1.301）。
+
+```yaml
+---
+name: migrate-component
+description: Migrate a component from one language to another
+---
+
+Migrate the $0 component from $1 to $2.
+Preserve all existing behavior and tests.
+```
+
+<div class="src">
+  出典: [skills#available-string-substitutions](https://code.claude.com/docs/en/skills#available-string-substitutions) · [#pass-arguments-to-skills](https://code.claude.com/docs/en/skills#pass-arguments-to-skills) · [changelog 2.1.210](https://code.claude.com/docs/en/changelog) · [changelog 2.1.301（リファレンス未掲載）](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch29-injection" />
+
+## 動的コンテキスト注入 (1/2): 構文と実行
+
+```yaml
+---
+name: pr-summary
+description: Summarize changes in a pull request
+context: fork
+agent: Explore
+allowed-tools: Bash(gh *)
+---
+
+## Pull request context
+- PR diff: !`gh pr diff`
+- PR comments: !`gh pr view --comments`
+- Changed files: !`gh pr diff --name-only`
+
+## Your task
+Summarize this pull request...
+```
+
+````markdown
+## Environment
+```!
+node --version
+git status --short
+```
+````
+
+- `` !`<command>` `` は、Skill の内容を Claude へ送る前にシェルで実行し、出力で置き換えます。Claude はコマンドではなく結果を受け取ります。
+- インライン形式は、`!` が行頭か空白の直後にあるときだけ認識します。`` KEY=!`cmd` `` は文字のまま残ります。複数行は ` ```! ` で始まるフェンスで書きます。
+- 置換は元のファイルに 1 回だけ行い、出力は再走査しません。
+- 実行するのは Bash ツールです。`shell: powershell` で PowerShell ツールが有効なら PowerShell ツールです。`shell: bash` で bash が無い環境（Git Bash の無い Windows）では、実行前に失敗します。
+- 作業ディレクトリはセッションのシェルの現在地で、`cd` で動きます。固定したいパスには `${CLAUDE_SKILL_DIR}` か `${CLAUDE_PROJECT_DIR}` を使います。
+- bash では stderr を stdout に合流します。タイムアウトは Bash ツールの既定の 2 分です。バックグラウンドへ移るコマンドなら Skill は描画され、移らないコマンドは止められて呼び出しが中断されます。
+- 出力が大きいと、ファイルパスと短いプレビューになります。
+
+<div class="src">
+  出典: [skills#inject-dynamic-context](https://code.claude.com/docs/en/skills#inject-dynamic-context) · [#how-injected-commands-run](https://code.claude.com/docs/en/skills#how-injected-commands-run)
+</div>
+
+<span id="ch29-injection-rules" />
+
+## 動的コンテキスト注入 (2/2): 失敗・権限・無効化
+
+### 失敗したとき
+
+- 1 つでも失敗すると、Skill の呼び出し全体が中断され、Claude は内容を受け取りません。表示は `Shell command failed for pattern "..."` で、コマンドの出力を含みます。
+- bash では 0 以外の終了コードが失敗です。検索・比較コマンドの終了コード 1 だけは正常として扱い、2 以上は失敗です。PowerShell では対象が違い、`grep`・`git diff` を含み `find`・`diff` を含みません。
+- 0 以外で終わると分かっているチェックには `|| true` を付けます。
+- `No shell command in <name> was run` は、受け付けない文字が含まれているという意味です（2.1.290 以降、タブと改行以外の生の制御文字を拒否）。
+
+### 無効化
+
+- `"disableSkillShellExecution": true` は、user・project・plugin・追加ディレクトリの注入を `[shell command execution disabled by policy]` に置き換えます。バンドルと managed の Skill は対象外で、managed の `true` は覆せません。
+
+### 権限の確認
+
+- 注入コマンドは描画中に確認を出しません。先に権限ルールと照合し、deny に一致すると `Shell command permission check failed for pattern "..."` で中断します。
+- auto mode 以外では、allow 以外の結果（ask を含む）もすべて中断です。中断させないには `allowed-tools` で事前に承認します。deny と ask は `allowed-tools` より優先です。
+- auto mode（2.1.271 以降）では、承認が要るコマンドでも中断しません。Skill は「先にそのコマンドを実行する」という指示付きで読み込まれ、Claude の呼び出しが auto mode の通常の審査を受けます。
+- ただし、`agent` を指定したフォークの Skill と、シェルツールの無いセッションでは中断します。
+- 2.1.299 以降、`UserPromptSubmit` フックは Skill の展開より先に動きます。プロンプトを止めれば注入コマンドも動きません。
+- claude.ai から同期した Skill は、自分のマシンでは `!` を実行しません（v2.1.228 以降）。
+
+<div class="src">
+  出典: [skills#when-an-injected-command-fails](https://code.claude.com/docs/en/skills#when-an-injected-command-fails) · [#permission-checks-on-injected-commands](https://code.claude.com/docs/en/skills#permission-checks-on-injected-commands) · [settings-reference#disableskillshellexecution](https://code.claude.com/docs/en/settings-reference#disableskillshellexecution) · [changelog 2.1.271](https://code.claude.com/docs/en/changelog) · [changelog 2.1.290・2.1.299（リファレンス未掲載）](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-allowed-tools" />
+
+## `allowed-tools`・`disallowed-tools` と信頼モデル
+
+```yaml
+---
+name: commit
+description: Stage and commit the current changes
+disable-model-invocation: true
+allowed-tools: Bash(git add *) Bash(git commit *) Bash(git status *)
+---
+```
+
+- 付与は Skill を呼び出したターンだけ有効で、次のメッセージで解除されます。本文は文脈に残っても、許可は残りません。再び呼べば再適用されます。
+- ツールを制限はしません。一覧に無いツールは通常の権限設定に従います。セッション全体で許可するなら allow ルールを使います。
+- deny と ask のルールは `allowed-tools` より優先します。
+- `disallowed-tools`（2.1.152）は、Skill が有効な間ツールプールから外し、次のメッセージで解除されます。全体で止めるなら deny ルールを使います。
+- `${CLAUDE_SKILL_DIR}`・`${CLAUDE_PROJECT_DIR}` は `allowed-tools` の Bash ルールでも置換されます。本文と同じ変数を使えば、同梱スクリプトを確認なしで実行できます。
+
+### 信頼モデル
+
+- **ワークスペースの信頼は `allowed-tools` を止めません。**&#x4E00;度も信頼していないフォルダの `-p` でも、プロジェクトの Skill の付与が効きます（[実測](/claude-code-deep-dive/ja/extensions/skills/#ch29-lab)）。リポジトリの Skill は実行前に中身を確認します。
+- `allowManagedPermissionRulesOnly`（managed、v2.1.282 以降）は、project・personal・`--add-dir` の Skill などの `allowed-tools` を無視します。無視した Skill は `/status` に出ます。managed とバンドルの Skill は付与を保ちます。
+- `strictPluginOnlyCustomization` が `hooks` を含むと、`hooks` を宣言した personal・project の Skill は `allowed-tools` を失い、フックも動きません（2.1.304）。
+- 修正の履歴: 対話ツール（`AskUserQuestion` など）を `allowed-tools` に入れると空の回答で自動許可された問題（2.1.69）、managed の ask ルールを `allowed-tools` が迂回できた問題（2.1.74）。
+
+<div class="src">
+  出典: [skills#pre-approve-tools-for-a-skill](https://code.claude.com/docs/en/skills#pre-approve-tools-for-a-skill) · [settings-reference#allowmanagedpermissionrulesonly](https://code.claude.com/docs/en/settings-reference#allowmanagedpermissionrulesonly) · [changelog 2.1.152・2.1.304](https://code.claude.com/docs/en/changelog) · [changelog 2.1.69・2.1.74（リファレンス未掲載）](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch29-fork" />
+
+## `context: fork`・`agent`・`background`
+
+```yaml
+---
+name: deep-research
+description: Research a topic thoroughly
+context: fork
+agent: Explore
+---
+
+Research $ARGUMENTS thoroughly:
+
+1. Find relevant files using Glob and Grep
+2. Read and analyze the code
+3. Summarize findings with specific file references
+```
+
+| 方式                            | システムプロンプト     | タスク                  | 追加で読むもの                     |
+| ------------------------------- | ---------------------- | ----------------------- | ---------------------------------- |
+| `context: fork` の Skill        | agent の型から         | `SKILL.md` の内容       | agent の起動時文脈どおり CLAUDE.md |
+| `skills` を持つサブエージェント | サブエージェントの本文 | Claude の委譲メッセージ | プリロードした Skill と CLAUDE.md  |
+
+stream-json では、`/<skill>` をプロンプトにしたフォークのメッセージの `parent_tool_use_id` が `forked-command-` で始まります。
+
+- `agent` の型（`Explore`・`Plan`・`general-purpose`・`.claude/agents/` のカスタム。既定 `general-purpose`）で新しいサブエージェントを起動し、Skill の内容をプロンプトとして渡します。
+- 名前と違い、会話のフォークではありません。履歴は渡らないので、指示だけで完結させます。タスクの無い参照用の Skill には向きません。
+- 既定でバックグラウンド実行です（2.1.218 以降）。`background: false` で、呼び出したターンで待ちます。
+- 常に待つ場合: `-p` と Agent SDK、`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`、同じ Skill の実行中の再呼び出し、session-scoped scheduled task からの起動。dynamic workflow のエージェントも結果を受け取ります（v2.1.295 以降）。
+- バックグラウンドのフォークは、バックグラウンドのサブエージェント用の狭いツールセットで動きます。編集はチェックポイントの外で、`/rewind` では戻りません。
+- `Explore`・`Plan` は CLAUDE.md と git status なしで始まります。
+
+<div class="src">
+  出典: [skills#run-skills-in-a-subagent](https://code.claude.com/docs/en/skills#run-skills-in-a-subagent) · [headless](https://code.claude.com/docs/en/headless) · [changelog 2.1.218](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-hooks-files" />
+
+## Skill 内のフック・supporting files・内容のライフサイクル
+
+```yaml
+---
+name: secure-operations
+description: Perform operations with security checks
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: "./scripts/security-check.sh"
+---
+```
+
+- 呼び出し時に登録され、後のターンも含めセッションの終わりまで動きます（サブエージェントのフックは実行中だけ）。`once: true` は最初の成功後に外れ、Skill の frontmatter でだけ有効です。
+- プロジェクトの Skill のフックは、未信頼フォルダの `-p` でも呼び出し時に登録されます。
+- Skill 自身の `UserPromptSubmit` フックは、呼び出したプロンプトの次から動きます（2.1.299）。
+- 出どころごとの上限と plugin-only ロックは [Ch28](/claude-code-deep-dive/ja/extensions/hooks/#ch28-frontmatter-env) を参照してください。
+
+```text
+my-skill/
+├── SKILL.md (required - overview and navigation)
+├── reference.md (detailed API docs - loaded when needed)
+├── examples.md (usage examples - loaded when needed)
+└── scripts/
+    └── helper.py (utility script - executed, not loaded)
+```
+
+- `SKILL.md` から各ファイルを参照し、何がいつ要るかを Claude に伝えます。スクリプトは読み込まずに実行します。`SKILL.md` は 500 行以内が目安です。
+- 描画した `SKILL.md` は 1 つのメッセージとして会話に入り、後のターンも残ります。ファイルは読み直しません。
+- 同じ内容で再び呼ぶと、読み込み済みという短い注記だけが付きます（2.1.202）。引数や注入結果が違えば全文を再び足します。
+- 自動圧縮の後は、各 Skill の最新の呼び出しを先頭 5,000 トークンまで再添付します。合計 25,000 トークンを最近の呼び出しから埋めるので、重要な指示は先頭に書きます。
+
+<div class="src">
+  出典: [hooks#hooks-in-skills-and-agents](https://code.claude.com/docs/en/hooks#hooks-in-skills-and-agents) · [skills#add-supporting-files](https://code.claude.com/docs/en/skills#add-supporting-files) · [#skill-content-lifecycle](https://code.claude.com/docs/en/skills#skill-content-lifecycle) · [changelog 2.1.202](https://code.claude.com/docs/en/changelog) · [changelog 2.1.299（リファレンス未掲載）](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-budget" />
+
+## 説明文の文字数予算と `/skill-doctor`
+
+- Claude は毎ターン、Skill の名前と説明文の一覧を受け取ります。名前は必ず全件載りますが、予算を超えると説明文を落とします。
+- 落とすのは呼び出しの少ない Skill からです。名前だけの Skill も呼べますが、Claude が自分から選ぶ可能性は下がります。
+
+| 上限                                | 既定                        | 変え方                                                                                                     |
+| ----------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 1 件の `description`＋`when_to_use` | 1,536 文字                  | `skillListingMaxDescChars`                                                                                 |
+| 一覧全体                            | コンテキストウィンドウの 1% | `skillListingBudgetFraction`（0 より大きく 1 以下）、または固定の文字数を `SLASH_COMMAND_TOOL_CHAR_BUDGET` |
+
+- env-vars は `SLASH_COMMAND_TOOL_CHAR_BUDGET` を「1% で伸縮し、フォールバックは 8,000 文字。互換のための旧名」と説明しています。
+- 経緯: 1 件の上限は 2.1.86 で 250 文字、2.1.105 で 1,536 文字。全体は 2.1.32 で「コンテキストの 2%」と告知され、現行 docs は 1% です。
+
+### 調べ方
+
+- `/doctor` は一覧のコストを見積もり、`/context` の Skills 行は予算適用後の大きさです（v2.1.196 以降）。超過時は `--debug` のログに警告が出ます。
+- 予算を空けるには、優先度の低い Skill を `skillOverrides` で `"name-only"` にします。
+
+### `/skill-doctor`
+
+- Skill ごとのコンテキストコストと使用頻度を示し、一度も呼ばれていない Skill と止める場所、最近使っていないプラグインを挙げます。
+- バンドルと Enterprise の Skill は対象外です。対話では `/plugin` の **Stats** タブに、`-p` ではテキストで出ます。
+- feature flag の取得が必要で、Remote Control からは使えません。2.1.261 で追加されました（changelog）。
+
+:::danger[食い違い]
+skills ページと commands ページは、`/skill-doctor` を「v2.1.252 以降」と記載しています。
+:::
+
+<div class="src">
+  出典: [skills#skill-descriptions-are-cut-short](https://code.claude.com/docs/en/skills#skill-descriptions-are-cut-short) · [#find-unused-skills](https://code.claude.com/docs/en/skills#find-unused-skills) · [settings-reference#skilllistingbudgetfraction](https://code.claude.com/docs/en/settings-reference#skilllistingbudgetfraction) · [env-vars](https://code.claude.com/docs/en/env-vars) · [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands) · [changelog 2.1.32・2.1.86・2.1.105・2.1.261](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-reload" />
+
+## ライブリロードと `skillOverrides`
+
+- `~/.claude/skills/`、プロジェクトの `.claude/skills/`、`--add-dir` の `.claude/skills/` を監視し、追加・編集・削除をセッション中に反映します（bare mode を除く）。
+- 起動後に作ったトップレベルの skills ディレクトリは監視されません。`/reload-skills` を実行し、その後の変更のたびに再実行します。`/reload-skills` は Skill とコマンドのディレクトリを再走査し、増減の数を報告します。
+- 監視の対象は `SKILL.md` の内容だけです。プラグインを兼ねる Skill フォルダの `hooks/`・`.mcp.json`・`agents/`・`output-styles/` には `/reload-plugins` が要ります。`--add-dir` の `commands/`・`agents/` は再起動が要ります。
+- `SessionStart` フックが `reloadSkills: true` を返すと、Skill のディレクトリを再走査します（2.1.152）。
+- 2.1.304 以降、圧縮の後は Skill の一覧を送り直し、`/reload-skills` は新規と変更分だけを送ります。
+- `skillOverrides` の別名（`/doctor` の `checkup` など）のキーは、managed と `--settings` でだけ効き、絞る方向にだけ働きます。
+
+| 値                      | Claude への一覧 | `/` メニュー |
+| ----------------------- | --------------- | ------------ |
+| `"on"`                  | 名前と説明文    | 出る         |
+| `"name-only"`           | 名前だけ        | 出る         |
+| `"user-invocable-only"` | 出ない          | 出る         |
+| `"off"`                 | 出ない          | 出ない       |
+
+```json
+{
+  "skillOverrides": {
+    "legacy-context": "name-only",
+    "deploy": "off"
+  }
+}
+```
+
+- `/skills` で <kbd>Space</kbd> か <kbd>Enter</kbd> で切り替え、<kbd>Esc</kbd> で `.claude/settings.local.json` に保存します（`"user-invocable-only"` のメニュー表記は `user-only`）。
+- 書かれていない Skill は `"on"` です。`"off"` は Remote Control と Agent SDK のコマンド一覧からも隠れ、正式名で呼ぶと `skillOverrides` のエラーになります。プラグインの Skill には効きません。
+
+<div class="src">
+  出典: [skills#live-change-detection](https://code.claude.com/docs/en/skills#live-change-detection) · [#override-skill-visibility-from-settings](https://code.claude.com/docs/en/skills#override-skill-visibility-from-settings) · [commands#all-commands](https://code.claude.com/docs/en/commands#all-commands) · [changelog 2.1.152](https://code.claude.com/docs/en/changelog) · [changelog 2.1.304（リファレンス未掲載）](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-permissions" />
+
+## `Skill(...)` 権限ルールと関連スイッチ
+
+```text
+# Allow only specific skills
+Skill(commit)
+Skill(review-pr *)
+
+# Deny specific skills
+Skill(deploy *)
+```
+
+- deny の `Skill` は全 Skill を止めます。`Skill(name)` は完全一致、`Skill(name *)` は任意の引数付きの前方一致です（2.1.139 で修正）。
+
+| deny ルール                        | 追加で止まるもの                                |
+| ---------------------------------- | ----------------------------------------------- |
+| 別名 `Skill(review)`               | バンドルの `/code-review`                       |
+| 修飾なし `Skill(deploy)`           | nested の `apps/web:deploy`（v2.1.260 以降）    |
+| `Skill(anthropic-skills:deploy)`   | Claude Desktop がプラグインとして渡す同じ Skill |
+| `Skill(deploy:deploy)`             | 同期した Skill                                  |
+| パラメータ形 `Skill(skill:deploy)` | 別名・表示名を含む、どの名前での呼び出しも      |
+
+allow ルールは、Skill 自身の名前と呼び出しに使った名前にだけ一致します。同期した Skill は `Skill(anthropic-skills:pdf)` か `Skill(anthropic-skills *)` で許可します。
+
+| スイッチ                                                       | 効果                                                                                                            |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `disableBundledSkills`、`CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1` | バンドル Skill と Workflow を外す。`/init` などはモデルから隠れる。片方が止めると他方で戻せない                 |
+| `--disable-slash-commands`                                     | このセッションの Skill とコマンドをすべて無効にする                                                             |
+| `--bare`                                                       | Skill の自動探索をしない。`--add-dir` の Skill は読む（[Ch44](/claude-code-deep-dive/ja/automation/headless/)） |
+| `--safe-mode`                                                  | Skill を読まない。managed の Skill も読まない                                                                   |
+| `CLAUDE_CODE_DISABLE_POLICY_SKILLS=1`                          | システム全体の managed skills ディレクトリを読まない                                                            |
+| `strictPluginOnlyCustomization` の `"skills"`                  | user・project・`--add-dir`・同期の Skill とコマンドを止める。バンドル・managed・プラグインは残る                |
+| `"syncClaudeAiSkills": false`                                  | claude.ai の Skill の同期を止める。user・local・managed・`--settings` で有効                                    |
+
+<div class="src">
+  出典: [skills#restrict-claude’s-skill-access](https://code.claude.com/docs/en/skills#restrict-claude’s-skill-access) · [settings-reference#disablebundledskills](https://code.claude.com/docs/en/settings-reference#disablebundledskills) · [#strictpluginonlycustomization-skills](https://code.claude.com/docs/en/settings-reference#strictpluginonlycustomization-skills) · [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · [env-vars](https://code.claude.com/docs/en/env-vars) · [changelog 2.1.139・2.1.260](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch29-lab" />
+
+## 実機検証: init への出現と実行
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p '/lab-echo banana split'
+ECHO banana split / FIRST banana / DYN injected-42
+
+$ claude -p '/lab-grant'
+RAN
+
+$ claude -p '/lab-nogrant'
+DENIED
+```
+
+いずれもプロジェクトの Skill（`disable-model-invocation: true`）。`-p --model haiku --setting-sources project` で、一度も信頼していないフォルダで実行。`lab-echo` の本文は `` ECHO $ARGUMENTS / FIRST $0 / DYN !`echo injected-$((40+2))` `` を返す指示。`lab-grant`・`lab-nogrant` は `touch` を 1 回実行させる指示
+
+| 確認したこと                       | 結果                                                                                                                                                                                               |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| init への出現                      | プロジェクトの Skill が `skills` と `slash_commands` の先頭に並ぶ。`disable-model-invocation: true` でも載る。バンドル 19 件は [Ch12](/claude-code-deep-dive/ja/operation/commands/#ch12-headless) |
+| `--disable-slash-commands`         | `skills`・`slash_commands` が空配列になり、`terminal_slash_commands` のキー自体が出ない                                                                                                            |
+| 置換（`/lab-args 42 "feature x"`） | `A0=[42] A1=[feature x] A2=[$2] ISSUE=[42] BRANCH=[feature x] EXTRA=[] PRICE=[$1.00] EFF=[medium]`。未指定の `$2` は残り、`$extra` は空、`\$1.00` は `$1.00`                                       |
+| `!` の注入                         | モデルに渡る前に `injected-42` へ置換された                                                                                                                                                        |
+| `allowed-tools: Bash(touch *)`     | `touch` が確認なしで実行され、ファイルができた                                                                                                                                                     |
+| 付与なし（対照）                   | `touch in '<PROJECT>/lab-nogrant.txt' needs approval.` で拒否され、`permission_denials` に記録                                                                                                     |
+| フック                             | `UserPromptSubmit` は入力どおりの `/lab-echo banana split`。続く `UserPromptExpansion` は `command_source: "projectSettings"`                                                                      |
+| 読み込み元（`--debug`）            | `managed=/Library/Application Support/ClaudeCode/.claude/skills, user=~/.claude/skills, project=[<PROJECT>/.claude/skills]`（macOS）                                                               |
+
+<div class="src">
+  出典: [skills#pre-approve-tools-for-a-skill](https://code.claude.com/docs/en/skills#pre-approve-tools-for-a-skill) · [#available-string-substitutions](https://code.claude.com/docs/en/skills#available-string-substitutions) · [headless](https://code.claude.com/docs/en/headless) · 実機確認 2.1.321
+</div>

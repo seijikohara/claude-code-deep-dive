@@ -1,0 +1,243 @@
+---
+title: "サンドボックス"
+description: "Bash・PowerShell・Monitor のコマンドと子プロセスに、OS がファイルとネットワークの境界を強制する仕組みです。OS ごとの機構、承認モード、ファイルシステムとネットワークの規則、除外と再試行、認証情報の保護と組織での強制、限界と他の隔離方式を扱います。"
+sidebar:
+  order: 25
+---
+
+Bash・PowerShell・Monitor のコマンドと子プロセスに、OS がファイルとネットワークの境界を強制する仕組みです。OS ごとの機構、承認モード、ファイルシステムとネットワークの規則、除外と再試行、認証情報の保護と組織での強制、限界と他の隔離方式を扱います。
+
+<span id="ch25-os" />
+
+## OS の仕組み・有効化・対象外のもの
+
+| OS                 | 機構と必要なもの                                                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| macOS              | 組み込みの Seatbelt。追加インストール不要                                                                                           |
+| Linux・WSL2        | bubblewrap と `socat`。ripgrep は同梱。Unix ソケットを塞ぐ seccomp フィルタは任意（`npm install -g @anthropic-ai/sandbox-runtime`） |
+| WSL1               | 非対応（`Sandboxing requires WSL2`）                                                                                                |
+| Windows ネイティブ | サンドボックスなしで実行。WSL2 内で動かす                                                                                           |
+
+- 既定は無効です。`/sandbox`（Mode・Overrides・Config タブ）で選ぶと `.claude/settings.local.json` に保存されます。常に使うなら user 設定の `sandbox.enabled` です。
+- 起動できないときは既定でサンドボックスなしで動きます。`sandbox.failIfUnavailable: true` なら起動時に終了します。
+- Ubuntu で AppArmor が bwrap を止めるときは、プロファイル追加か `sysctl` で解除します。
+
+```bash
+claude --settings '{"sandbox": {"enabled": true,
+  "allowUnsandboxedCommands": false}}'
+```
+
+| 対象         | 既定                                                                               | 変える設定                                |
+| ------------ | ---------------------------------------------------------------------------------- | ----------------------------------------- |
+| 書き込み     | 作業ディレクトリ、ユーザーごとの一時ディレクトリ、追加ディレクトリ。保護パスは不可 | `filesystem.allowWrite`・`denyWrite`      |
+| 読み取り     | マシンのほぼ全体（`~/.ssh`・`~/.aws/credentials` を含む）                          | `filesystem.denyRead`・`credentials`      |
+| ネットワーク | 直接の経路なし。プロキシが許可ドメインと照合（初期は空）                           | `network.allowedDomains`・`deniedDomains` |
+| 環境変数     | Claude Code から継承（秘密も含む）                                                 | `credentials`                             |
+
+### サンドボックスの外で動くもの
+
+- Read・Edit・Write・WebFetch・WebSearch などの組み込みツール。`denyRead` は Read ツールを止めず、`allowedDomains` は WebFetch を制限しません。
+- コマンドフック、ローカル MCP サーバー、プラグインのモニター、LSP、ステータスライン、`apiKeyHelper`、mod
+- `!` で自分が打ったコマンド、`excludedCommands` に一致したコマンド、サンドボックス外での再試行
+
+<div class="src">
+  出典: [sandboxing#what-the-sandbox-restricts](https://code.claude.com/docs/en/sandboxing#what-the-sandbox-restricts) · [#what-runs-outside-the-sandbox](https://code.claude.com/docs/en/sandboxing#what-runs-outside-the-sandbox) · [#get-started](https://code.claude.com/docs/en/sandboxing#get-started) · [#set-up-linux-and-wsl2](https://code.claude.com/docs/en/sandboxing#set-up-linux-and-wsl2) · [settings-reference](https://code.claude.com/docs/en/settings-reference#sandbox-failifunavailable)
+</div>
+
+<span id="ch25-modes" />
+
+## サンドボックスモードとパーミッションモードの関係
+
+- **auto-allow**（`autoAllowBashIfSandboxed: true`、既定）: サンドボックス内で動くコマンドを確認なしで承認します。Manual mode でも同じです。
+- **regular permissions**（`false`）: サンドボックス内でも通常の権限判定を通します。
+- auto-allow でも残るもの: Bash の deny ルール、クリティカルパスの `rm`、内容で絞った ask（`Bash(git push *)`）。`Monitor` のコマンドは自動承認されません。
+- 素の `Bash` ask ルールはサンドボックス内のコマンドでは省かれます。plan mode では省かれず、読み取り専用も確認します。
+- `FOO=bar npm test`・`make CC=clang`・`eval "ls"` は通常の判定に回ります。確認を省くには `Bash(FOO=bar npm *)`・`Bash(make *)`・`Bash(eval "ls")` と書きます。
+- パーミッションモードと独立に働きます。例外は plan mode、auto mode でホストを指定したコマンド、auto mode のサーバー側レビューです。
+
+|                                  | 制御するもの                 | 確認の代わり                        |
+| -------------------------------- | ---------------------------- | ----------------------------------- |
+| `/sandbox`                       | 実行後の Bash が触れる範囲   | auto-allow ではサンドボックスの境界 |
+| auto mode                        | 各ツール呼び出しを実行するか | 分類器の審査                        |
+| `--dangerously-skip-permissions` | 各ツール呼び出しを実行するか | なし。保護パスの検査も省く          |
+
+分類器なしで確認を減らす docs の構成例:
+
+```bash
+claude --permission-mode default
+# then run /sandbox and select auto-allow
+```
+
+サブエージェントは親と同じプロセスで同じ設定を使います。バックグラウンドセッションは自分の設定に従います。
+
+<div class="src">
+  出典: [sandboxing#sandbox-modes](https://code.claude.com/docs/en/sandboxing#sandbox-modes) · [#permission-modes](https://code.claude.com/docs/en/sandboxing#permission-modes) · [#scope](https://code.claude.com/docs/en/sandboxing#scope) · [permission-modes#common-setups](https://code.claude.com/docs/en/permission-modes#common-setups)
+</div>
+
+<span id="ch25-filesystem" />
+
+## ファイルシステムの規則
+
+- キー: `sandbox.filesystem.allowWrite`・`denyWrite`・`denyRead`・`allowRead`・`disabled`・`allowManagedReadPathsOnly`（managed 専用）。配列はスコープ間で結合されます。
+- 読み取り規則が重なると、狭いパスの規則が勝ちます。`"denyRead": ["~/"]` と `"allowRead": ["~/projects"]` なら `~/projects` だけ読めます。
+- パスの書き方は Read・Edit ルールと違います。`/tmp/build` は絶対パス、`~/` はホーム、`./` か接頭辞なしは project 設定ならプロジェクトルート、user 設定なら `~/.claude` です。`//` も絶対パスとして使えます。
+- Linux・WSL2 の `allowWrite`・`denyWrite` で効くワイルドカードは末尾の `/**` だけです。`denyRead` の `/**/*.pem` は何も止めません。
+- 権限ルールも合流します。`Edit` の allow は書き込み許可、`Read`・`Edit` の deny は拒否、`WebFetch(domain:…)` はネットワーク一覧に入ります。
+- `filesystem.disabled` はファイル層を切り、ネットワーク層だけ残します。user・managed・`--settings` でしか効きません。
+
+### サンドボックスの保護パス（常に書き込み拒否）
+
+- 作業ディレクトリとその上: `.claude` の設定ファイル、`skills`・`agents`・`commands`・`hooks`、`.mcp.json`、`.claude/workflows` など
+- 作業ディレクトリのみ: `.bashrc`・`.zshrc`、`.gitconfig`、`.vscode`・`.idea`、`.git` の `hooks`・`config`。最上位の `HEAD`・`objects`・`refs`
+- `~/.claude` の大半、`~/.claude.json`、`.credentials.json`
+
+ホーム全体の読み取りを止め、プロジェクトだけ読ませる例（project 設定に置くと `.` がプロジェクトルートになる）:
+
+```json
+{ "sandbox": { "enabled": true,
+  "filesystem": { "denyRead": ["~/"], "allowRead": ["."] } } }
+```
+
+macOS、サンドボックス有効の `-p` で Claude に実行させた結果:
+
+```text title="実測 2.1.321" frame="terminal"
+touch: .mcp.json: Operation not permitted
+```
+
+<div class="src">
+  出典: [sandboxing#configure-sandboxing](https://code.claude.com/docs/en/sandboxing#configure-sandboxing) · [#protected-paths](https://code.claude.com/docs/en/sandboxing#protected-paths) · [settings-reference#sandbox-path-prefixes](https://code.claude.com/docs/en/settings-reference#sandbox-path-prefixes) · 実機確認 2.1.321
+</div>
+
+<span id="ch25-network" />
+
+## ネットワークの規則
+
+- 直接の経路はありません。Linux は別のネットワーク名前空間、macOS は Seatbelt で、外のプロキシにだけつながります。プロキシは `HTTP_PROXY`・`HTTPS_PROXY`・`ALL_PROXY` で渡され、ホスト名を照合します。
+- プロキシ変数を読まない `ssh` や多くの DB ドライバは、許可したホストにもつながりません。UDP・QUIC・ICMP は出られません。
+- `allowedDomains`（ポートなしは全ポート）、`deniedDomains`、`strictAllowlist`（user・managed・`--settings`、v2.1.219 以降）、`allowManagedDomainsOnly`（managed）があります。
+- 確認で Yes を選ぶとセッション中だけ許可し、「don't ask again」は `WebFetch(domain:…)` の allow を local 設定に保存します。
+- 許可したホスト名でも、ループバック・リンクローカル・自機のアドレスにしか解決しない場合は拒否されます。`"127.0.0.1:8080"` のように IP も許可に加えます。
+- `httpProxyPort`・`socksProxyPort` を設定すると、そのトラフィックには Claude Code のドメイン制御が効かなくなります。`network.tlsTerminate` <span class="badge experimental">Experimental</span> は TLS を終端しますが内容の検査はしません。
+
+| モード                        | 許可外のホストへの接続                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| `bypassPermissions`           | 確認なしで許可                                                                 |
+| Manual・`acceptEdits`・`plan` | 確認                                                                           |
+| `auto`                        | コマンドが `allowed_domains` に挙げ、分類器が承認した場合のみ（v2.1.271 以降） |
+| `dontAsk`                     | 拒否                                                                           |
+
+`strictAllowlist` と `allowManagedDomainsOnly` は全モードで拒否します。
+
+`dontAsk` で `curl --noproxy '*'` と通常の `curl`（`Exit code` 行と `000` 行は省略）:
+
+```text title="実測 2.1.321" frame="terminal"
+curl: (6) Could not resolve host: example.com
+curl: (56) CONNECT tunnel failed, response 403
+<sandbox_violations>
+deny network-outbound example.com:443 (user denied)
+</sandbox_violations>
+```
+
+auto mode の 1 回目（再実行で `"allowed_domains": ["example.com"]` を付け `200`）:
+
+`deny network-outbound example.com:443 (not in this command's allowed_domains — re-run the command with this host listed if it needs it)`
+
+<div class="src">
+  出典: [sandboxing#network-isolation](https://code.claude.com/docs/en/sandboxing#network-isolation) · [#hosts-outside-your-allowed-domains](https://code.claude.com/docs/en/sandboxing#hosts-outside-your-allowed-domains) · [#per-command-allowed-domains-in-auto-mode](https://code.claude.com/docs/en/sandboxing#per-command-allowed-domains-in-auto-mode) · [#custom-proxy-configuration](https://code.claude.com/docs/en/sandboxing#custom-proxy-configuration) · 実機確認 2.1.321
+</div>
+
+<span id="ch25-excluded-retry" />
+
+## `excludedCommands`・サンドボックス外での再試行・strict モード
+
+- `excludedCommands` に一致した呼び出しはファイル制限もプロキシもなしで動き、権限判定は通常どおり通ります。
+- 書き方は `Bash(...)` と同じです。`docker` は引数なしだけ、`docker *` は引数の有無を問いません。呼び出し内のすべてのコマンドが一致する必要があり、文字列で照合します（`/usr/local/bin/docker` は不一致）。
+- 常に内側に残る形: `sudo`・`eval`・`xargs` で始まる、`cd`・`pushd`・`popd`、`$(...)`・サブシェル・`if`・`for`、ファイルへのリダイレクト、絶対パス・`~`・`..` を指す `git clone` など。
+
+```json
+{ "sandbox": { "enabled": true,
+  "excludedCommands": ["docker compose *"] } }
+```
+
+:::caution[注意]
+除外したコマンドは利用者の全権限で動きます。`docker compose` のように作業ディレクトリのファイルを読むツールなら、Claude がそのファイルを書いて外で実行させられます。
+:::
+
+失敗後、Claude は Bash の `dangerouslyDisableSandbox` を付けて再試行することがあります。承認はモードで決まります。
+
+| モード                | サンドボックス外の再試行             |
+| --------------------- | ------------------------------------ |
+| `bypassPermissions`   | 確認なし                             |
+| Manual・`acceptEdits` | 「Bash command (unsandboxed)」の確認 |
+| `auto`                | 分類器が審査                         |
+| `dontAsk`             | 拒否                                 |
+
+- 一致する allow ルールは再試行も承認します。ask ルール `Bash(dangerouslyDisableSandbox:true)` は auto・bypass でも確認させます。
+- **strict モード**（`allowUnsandboxedCommands: false`）はこのパラメータを無視します。user・`--settings`・managed の `false` は project の `true` に勝ちます（v2.1.285 以降）。
+- `!` で打ったコマンドは strict でもサンドボックス外です。例外はバックグラウンドセッションと、`CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` を設定した Linux です。
+
+<div class="src">
+  出典: [sandboxing#run-commands-outside-the-sandbox-with-excludedcommands](https://code.claude.com/docs/en/sandboxing#run-commands-outside-the-sandbox-with-excludedcommands) · [settings-reference#sandbox-excludedcommands](https://code.claude.com/docs/en/settings-reference#sandbox-excludedcommands) · [sandboxing#the-unsandboxed-retry-escape-hatch](https://code.claude.com/docs/en/sandboxing#the-unsandboxed-retry-escape-hatch) · [#turn-off-the-retry-with-strict-sandbox-mode](https://code.claude.com/docs/en/sandboxing#turn-off-the-retry-with-strict-sandbox-mode)
+</div>
+
+<span id="ch25-credentials-org" />
+
+## 認証情報の保護と組織での強制
+
+```json
+{ "sandbox": { "enabled": true, "credentials": {
+  "files": [
+    { "path": "~/.aws/credentials", "mode": "deny" },
+    { "path": "~/.ssh", "mode": "deny" } ],
+  "envVars": [
+    { "name": "GITHUB_TOKEN", "mode": "deny" },
+    { "name": "NPM_TOKEN", "mode": "deny" } ] } } }
+```
+
+- `deny`: ファイルは読み取り拒否、環境変数は各コマンドの前に消します。組み込みの拒否一覧はなく、書いたものだけが対象です。どのスコープも追加でき、他のスコープの追加は消せません。
+- `mask`: コマンドには代替値（sentinel）を見せ、プロキシが許可ホストへの送信時に本物へ差し替えます。`network.tlsTerminate` と user・managed・`--settings` での指定が必要です。macOS のファイルは `deny` と同じ効果になります。
+
+managed settings での強制の例:
+
+```json
+{ "sandbox": { "enabled": true, "failIfUnavailable": true,
+  "allowUnsandboxedCommands": false } }
+```
+
+- managed（または `--settings`）の `allowUnsandboxedCommands: false` か、managed の `allowManagedDomainsOnly: true` でサンドボックスは管理者必須になります。リポジトリの `excludedCommands`・`allowedDomains`・プロキシポート・`allowWrite` などの緩める設定は無視されます（v2.1.285 以降）。
+- managed 専用: `allowManagedReadPathsOnly`・`allowManagedDomainsOnly`・`bwrapPath`・`socatPath`。
+- 弱める設定は managed で `false` に固定します: `enableWeakerNestedSandbox`・`enableWeakerNetworkIsolation`・`network.allowAllUnixSockets`・`network.allowLocalBinding`・`allowAppleEvents`・`allowNestedUserNamespaces`。
+- `failIfUnavailable` のある Windows ネイティブ機は起動しません。OS 別に配るか WSL2 に移します。配布方法は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/)。
+
+<div class="src">
+  出典: [sandboxing#protect-credentials](https://code.claude.com/docs/en/sandboxing#protect-credentials) · [#mask-credentials](https://code.claude.com/docs/en/sandboxing#mask-credentials) · [#enforce-sandboxing-with-managed-settings](https://code.claude.com/docs/en/sandboxing#enforce-sandboxing-with-managed-settings) · [#keep-developers-from-widening-the-policy](https://code.claude.com/docs/en/sandboxing#keep-developers-from-widening-the-policy) · [settings-reference](https://code.claude.com/docs/en/settings-reference#sandbox-bwrappath)
+</div>
+
+<span id="ch25-limits" />
+
+## 限界と、他の隔離方式との選び分け
+
+docs は「リスクを下げるが完全な隔離境界ではない」としています。
+
+- プロキシは TLS を検査せず、クライアントが示すホスト名で判断します。`github.com` のような広いドメインの許可はドメインフロンティングなどによる持ち出し経路になりえます。
+- `allowUnixSockets` で `/var/run/docker.sock` を開けるとホストへの実質的なアクセスになります。
+- `$PATH` 上のディレクトリやシェル設定への書き込み許可は権限昇格につながります。
+- `enableWeakerNestedSandbox`・`allowAppleEvents`・`allowNestedUserNamespaces` は境界を大きく弱めます。
+- 有効な隔離にはファイルとネットワークの両方が必要です。
+- 2.1.319 で worktree 作成時のサンドボックス脱出を、2.1.321 で読み取り専用コマンドが確認なしにサンドボックス外で動く不具合を修正しています。
+
+| 方式                        | 隔離するもの                                            | Docker |
+| --------------------------- | ------------------------------------------------------- | ------ |
+| Bash サンドボックス         | シェルコマンドと子プロセス                              | 不要   |
+| sandbox runtime             | Claude Code プロセス全体（ファイルツール・MCP・フック） | 不要   |
+| dev container・独自コンテナ | 開発環境全体                                            | 必要   |
+| VM                          | OS 全体                                                 | 不要   |
+| クラウドセッション          | Anthropic 管理の VM                                     | 不要   |
+
+- Bash サンドボックスだけでは無人実行に不十分です。`--dangerously-skip-permissions` は常にコンテナ・VM・sandbox runtime の中で動かします。
+- sandbox runtime は docs で「beta research preview」とされています。`npm install -g @anthropic-ai/sandbox-runtime` の後 `srt claude` で起動し、設定は `~/.srt-settings.json` です。
+- Claude Code 自身が強制するのは Bash サンドボックスだけです。dev container は慣習であり、強制の境界ではありません（[Ch26](/claude-code-deep-dive/ja/settings/security/#ch26-devcontainer)）。
+
+<div class="src">
+  出典: [sandboxing#limitations](https://code.claude.com/docs/en/sandboxing#limitations) · [sandbox-environments](https://code.claude.com/docs/en/sandbox-environments) · changelog 2.1.319, 2.1.321
+</div>

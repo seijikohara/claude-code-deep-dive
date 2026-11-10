@@ -1,0 +1,200 @@
+---
+title: "管理設定"
+description: "組織のポリシーを配る managed settings を、配布経路ごとの保存形式から扱います。複数ソースの合成規則、全ソースから読むキー、policyHelper、不正値の fail-closed、managed 専用キー、server-managed settings の取得・キャッシュ・承認ダイアログまでを説明します。設定階層全体の優先順位は Ch18 で扱います。"
+sidebar:
+  order: 58
+---
+
+組織のポリシーを配る managed settings を、配布経路ごとの保存形式から扱います。複数ソースの合成規則、全ソースから読むキー、`policyHelper`、不正値の fail-closed、managed 専用キー、server-managed settings の取得・キャッシュ・承認ダイアログまでを説明します。設定階層全体の優先順位は [Ch18](/claude-code-deep-dive/ja/settings/settings-files/#ch18-precedence) で扱います。
+
+<span id="ch58-delivery" />
+
+## 配布方式ごとの保存場所と、managed 専用キー
+
+| 方式（上ほど優先） | 保存場所と形式                                                                                                                                                        |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server-managed     | claude.ai か gateway。キャッシュは `~/.claude/remote-settings.json`                                                                                                   |
+| MDM・OS ポリシー   | macOS: ドメイン `com.anthropic.claudecode`。Windows: `HKLM\SOFTWARE\Policies\ClaudeCode` の `Settings`（JSON 文字列）                                                 |
+| ファイル           | `/Library/Application Support/ClaudeCode/`・`/etc/claude-code/`・`C:\Program Files\ClaudeCode\` の `managed-settings.json`・`managed-settings.d/`・`managed-mcp.json` |
+| HKCU               | `HKCU\SOFTWARE\Policies\ClaudeCode`。利用者が書けるので admin ソースではない                                                                                          |
+
+- 旧パス `C:\ProgramData\ClaudeCode\` は読みません。ファイルはシンボリックリンクでも読み、リンク先がシステムディレクトリの外なら警告します。
+- ターミナル・IDE 拡張・Code タブ・Agent SDK が読みます。Anthropic 運用のクラウドセッションは server-managed だけを読みます（間隔は [Ch18](/claude-code-deep-dive/ja/settings/settings-files/#ch18-delivery)）。
+
+| 分類           | managed からだけ読むキー                                                                                                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 権限・フック   | `allowManagedPermissionRulesOnly`、`allowManagedHooksOnly`                                                                                                             |
+| MCP            | `allowManagedMcpServersOnly`、`allowAllClaudeAiMcps`、`managedMcpServers`                                                                                              |
+| プラグイン     | `strictKnownMarketplaces`、`blockedMarketplaces`、`pluginSuggestionMarketplaces`、`pluginTrustMessage`、`disableCommandPluginSources`、`strictPluginOnlyCustomization` |
+| Channels       | `channelsEnabled`、`allowedChannelPlugins`                                                                                                                             |
+| 起動フラグ     | `disableSideloadFlags`（`--plugin-dir`・`--plugin-url`・`--agents`・`--mcp-config` を拒否）                                                                            |
+| サンドボックス | `sandbox.network.allowManagedDomainsOnly`、`sandbox.filesystem.allowManagedReadPathsOnly`                                                                              |
+| 配布の制御     | `managedSourcesBehavior`、`parentSettingsBehavior`、`policyHelper`、`forceRemoteSettingsRefresh`、`wslInheritsWindowsSettings`                                         |
+
+多くはロックで、許可ルールなどの値自体は通常のキーです。表に無いキー（`allowedProviders`・`modelPricing` など）は settings-reference の Scope 列で確かめます。
+
+<div class="src">
+  出典: [managed-settings#where-each-mechanism-stores-the-policy](https://code.claude.com/docs/en/managed-settings#where-each-mechanism-stores-the-policy) · [#how-claude-code-combines-managed-sources](https://code.claude.com/docs/en/managed-settings#how-claude-code-combines-managed-sources) ·[#where-and-when-a-policy-applies](https://code.claude.com/docs/en/managed-settings#where-and-when-a-policy-applies) · [#keys-only-a-managed-source-can-set](https://code.claude.com/docs/en/managed-settings#keys-only-a-managed-source-can-set)
+</div>
+
+<span id="ch58-merge" />
+
+## 合成規則: ドロップインとソース間の `"merge"`
+
+### ドロップイン（2.1.83 から）
+
+- `managed-settings.json` を先に、続けて `managed-settings.d/*.json` をアルファベット順に合成します。`10-telemetry.json`・`20-security.json` のように番号で順序を決めます。隠しファイルと `.json` 以外は無視します。
+- 単一値は後が勝ち、リストは重複を除いて結合、`env`・`sandbox` はキーごとに合成します。`fallbackModel`・`modelPicker` は丸ごと、`extraKnownMarketplaces`・`managedMcpServers` は同名エントリを丸ごと置き換えます。
+
+### ソース間の `"merge"`（v2.1.242 以降）
+
+- 既定の `"first-wins"` は、policy key を届ける最上位のソースだけを使います（[Ch18](/claude-code-deep-dive/ja/settings/settings-files/#ch18-managed-order)）。
+- 最上位のソースに置きます。下位の許可ルールやフックも加わるので、下位がすべて管理者の手にあるときだけ使います。
+
+| キーの種類        | `"merge"` での扱い                             | 例                                                                                 |
+| ----------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------- |
+| リスト            | 全ソースの要素を結合                           | `permissions.allow`、`hooks`、`deniedModels`                                       |
+| ロック            | 最も厳しい値。緩い値は最上位からだけ           | `allowManagedHooksOnly`、`crossSessionInbound`                                     |
+| 制限の許可リスト  | 設定した最上位から丸ごと。下位の要素は足さない | `availableModels`、`allowedMcpServers`、`strictKnownMarketplaces`、`fallbackModel` |
+| 丸ごと取る値      | 設定した最上位から丸ごと                       | `sandbox.credentials.awsPairs`、`sandbox.ripgrep`                                  |
+| 提供 MCP サーバー | 名前を結合。同名は上位のエントリ               | `managedMcpServers`                                                                |
+| 最上位だけ        | 下位は無視（最上位が未設定でも）               | `modelPicker`、`permissions.defaultMode`、`apiKeyHelper`                           |
+| その他            | 設定した最上位の値                             | `model`、`cleanupPeriodDays`                                                       |
+
+<div class="src">
+  出典: [managed-settings#split-a-file-based-policy-across-teams](https://code.claude.com/docs/en/managed-settings#split-a-file-based-policy-across-teams) · [#how-claude-code-combines-managed-sources](https://code.claude.com/docs/en/managed-settings#how-claude-code-combines-managed-sources) · [#compose-every-managed-source](https://code.claude.com/docs/en/managed-settings#compose-every-managed-source) · changelog 2.1.83
+</div>
+
+<span id="ch58-cross-source" />
+
+## first-wins でも全 admin ソースから読むキーと、ログインキー
+
+- `sandbox.network.allowManagedDomainsOnly`・`sandbox.filesystem.allowManagedReadPathsOnly`: どこかが `true` ならロックが入り、ロック中は対象の許可リストを全 admin ソースで結合します。
+- `allowManagedMcpServersOnly`: どこかが `true` ならロック。`allowedMcpServers` はそれを設定した最上位のソースから取ります（v2.1.273 以降）。
+- `deniedMcpServers`・`disableClaudeAiConnectors`・`allowAllClaudeAiMcps`: どこかの指定が効きます。
+- `sandbox.bwrapPath`・`sandbox.socatPath`・`sandbox.ripgrep`・`sandbox.filesystem.disabled`・`sandbox.network.strictAllowlist`
+- `useAutoModeDuringPlan`・`syncClaudeAiSkills`・`syncClaudeAiPlugins`・`enableArtifact`: どこかの `false` で無効。`maxEffortLevel`: 最も低い上限。
+- `attribution` のトレーラー無効化、`forceRemoteSettingsRefresh`。
+
+HKCU は走査に含めません。
+
+### `env` は変数ごとに合成（v2.1.223 以降）
+
+- 各変数は、それを定義する最上位のソースから取ります。上位が未設定の変数は下位が埋めます。
+- 例外 1: `OTEL_EXPORTER_OTLP_*`・`OTEL_LOG_*`・`OTEL_LOGS_EXPORTER`・`ENABLE_BETA_TRACING_DETAILED`・`BETA_TRACING_ENDPOINT` は 1 つの単位として、いずれかを設定した最上位のソースに従います。あるソースのエンドポイントと別ソースの資格情報は組み合わさりません。
+- 例外 2: `apiKeyHelper`・`otelHeadersHelper` と組になるルーティング変数は、そのソースが勝ったときだけ入ります。
+
+### ログインキー
+
+- `forceLoginOrgUUID` と `forceLoginMethod`（`claudeai`・`console`）は、MDM かファイルにあればそちらを使います。remote の値は、そこに無いときだけです。MDM とファイルが両方あれば MDM が勝ちます（`"merge"` でも）。
+- gateway 用のログインキーは server-managed からは読みません。
+
+<div class="src">
+  出典: [managed-settings#keys-read-from-every-admin-source](https://code.claude.com/docs/en/managed-settings#keys-read-from-every-admin-source) · [#which-managed-source-supplies-login-keys](https://code.claude.com/docs/en/managed-settings#which-managed-source-supplies-login-keys) · [server-managed-settings#per-key-exceptions-across-managed-sources](https://code.claude.com/docs/en/server-managed-settings#per-key-exceptions-across-managed-sources)
+</div>
+
+<span id="ch58-policy-helper" />
+
+## `policyHelper`: ポリシーをプログラムで計算する
+
+```json
+{
+  "policyHelper": {
+    "path": "/usr/local/bin/claude-policy",
+    "timeoutMs": 5000,
+    "refreshIntervalMs": 300000
+  }
+}
+```
+
+| フィールド          | 規則                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------- |
+| `path`              | 正規化した絶対パス（`.`・`..` 不可）。Windows はドライブレターか UNC で `.exe` 終わり |
+| `timeoutMs`         | 最小 `1000`、既定 `10000`                                                             |
+| `refreshIntervalMs` | `0` で無効、それ以外は `60000` 以上。未設定なら起動時に 1 回だけ                      |
+
+読むのは plist・HKLM・managed ファイルだけで、選ばれたソースにあるときだけ実行します。server-managed がポリシーを届けている間は動きません。
+
+- 引数なしで実行し、環境に `CLAUDE_CODE_VERSION` を入れます。標準出力の JSON（上限 1 MiB）の `managedSettings` キーを読みます。
+- `managedSettings` を出力すると、それがその実行で **唯一** の managed ソースになります（無いと helper の分は空で、他のソースが通常どおり効きます。エラーは出ません）。MDM・ファイル・HKCU を無視し、全ソースから読むキーもこの出力だけから読みます（起動時の `forceRemoteSettingsRefresh` 検査は除く）。parent settings も合成しません。
+- **起動時の失敗は起動拒否**: 非ゼロ終了、タイムアウト、出力 1 MiB 超、単一 JSON オブジェクトでない、修復できないスキーマ違反など。対話・`-p`・SDK すべてが対象です。障害対策は helper 自身のキャッシュで行い、`0` で終えます。
+- バックグラウンド更新の失敗では直前のポリシーを保ち、`/status` に理由を出します。
+
+埋め込みホストの parent settings（SDK の `managedSettings`）は、admin ソースがあると無視され、`parentSettingsBehavior: "merge"` で制限側の値だけ合成します。
+
+<div class="src">
+  出典: [settings-reference#policyhelper](https://code.claude.com/docs/en/settings-reference#policyhelper) · [#helper-failures](https://code.claude.com/docs/en/settings-reference#helper-failures) · [managed-settings#compute-the-policy-with-a-helper-program](https://code.claude.com/docs/en/managed-settings#compute-the-policy-with-a-helper-program) · [#let-an-embedding-host-add-policy](https://code.claude.com/docs/en/managed-settings#let-an-embedding-host-add-policy)
+</div>
+
+<span id="ch58-validation" />
+
+## 不正な値の扱いと fail-closed
+
+- スキーマ違反は、修復できる項目（不正なルール 1 つなど）を飛ばして警告し、残る不正値を捨てます。
+- **解析できない文書は起動拒否**: managed ファイル・ドロップイン・plist・HKLM が JSON オブジェクトとして読めないと、他のソースが正常でも起動しません。存在しないのは問題なし、空ファイルは `{}`、壊れた HKCU は通知だけです。
+- 読めず、他の admin ソースもポリシーを届けないとき、OS の拒否ならそのソースなしで起動し、他の I/O エラーなら終了します。
+- **fail-closed**（v2.1.282 以降）: `allowManagedPermissionRulesOnly`・`disableAutoMode` など制限値が 1 つのキーは、不正なら制限値として読みます（`was present but invalid`）。例外は `disableAllHooks`（捨てる）です。
+- `deny`・`ask` が読めない間は `allow` を保留し、不正な `permissions.defaultMode` は `default` とします。
+
+落とした項目は起動時のダイアログ、`-p` の stderr、`claude doctor` に出ます。選ばれた経路は `/status` の `Setting sources`・`Skipped sources` で見ます（[Ch27](/claude-code-deep-dive/ja/settings/diagnostics/#ch27-status)）。
+
+| キー                                                                                                                     | 値全体が不正なとき                         |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| `allowedMcpServers`・`allowedHttpHookUrls`・`httpHookAllowedEnvVars`・`allowedChannelPlugins`・`strictKnownMarketplaces` | 空の許可リストとして強制                   |
+| `allowedProviders`                                                                                                       | 空リスト。全プロバイダを拒否し、起動しない |
+| `availableModels`                                                                                                        | 空リスト。Default モデルだけ               |
+| `forceLoginOrgUUID`                                                                                                      | どの組織もログイン不可                     |
+| `crossSessionInbound`・`availableModelsMatch`・`strictPluginOnlyCustomization`                                           | `refuse`・`exact`・`true`                  |
+| `deniedMcpServers`・`deniedModels`・`blockedMarketplaces`                                                                | 警告して捨てる（全部を拒否しないため）     |
+| `requiredMinimumVersion`・`requiredMaximumVersion`                                                                       | 捨てる（fail open）                        |
+
+<div class="src">
+  出典: [managed-settings#find-entries-claude-code-dropped](https://code.claude.com/docs/en/managed-settings#find-entries-claude-code-dropped) · [#keys-that-fail-closed](https://code.claude.com/docs/en/managed-settings#keys-that-fail-closed) · [#check-that-a-policy-is-in-force](https://code.claude.com/docs/en/managed-settings#check-that-a-policy-is-in-force)
+</div>
+
+<span id="ch58-server-managed" />
+
+## server-managed settings: 対象・取得・キャッシュ
+
+- claude.ai の **Organization settings > Claude Code > Managed settings** に JSON で書きます。Teams か Enterprise、Owner か Primary Owner、`api.anthropic.com` への到達が必要です。
+- 取得する資格情報: Team・Enterprise の OAuth ログイン、`CLAUDE_CODE_OAUTH_TOKEN`、直接設定した API キー、`user_oauth` プロファイル（v2.1.257 以降）。`apiKeyHelper` のキーと WIF では取得しません。
+- セッションには資格情報の所有組織の設定が届きます。Console の API キーは別組織なので、CI では `setup-token` のトークンか endpoint-managed を使います。
+- シェルで `CLAUDE_CODE_USE_*` か既定以外の `ANTHROPIC_BASE_URL` を export していると取得を飛ばします。server-managed の `env` でも endpoint-managed の `env` でも戻せません。export を消すか、user 設定の `env` で `""` にします。
+- 未対応: グループ別ポリシー、`managed-mcp.json`、`policyHelper`。クラウドプロバイダでは Claude apps gateway が同等の配布を担います。
+
+* 起動時に取得し、以後 1 時間ごとに確認します。キャッシュが無く起動時にサインインした場合は最大 5 秒待ちます。取得に失敗すると警告して server-managed なしで続けます。
+* 2 回目以降はキャッシュを即座に適用します。ただし `modelPricing` と `managedMcpServers`（最大 30 秒待つ）は、サーバーの確認まで保留します。
+* キャッシュの `env` のうち、プロキシと TLS（`HTTPS_PROXY`・`NODE_EXTRA_CA_CERTS`・`CLAUDE_CODE_CLIENT_CERT`）、接続先とプロバイダ選択、資格情報、`CLAUDE_CONFIG_DIR`、プロファイルと OS ディレクトリの変数は確認まで保留します。`api.anthropic.com` に届くためのプロキシは endpoint-managed・シェル・user 設定で渡します。
+* OTel exporter の設定、`model`、`env` からの変数削除は次回起動から反映します。
+* 確認は `claude doctor` の `Managed settings (remote)` 行（v2.1.248 以降）と、`claude --debug-file <path>` のログの `Remote settings` です。
+
+<div class="src">
+  出典: [server-managed-settings#requirements](https://code.claude.com/docs/en/server-managed-settings#requirements) · [#platform-availability](https://code.claude.com/docs/en/server-managed-settings#platform-availability) · [#fetch-and-caching-behavior](https://code.claude.com/docs/en/server-managed-settings#fetch-and-caching-behavior) · [#current-limitations](https://code.claude.com/docs/en/server-managed-settings#current-limitations) · [#verify-settings-delivery](https://code.claude.com/docs/en/server-managed-settings#verify-settings-delivery)
+</div>
+
+<span id="ch58-server-approval" />
+
+## server-managed settings: 承認ダイアログと fail-closed 起動
+
+- 対話セッションで承認が要るもの: コマンドを動かす設定（`apiKeyHelper`・`statusLine`・`otelHeadersHelper`）、サンドボックスのバイナリと緩和設定、プロキシ・base URL・`OTEL_EXPORTER_OTLP_ENDPOINT` などの `env`、すべてのフック。拒否すると終了します。
+- プライバシー系 4 変数の真の値と `claudeMd`（v2.1.260 以降）は承認不要です。
+- 承認の記憶は、claude.ai ログインなら組織ごと、gateway なら gateway ごと、その他は配布内容ごと（`/logout` で消える）です。`-p`・SDK・Code タブではその実行だけに適用し、キャッシュしません。
+
+:::danger[食い違い]
+changelog 2.1.316: Team・Enterprise ログインで API から取得した設定は承認プロンプトなしで適用し、検証できない保存コピーは拒否する。server-managed-settings ページは承認ダイアログと組織ごとの記憶を説明したまま。changelog を採るが未検証。
+:::
+
+### `"forceRemoteSettingsRefresh": true`
+
+- 起動時に新しい取得が終わるまで待ち、失敗したら終了します。キャッシュにも残るので、以後の起動も同じ動きになります。
+- どの admin ソースに書いても有効です。MDM やファイルに置けば、初回起動から fail-closed にできます。
+- `claude auth` サブコマンドは例外です。gateway にサインインしたクライアントは、この設定が無くても取得を待ち、失敗すると終了します。
+
+### セキュリティモデル
+
+- クライアント側の制御で、セキュリティ境界ではありません。キャッシュの改変、改変バイナリ、古い版、サードパーティプロバイダで回避できます。強い保証には MDM を使います。
+- `ConfigChange` フックは server-managed や MDM の変更では動きません。監査ログは Compliance API で取れます。
+
+<div class="src">
+  出典: [server-managed-settings#security-approval-dialogs](https://code.claude.com/docs/en/server-managed-settings#security-approval-dialogs) · [#approval-memory](https://code.claude.com/docs/en/server-managed-settings#approval-memory) · [#enforce-fail-closed-startup](https://code.claude.com/docs/en/server-managed-settings#enforce-fail-closed-startup) · [#security-considerations](https://code.claude.com/docs/en/server-managed-settings#security-considerations) · changelog 2.1.316
+</div>

@@ -1,0 +1,171 @@
+---
+title: "Channels"
+description: "MCP サーバーから、実行中のローカルセッションへイベントを push する仕組みです。この章では、--channels と公式チャンネル、チャンネルサーバーの作り方と通知の形式、返信とパーミッションリレー、開発用フラグと管理者制御を扱います。"
+sidebar:
+  order: 34
+  badge:
+    text: "Preview"
+    variant: note
+---
+
+MCP サーバーから、実行中のローカルセッションへイベントを push する仕組みです。この章では、`--channels` と公式チャンネル、チャンネルサーバーの作り方と通知の形式、返信とパーミッションリレー、開発用フラグと管理者制御を扱います。
+
+<span id="ch34-overview" />
+
+## Channels とは <span class="badge preview">Preview</span>
+
+- チャンネルは、実行中の Claude Code セッションへイベントを push する MCP サーバーです。端末から離れている間の出来事に、Claude が反応できます。
+- 一方向（アラート、webhook、監視）と双方向（返信ツールを持つチャットブリッジ）があります。双方向のチャンネルは、権限の確認をリモートの端末へ中継することもできます。
+- Claude Code はチャンネルサーバーを同じマシンのサブプロセスとして起動し、stdio で通信します。チャットはプラグインが API をポーリングするので、公開 URL は要りません。webhook はローカルの HTTP ポートで受けます。
+- イベントはセッションが開いている間だけ届きます。常に受けるには、バックグラウンドのプロセスか永続的なターミナルで動かします。
+- 返信の本文は端末に出ません。端末には受信メッセージ、ツール呼び出し、`sent` のような確認だけが出ます。
+- 既定で承認されるのは `claude-plugins-official` のチャンネルプラグインです。community marketplace は対象外です。
+
+### 要件と状態
+
+- research preview です。「`--channels` のフラグ構文とプロトコル契約は、フィードバックに応じて変わりうる」と明記されています。
+- `--channels` と `--dangerously-load-development-channels` は、プレビュー中は `claude --help` に載りません。2.1.321 の `--help` にも `channel` の文字列はありません。
+- 認証は claude.ai か Console の API キー（2.1.128 以降）です。Bedrock・Agent Platform・Foundry では使えません。
+- claude.ai の Team・Enterprise では、管理者が有効にするまで使えません（[後述](/claude-code-deep-dive/ja/extensions/channels/#ch34-dev-admin)）。
+
+### 近い機能との違い
+
+通常の MCP サーバーは Claude が問い合わせるだけで、push はしません。Remote Control は自分がローカルのセッションを操作し、クラウドセッションと Claude in Slack は新しいクラウドセッションで動きます。Channels は、Claude 以外の発信元から動作中のローカルセッションへ push します。
+
+<div class="src">
+  出典: [channels](https://code.claude.com/docs/en/channels) · [#research-preview](https://code.claude.com/docs/en/channels#research-preview) · [#how-channels-compare](https://code.claude.com/docs/en/channels#how-channels-compare) · [channels-reference#overview](https://code.claude.com/docs/en/channels-reference#overview) · [changelog 2.1.128](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321（`claude --help`）
+</div>
+
+<span id="ch34-usage" />
+
+## `--channels` と公式チャンネル <span class="badge preview">Preview</span>
+
+```bash
+claude --channels plugin:fakechat@claude-plugins-official
+```
+
+- 値は `plugin:<name>@<marketplace>` の空白区切りリストです。複数のプラグインを並べられます。
+- `.mcp.json` にあるだけでは push できません。`--channels` で名前を挙げたサーバーだけが登録されます。
+- 未インストールか allowlist に無いプラグインを渡すと、起動は続きますが登録されず、起動時の通知が理由を示します。
+- 2.1.281 以降、エントリは marketplace だけでなくプラグイン名とも一致する必要があります。
+- 受信は端末に 1 行の要約（`← fakechat · web: what's in my working directory?`）で表示され、モデルには `<channel source="plugin:fakechat:fakechat">` のイベントとして届きます。
+- 権限の確認が出ると、応答までセッションは止まります。`-p` では、選択式の質問や plan の承認など端末入力が要るツールを無効にします。
+
+| 公式     | セットアップ                                                                                                                       | 送信者の許可                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Telegram | BotFather で bot を作る。`/telegram:configure <token>` で `~/.claude/channels/telegram/.env` に保存（または `TELEGRAM_BOT_TOKEN`） | bot に送るとペアリングコードが返る。`/telegram:access pair <code>` の後、`/telegram:access policy allowlist` |
+| Discord  | bot の **Message Content Intent** を有効にしてサーバーへ招待。`/discord:configure <token>`（または `DISCORD_BOT_TOKEN`）           | DM でコードを受け取り、`/discord:access pair <code>` と `policy allowlist`                                   |
+| iMessage | macOS のみ。`~/Library/Messages/chat.db` を読むため Full Disk Access が要る（無いと `authorization denied` で終了）                | 自分宛ては無条件で通る。他は `/imessage:access allow +15551234567`                                           |
+| fakechat | デモ用。UI は `http://localhost:8787`                                                                                              | 不要                                                                                                         |
+
+公式プラグインはすべて Bun が必要です。導入は `/plugin install telegram@claude-plugins-official` の形です。bot は `--channels` 付きのセッションが動いている間だけ返信します。
+
+<div class="src">
+  出典: [channels#supported-channels](https://code.claude.com/docs/en/channels#supported-channels) · [#quickstart](https://code.claude.com/docs/en/channels#quickstart) · [#security](https://code.claude.com/docs/en/channels#security) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · [changelog 2.1.281（リファレンス未掲載）](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch34-build" />
+
+## チャンネルサーバーの作り方と通知の形式 <span class="badge preview">Preview</span>
+
+要件は `@modelcontextprotocol/sdk` と Node 互換のランタイム（Bun・Node・Deno）、stdio トランスポートです。`Server` コンストラクタに次を設定します。
+
+| フィールド                                               | 意味                                                                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `capabilities.experimental['claude/channel']`            | 必須。常に `{}`。存在すると通知リスナーが登録される                                                      |
+| `capabilities.experimental['claude/channel/permission']` | 任意。`{}` でパーミッションリレーに参加。省略か `false` で不参加（v2.1.234 より前は `false` も宣言扱い） |
+| `capabilities.tools`                                     | 双方向のときだけ。常に `{}`                                                                              |
+| `instructions`                                           | 推奨。接続時に Claude へ文脈として渡る。届くイベント、タグ属性の意味、返信の要否と使うツールを書く       |
+
+通知のメソッドは `notifications/claude/channel` です。`params` は `content`（文字列。タグの本文）と `meta`（任意の `Record<string, string>`。各エントリがタグの属性）です。
+
+```ts
+await mcp.notification({
+  method: 'notifications/claude/channel',
+  params: {
+    content: 'build failed on main: https://ci.example.com/run/1234',
+    meta: { severity: 'high', run_id: '1234' },
+  },
+})
+```
+
+```text
+<channel source="your-channel" severity="high" run_id="1234">
+build failed on main: https://ci.example.com/run/1234
+</channel>
+```
+
+- `source` 属性は、設定上のサーバー名から自動で付きます。
+- `meta` のキーは英字・数字・アンダースコアだけです。ハイフンなどを含むキーは黙って捨てられます。
+- 受領の応答はありません。`await` は書き込みで完了し、未登録やポリシーで止められたイベントはエラーなしで捨てられます。
+- イベントは順に処理され、作業中に届いた複数の通知は次のターンにまとめて渡されます。並行処理には別セッションを使います。
+
+<div class="src">
+  出典: [channels-reference#what-you-need](https://code.claude.com/docs/en/channels-reference#what-you-need) · [#server-options](https://code.claude.com/docs/en/channels-reference#server-options) · [#notification-format](https://code.claude.com/docs/en/channels-reference#notification-format)
+</div>
+
+<span id="ch34-relay" />
+
+## 双方向チャンネルとパーミッションリレー <span class="badge preview">Preview</span>
+
+### 返信ツールと送信者の制限
+
+- 返信は通常の MCP ツールです（例: `reply`、引数 `chat_id`・`text`）。`tools: {}`、ツールハンドラ、返し方を書いた `instructions` の 3 つで構成します。
+- 送信者を確かめないチャンネルは、プロンプトインジェクションの経路になります。`mcp.notification()` の前に allowlist で確認します。
+- 判定には送信者 ID（`message.from.id`）を使い、ルーム ID（`message.chat.id`）は使いません。グループでは、ルームで判定すると誰でも注入できます。
+
+### リレーの流れ
+
+1. 承認ダイアログが開くと、Claude Code が `notifications/claude/channel/permission_request` を送る（`request_id`・`tool_name`・`description`・`input_preview`）
+2. サーバーが内容と ID をチャットへ転送し、相手が `yes <id>` か `no <id>` で答える
+3. サーバーが `notifications/claude/channel/permission`（`request_id`、`behavior: 'allow' | 'deny'`）を返す
+
+- 端末のダイアログも開いたままです。先に届いた回答が採用され、もう一方は閉じます。判定はその 1 回の呼び出しだけに効きます。
+- 対象はツール使用の承認（`Bash`・`Write`・`Edit` など）です。プロジェクトの信頼と MCP サーバーの同意のダイアログは中継されません。
+- `request_id` は `l` を除く `a`–`z` の 5 文字です。端末のダイアログには表示されません。docs の照合例は `/^\s*(y|yes|n|no)\s+([a-km-z]{5})\s*$/i` です。
+- v2.1.234 以降、要求はオプトイン済みで capability を宣言したサーバーにだけ届きます。
+- v2.1.211 以降、`description`・`input_preview` は無害化され、3,500 コードポイント超は前後を残して省略されます。v2.1.234 以降、認識できる資格情報は `[REDACTED]` になります。
+- 書式違いの返信は通常のチャットとして Claude に届き、ID 違いは黙って捨てられます。2.1.290 以降、セッション内で重複した ID の判定は無視されます。
+- allowlist の送信者は誰でもツール使用を承認・拒否できます。auto mode では classifier が判定し、ダイアログは開きません。
+
+<div class="src">
+  出典: [channels-reference#expose-a-reply-tool](https://code.claude.com/docs/en/channels-reference#expose-a-reply-tool) · [#gate-inbound-messages](https://code.claude.com/docs/en/channels-reference#gate-inbound-messages) · [#relay-permission-prompts](https://code.claude.com/docs/en/channels-reference#relay-permission-prompts) · [changelog 2.1.290](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch34-dev-admin" />
+
+## 開発用フラグと管理者制御 <span class="badge preview">Preview</span>
+
+### 開発中のチャンネルを試す
+
+```bash
+claude --dangerously-load-development-channels server:webhook
+```
+
+- allowlist に無い自作チャンネルを読み込みます。値は `plugin:<name>@<marketplace>` か、`.mcp.json` などのサーバーを指す `server:<name>` です。
+- 起動時の警告で **I am using this for local development** を選びます。`-p` と Agent SDK ではフラグが無視されます。
+- バイパスはエントリ単位で、`--channels` 側には効きません。飛ばすのは allowlist だけで、`channelsEnabled` は効いたままです。
+- v2 の MCP ランタイムは、revision 2026-07-28 で接続したサーバーをチャンネルにしません。`MCP_PROTOCOL_NEGOTIATION=legacy` で全サーバーを従来の接続に留めます。
+- claude.ai では Owner が **Organization settings > Claude Code > Channels** で有効にします。
+
+### managed 専用の 2 キー（ユーザーは上書き不可）
+
+| キー                    | 動作                                                                                                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `channelsEnabled`       | マスタースイッチ。未設定時、claude.ai Team・Enterprise はブロック、Console は managed settings を配る組織だけブロック、組織のない Pro・Max・Ultra は確認なし。`false` は未設定と同じ |
+| `allowedChannelPlugins` | 登録できるプラグイン。設定すると Anthropic の既定リストを置き換える。`channelsEnabled` を通った後に効く。`"plugin@marketplace"` の文字列形は v2.1.267 以降                           |
+
+```json
+{
+  "channelsEnabled": true,
+  "allowedChannelPlugins": [
+    { "marketplace": "claude-plugins-official", "plugin": "telegram" }
+  ]
+}
+```
+
+- 空配列 `[]` は allowlist 上の全プラグインを止めますが、開発用フラグは通ります。フラグごと止めるには `channelsEnabled` を未設定にします。どの場合も `--channels` でのオプトインが必要です。
+
+<div class="src">
+  出典: [channels-reference#test-during-the-research-preview](https://code.claude.com/docs/en/channels-reference#test-during-the-research-preview) · [channels#enterprise-controls](https://code.claude.com/docs/en/channels#enterprise-controls) · [settings-reference#channelsenabled](https://code.claude.com/docs/en/settings-reference#channelsenabled) · [#allowedchannelplugins](https://code.claude.com/docs/en/settings-reference#allowedchannelplugins) · [mcp#push-messages-with-channels](https://code.claude.com/docs/en/mcp#push-messages-with-channels)
+</div>

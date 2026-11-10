@@ -1,0 +1,185 @@
+---
+title: "Advisor"
+description: "作業中のメインモデルが、判断の要所だけ別のモデルに相談する仕組みです。この章では、有効化の経路、モデルの組み合わせ制約、セッション中の表示、コストとキャッシュ、他の手段との使い分けを扱います。"
+sidebar:
+  order: 5
+  badge:
+    text: "Experimental"
+    variant: caution
+---
+
+作業中のメインモデルが、判断の要所だけ別のモデルに相談する仕組みです。この章では、有効化の経路、モデルの組み合わせ制約、セッション中の表示、コストとキャッシュ、他の手段との使い分けを扱います。
+
+<span id="ch05-overview" />
+
+## Advisor とは <span class="badge experimental">Experimental</span>
+
+- メインモデルが作業中に、別のモデル（advisor）へ相談するサーバー側ツールです。
+- advisor は、ツール呼び出しと結果を含む会話全体を受け取ります。
+- 呼ぶタイミングは Claude が判断します。方針を決める前、同じエラーが続くとき、完了を宣言する前に呼びやすい傾向があります。
+- 呼び出し回数を制限・強制する設定はありません。相談させたいときはプロンプトで頼みます（例: `consult the advisor before you continue`）。
+- 試した手順が失敗したときや、ファイルの内容と矛盾するときは、Claude は助言に従わずに食い違いを示します。
+
+### 要件（すべて必要）
+
+- **Anthropic API のみ**。Bedrock・Claude Platform on AWS・Agent Platform・Foundry では使えません。LLM ゲートウェイ経由の場合は、リクエストをそのまま Anthropic API へ転送するかどうかで決まります。
+- **対応するメインモデル**: Fable、Opus 4.6 以降、Sonnet 4.6 以降、Haiku 4.5、Haiku 5.5
+- **feature flag の取得**。`DISABLE_TELEMETRY` など取得を止める変数があると、advisor は無効のままです。
+
+ドキュメントは「挙動・価格・提供範囲は変わる可能性がある」と明記しています。
+
+<div class="src">
+  出典: [advisor](https://code.claude.com/docs/en/advisor)（When Claude consults the advisor / Requirements）
+</div>
+
+<span id="ch05-enable" />
+
+## 有効化の 3 経路と優先順位
+
+| 経路     | 書き方                                                  | 効く範囲と保存先                                                                                             |
+| -------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| コマンド | `/advisor`（ピッカー）、`/advisor opus`、`/advisor off` | 実行中のセッションで切り替わり、既定値として `advisorModel` に保存される。ピッカーには **No advisor** も並ぶ |
+| 設定     | `"advisorModel": "opus"`                                | 永続的な既定値。値は `fable`、`opus`、`sonnet`、または `claude-opus-5-5` のような完全なモデル ID             |
+| フラグ   | `claude --advisor opus`                                 | そのセッションだけに効き、保存はしない。`claude --help` には載らない                                         |
+| 無効化   | `CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1`                    | `/advisor` が使えなくなり、`advisorModel` は無視される。`--advisor` は受け付けるが効果はない                 |
+
+- 優先順位は、環境変数による無効化、`--advisor`、`advisorModel` の順です。
+- 有効になると、起動時に `Advisor Tool (experimental) is on and may use more tokens · /advisor` と通知されます。
+
+<div class="src">
+  出典: [advisor#enable-the-advisor](https://code.claude.com/docs/en/advisor#enable-the-advisor) · [settings-reference#advisormodel](https://code.claude.com/docs/en/settings-reference#advisormodel)
+</div>
+
+<span id="ch05-enable-check" />
+
+## `--advisor` が起動時に止まる条件と、現在値の確認
+
+`--advisor` は、次のどれかに当たると起動時にエラーで終了します。
+
+- メインモデルが advisor に対応していない
+- 指定したモデルが advisor になれない（例: Haiku 4.5）
+- `availableModels` の許可リストに含まれていない
+- Fable の usage credits への同意が済んでいない
+
+バックグラウンドセッションでは終了せず、advisor なしで起動します。指定したモデルがメインモデルより格下の場合は、エラーにならずに起動し、メインモデルは advisor なしで動きます。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "/advisor"
+Advisor: off
+Usage: /advisor <fable|opus|sonnet|off>
+
+$ claude -p --model sonnet --advisor opus "/advisor"
+Advisor: Opus 5.5
+Usage: /advisor <fable|opus|sonnet|off>
+```
+
+user / local 設定を読ませない空のディレクトリで、`--setting-sources project` を付けて実行
+
+<div class="src">
+  出典: [advisor#use-the-advisor-flag](https://code.claude.com/docs/en/advisor#use-the-advisor-flag) · 実機確認 2.1.321
+</div>
+
+<span id="ch05-pairing" />
+
+## 組み合わせの制約: advisor はメインモデル以上であること
+
+| メインモデル         | 受け付ける advisor                             |
+| -------------------- | ---------------------------------------------- |
+| Haiku 4.5            | Fable, Opus, Sonnet, Haiku 5.5                 |
+| Sonnet 4.6           | Fable, Opus, Sonnet, Haiku 5.5                 |
+| Opus 4.6             | Fable, Opus, Sonnet 5 以降, Haiku 5.5          |
+| Sonnet 5 / Haiku 5.5 | Fable, Opus 4.7 以降, Sonnet 5 以降, Haiku 5.5 |
+| Opus 4.7 / Opus 4.8  | Fable, Opus 4.7 以降, Sonnet 5.5               |
+| Sonnet 5.5           | Fable, Opus 5 以降, Sonnet 5.5                 |
+| Opus 5 / Opus 5.5    | Fable, Opus 5 以降                             |
+| Fable 5              | Fable 5.2, Fable 5.1, Fable 5                  |
+| Fable 5.1            | Fable 5.2, Fable 5.1                           |
+| Fable 5.2            | Fable 5.2                                      |
+
+- Haiku 4.5 は advisor を呼べますが、advisor にはなれません。
+- サブエージェントは advisor の設定を引き継ぎ、自分のモデルでもう一度組み合わせを検査します。
+- メインモデルより格下の advisor は、メインのリクエストには付けられません。ただし、条件を満たすサブエージェントは使えます。
+- API が組み合わせを拒否した場合、Claude Code はそのリクエストを advisor なしで再送します。エラーは表示されません。
+- その後に別の advisor を選び直しても、反映されるのは `/clear` か `/compact` の後、または新しいセッションからです。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --model opus --advisor sonnet "/advisor"
+"sonnet" cannot advise "claude-opus-5-5" (the advisor must be
+at least as capable as the main model). The advisor will not
+be used for the main model. …        → exit 0（起動は続く）
+
+$ claude -p --model claude-haiku-4-5 \
+    --advisor claude-haiku-4-5 "/advisor"
+Error: The model "claude-haiku-4-5" cannot be used as an advisor.
+                                      → exit 1
+```
+
+<div class="src">
+  出典: [advisor#choose-an-advisor-model](https://code.claude.com/docs/en/advisor#choose-an-advisor-model) · 実機確認 2.1.321
+</div>
+
+<span id="ch05-session" />
+
+## セッション中の表示と、Fable を advisor にする条件
+
+### トランスクリプトの表示
+
+呼び出し中は、advisor のモデル名とともに `Advising` の行が出ます。結果が返ると、行は次のいずれかに変わります。
+
+| 結果            | 表示と読み方                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| **Reviewed**    | advisor が会話を確認した。助言の本文は <kbd>Ctrl</kbd>+<kbd>O</kbd> で読める                     |
+| **Declined**    | `Advisor declined to advise on this request`。理由があれば <kbd>Ctrl</kbd>+<kbd>O</kbd> で読める |
+| **Unavailable** | `Advisor unavailable (<error_code>)`。呼び出しが失敗した                                         |
+
+### Fable advisor と usage credits
+
+- Fable の利用が usage credits に課金されるプランでは、Fable を advisor にした分も同じく課金されます。
+
+- 課金への 1 回限りの同意が済むまで、次のように扱われます。
+
+  - `/advisor fable` は保存されず、`/model fable` の実行を案内される。
+  - `claude --advisor fable` は起動時に終了する。バックグラウンドセッションでは advisor なしで起動する。
+  - `advisorModel` に Fable が保存済みでも、リクエストは advisor なしで送られる。
+
+- 同意するには `/model fable` を実行し、Fable で続けることを選びます。そのあとで advisor に Fable を選びます。
+
+- バージョン要件があります。Fable 5.2 は v2.1.321 以降、Fable 5.1 は v2.1.257 以降、Haiku 5.5 は v2.1.293 以降が必要です。
+
+<div class="src">
+  出典: [advisor#what-you-see-during-a-session](https://code.claude.com/docs/en/advisor#what-you-see-during-a-session) · [advisor#fable-advisor-and-usage-credits](https://code.claude.com/docs/en/advisor#fable-advisor-and-usage-credits)
+</div>
+
+<span id="ch05-cost" />
+
+## コスト・プロンプトキャッシュ・他の手段との使い分け
+
+- **コスト**: advisor が会話を読むたびに、advisor モデルの料金でトークンを消費します。この分はメインモデルの利用とは別にかかります。
+
+  - API 課金: advisor の入出力トークンを、advisor モデルの単価で支払う。
+  - サブスクリプション: プランの利用上限に計上される（Fable は前の節の usage credits）。
+  - `/usage` のセッション合計に含まれる。
+
+- **キャッシュ**: `/advisor` の切り替えでは、メインモデルのキャッシュは壊れません（モデル切り替えとは違います）。
+
+- advisor 自身の会話の読み込みはキャッシュされません。呼ぶたびに、トランスクリプト全体を読み直します。
+
+:::danger[食い違い]
+Claude Platform on AWS での提供可否が食い違っています。
+
+- **advisor ページ**: 「Claude Platform on AWS では使えない」
+- **changelog 2.1.300**: 「Added `/advisor` on Claude Platform on AWS」。`/advisor` などで選ぶまで動きません。助言が返るかは未検証です。
+  :::
+
+| 手段                               | 強いモデルが動く時点                                                         | 開始のきっかけ                          |
+| ---------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------- |
+| Advisor                            | 作業途中の判断の要所                                                         | Claude が必要と判断して呼ぶ             |
+| `opusplan`                         | plan mode の間（`availableModels` が許す場合）。実行時は Sonnet に切り替わる | ユーザーが plan mode に入る             |
+| `model` を指定したサブエージェント | 委譲したサブタスク全体                                                       | Claude が委譲するか、ユーザーが呼び出す |
+| `/model`                           | 次のリクエスト以降すべて                                                     | ユーザーが切り替える                    |
+
+速いメインモデルと強い advisor を組み合わせると、強いモデルを常時使うより安くなりやすい、とドキュメントは説明しています。
+
+<div class="src">
+  出典: [advisor#cost](https://code.claude.com/docs/en/advisor#cost) · [#impact-on-prompt-caching](https://code.claude.com/docs/en/advisor#impact-on-prompt-caching) · [#compare-with-related-features](https://code.claude.com/docs/en/advisor#compare-with-related-features) · [changelog 2.1.300](https://code.claude.com/docs/en/changelog)
+</div>

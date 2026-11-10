@@ -1,0 +1,243 @@
+---
+title: "Auto mode"
+description: "確認の代わりに別の分類器モデルが操作を審査するモードです。使える条件と分類器のモデル、判定順、既定のブロックと許可、しきい値とサブエージェントの扱い、サーバー側レビューと課金、autoMode 設定と関連コマンドを扱います。モードの一覧と開始モードは Ch23 を参照してください。"
+sidebar:
+  order: 24
+---
+
+確認の代わりに別の分類器モデルが操作を審査するモードです。使える条件と分類器のモデル、判定順、既定のブロックと許可、しきい値とサブエージェントの扱い、サーバー側レビューと課金、`autoMode` 設定と関連コマンドを扱います。モードの一覧と開始モードは [Ch23](/claude-code-deep-dive/ja/settings/permission-modes/) を参照してください。
+
+<span id="ch24-availability" />
+
+## 使える条件と分類器のモデル
+
+- 全プランで使えます。Team・Enterprise でも既定で有効で、管理者は managed の `permissions.disableAutoMode: "disable"` で止めます（トップレベルの `disableAutoMode` も可）。
+- 管理者配布の設定が届くと、実行中のセッションも auto から抜け `auto mode disabled by settings` と表示します（v2.1.251 以降）。
+
+| プロバイダ                                            | 対応モデル                                                      |
+| ----------------------------------------------------- | --------------------------------------------------------------- |
+| Anthropic API、Claude Platform on AWS                 | Opus 4.6 以降、Sonnet 4.6 以降、Haiku 5.5、Fable                |
+| Bedrock、Agent Platform、Foundry、Claude apps gateway | Sonnet 5 以降、Opus 4.7 以降、Haiku 5.5（v2.1.293 以降）、Fable |
+| どこでも非対応                                        | Sonnet 4.5、Opus 4.5、Haiku 4.5、claude-3                       |
+
+- 非対応モデルや設定での無効化のときは Manual で始まります。サーバー側で止められた・拒否されたセッションは、終了まで auto に戻りません。
+- `defaultMode: "auto"` は project・local 設定では効きません。`~/.claude/settings.json` に書きます。
+
+分類器は既定で Claude Sonnet 5 です。次の表で最初に当たる行のモデルに変わります。
+
+| セッション                              | 分類器モデル                               |
+| --------------------------------------- | ------------------------------------------ |
+| Anthropic が分類器モデルを設定している  | そのモデル（debug log で確認）             |
+| Claude Sonnet 4.6 で動いている          | Sonnet 4.6                                 |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` がある | その値。Sonnet 5.5・Opus 5.5 なら Sonnet 5 |
+
+- 使えないときはセッションのモデル（Fable セッションでは Opus）に落ちます。
+- `CLAUDE_CODE_AUTO_MODE_MODEL`（v2.1.302 以降）に完全なモデル ID を書くと変えられます。Opus 5・Sonnet 5.5・Opus 5.5 や組織が除外したモデルは無視されます。サーバー側レビューのモデルは変わりません。
+
+```bash
+claude --permission-mode auto --debug-file classifier-debug.log
+# then grep: classifier_request_started / model= /
+#            ignoring CLAUDE_CODE_AUTO_MODE_MODEL
+```
+
+<div class="src">
+  出典: [permission-modes#eliminate-prompts-with-auto-mode](https://code.claude.com/docs/en/permission-modes#eliminate-prompts-with-auto-mode) · [#default-classifier-model](https://code.claude.com/docs/en/permission-modes#default-classifier-model) · [#choose-the-classifier-model](https://code.claude.com/docs/en/permission-modes#choose-the-classifier-model) · changelog 2.1.302
+</div>
+
+<span id="ch24-decision-order" />
+
+## 判定順と、auto に入ると外れる allow ルール
+
+各操作は固定の順で判定され、最初に当たった段で決まります。
+
+1. **allow・ask・deny ルール**で即決。例外: 保護パスの書き込みは allow があっても分類器へ。クリティカルパス削除は allow で承認されない。`requiresUserInteraction`・組織 `ask` のツール、内容で絞った ask（`Bash(git push *)`）、ネットワークパスの読み取りは確認。ホストを指定したコマンドは分類器へ。
+2. **読み取りと作業ディレクトリ内の編集**は自動承認。保護パスと、作業ディレクトリ外の初回読み取りは除く。サーバー側レビューがあると、読み取り専用とサンドボックス内のシェルコマンドもレビューを待つ。
+3. **それ以外は分類器**へ。クリティカルパス削除は既定では分類器に行かない。
+4. ブロックされると Claude に理由が届く。多くは `[Data Exfiltration]` のようなルール名。
+
+### auto に入ると外れる allow ルール
+
+- `Bash(*)`・`PowerShell(*)`、`Bash(python*)` のような interpreter のワイルドカード、パッケージマネージャの run コマンド、`Agent` の allow、`Monitor` の allow（v2.1.236 以降）。auto を出ると戻ります。
+- `Bash(npm test)` のような狭いルールは残ります。`autoMode.classifyAllShell: true` にすると、Bash・PowerShell の allow をすべて止めて全シェルコマンドを分類器に回します。
+
+### 分類器が見るもの
+
+- ユーザーのメッセージ、ツール呼び出し（読み取り系の照会を除く）、CLAUDE.md。ツール結果は除かれます。
+- PostToolUse フックの `classifierContext` で結果に注記できます（v2.1.236 以降）。
+- `git reset --hard` や `rm -rf` の前に Claude Code が `git status` を実行し、未コミットの作業の有無を分類器に見せます。
+- `SendMessage` で別のエージェントに送る内容も審査します（v2.1.222 以降）。
+
+<div class="src">
+  出典: [permission-modes#how-the-classifier-evaluates-actions](https://code.claude.com/docs/en/permission-modes#how-the-classifier-evaluates-actions) · [auto-mode-config#route-all-shell-commands-through-the-classifier](https://code.claude.com/docs/en/auto-mode-config#route-all-shell-commands-through-the-classifier)
+</div>
+
+<span id="ch24-defaults" />
+
+## 既定でブロックするもの・許可するもの
+
+分類器が信頼するのは作業ディレクトリと、開始時に設定済みのリモートだけです。主な既定ブロック（全文は `claude auto-mode defaults`）:
+
+- `curl | bash` などの取得と実行、機密データの外部送信
+- 本番デプロイ・マイグレーション、クラウドストレージの大量削除、IAM・リポジトリ権限の付与
+- force push、`git reset --hard`・`git clean -fd` など未コミットの作業を捨てる操作、push 済みコミットの `--amend`
+- `terraform destroy` 系、シークレット・DNS・TLS 証明書の変更、本番 feature flag
+- 未承認 PR のマージ、自分の PR の承認、CI の無効化、ChatOps コメント
+- `--insecure` 系フラグ、`--dangerously-skip-permissions` などで起動するエージェント
+- `/tmp` の glob 削除、トランスクリプトへの書き込み、指名のない `git remote set-url`
+- v2.1.257 以降: `169.254.169.254` の資格情報、迂回経路、隣のコンテナの走査
+
+### 既定で許可
+
+- 作業ディレクトリ内のファイル操作、ロックファイルやマニフェストにある依存のインストール
+- `.env` を読み、資格情報を対応する API に送ること、読み取りだけの HTTP
+- 作業中リポジトリの任意のブランチへの push（デフォルトブランチを含む）。`production`・`gh-pages` のようなデプロイ用の名前は除く
+- 同じセッションで作ったジョブの削除、セキュリティ関連の作業、同一セッション内のエージェント間メッセージ
+
+### 会話で伝える境界と承認
+
+- 「don't push」のような境界は、解除するまでブロックの根拠になります。ルールとして保存されず毎回トランスクリプトから読むので、圧縮で消えることがあります。確実にするには deny ルールを使います。
+- 承認は操作と危険の具体（force push ならブランチ）を名指しします。「you can force-push」だけでは解除されず、効くのは 1 回の操作です。
+
+<div class="src">
+  出典: [permission-modes#what-the-classifier-blocks-by-default](https://code.claude.com/docs/en/permission-modes#what-the-classifier-blocks-by-default) · [#boundaries-you-state-in-conversation](https://code.claude.com/docs/en/permission-modes#boundaries-you-state-in-conversation) · [#approvals-you-state-in-conversation](https://code.claude.com/docs/en/permission-modes#approvals-you-state-in-conversation)
+</div>
+
+<span id="ch24-fallback" />
+
+## ブロック後の扱い・しきい値・サブエージェント
+
+- ブロックすると通知を出し、`/permissions` の **Recently blocked** に載せます。通知の形式は `bash blocked by auto mode · /permissions · Auto mode: [Data Exfiltration]` です。
+- **連続 3 回か合計 20 回**ブロックすると auto mode は止まり、確認に戻ります。確認した操作を承認すると auto に戻ります。しきい値は変更できません。合計はセッション中保持され、自身の上限で戻ったときだけリセットされます。
+- `--permission-prompt-tool` のない `-p` ではその操作だけ実行されず、Claude は作業を続けます。安全確認自体ができずに拒否された場合、`-p` は exit 1 で終わります（2.1.319）。
+- 分類器から判定が返らないときは、通知も Recently blocked もなくブロックします。サーバーが判定を返さないときは拒否し、10 回連続でターンを止めることがあります。
+- 確認中にモードを切り替えると、新しいモードが求めない判定は捨てられ、確認（`dontAsk` なら拒否）になります。
+
+### 作業ディレクトリ外の初回読み取り
+
+Read・Grep・Glob が初めて外を読むとき確認します（`-p` とバックグラウンドでは出ない）。
+
+- **Yes, and keep allowing any reads outside the working directories**
+- **No, and block reads outside the working directories from now on**: user 設定に `permissions.blockReadsOutsideWorkingDirectories: true` を書く
+- **No, and ask again next time** / **Yes, but ask again next time**
+
+### サブエージェント
+
+1. 開始前: 委譲するタスクの説明を審査
+2. 実行中: 親と同じ判定順とルールで各操作を審査。frontmatter の `permissionMode` は無視
+3. 終了時: 作業と最終報告を審査。問題があれば報告の先頭に警告を付けて渡す
+
+<div class="src">
+  出典: [permission-modes#when-auto-mode-falls-back](https://code.claude.com/docs/en/permission-modes#when-auto-mode-falls-back) · [#repeated-block-thresholds](https://code.claude.com/docs/en/permission-modes#repeated-block-thresholds) · [#first-read-outside-the-working-directories](https://code.claude.com/docs/en/permission-modes#first-read-outside-the-working-directories) · [auto-mode-config](https://code.claude.com/docs/en/auto-mode-config#fix-a-denial-with-an-allow-rule-an-environment-entry-or-a-retry) · changelog 2.1.319
+</div>
+
+<span id="ch24-server" />
+
+## サーバー側レビューと分類器の課金
+
+auto mode は、分類器リクエストを自分で送る代わりに、モデルリクエストの一部としてサーバーに審査させられます。
+
+| 接続・セッション                                                    | サーバーへの依頼                                                    |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Anthropic API 直結の対話ターミナル                                  | Pro・Max・Ultra・Team は v2.1.271、Enterprise・API は v2.1.278 以降 |
+| 直結の `-p`・VS Code / SDK・Desktop                                 | v2.1.278 / v2.1.281 以降                                            |
+| フラグを取得しないセッション                                        | v2.1.282 から既定で依頼                                             |
+| Platform on AWS・Bedrock・Agent Platform・Foundry・LLM ゲートウェイ | v2.1.278 以降の既定                                                 |
+| Claude apps gateway / Anthropic ホストのクラウド                    | v2.1.280 以降 / web・モバイル・Desktop から開始したもの             |
+
+- `/status` の `Auto mode server` 行（`Enabled`・`Disabled`）で確認します。ゲートウェイは `anthropic-beta` ヘッダーと `safeguards` ボディを転送し、応答の `safeguard_results` を残す必要があります。
+- `CLAUDE_CODE_AUTO_MODE_SERVER=0` で常に自前の分類器を使います（直結は v2.1.281 以降。docs は一時的な設定と明記）。
+
+:::danger[食い違い]
+サーバーが審査しないときの扱いが食い違っています。
+
+- **permission-modes・billing ページ**: 自前の分類器リクエストに切り替える
+- **changelog 2.1.319**: テレメトリやフラグ取得が無効なとき（ゲートウェイ経由を含む）は自前の分類器に戻らず、確認か拒否。`CLAUDE_CODE_AUTO_MODE_SERVER=0` で従来どおり。Bedrock・Vertex・Foundry は変更なし
+  :::
+
+- 自前の分類器リクエストは、Enterprise・API・各クラウドプロバイダでトークン使用量に数えられます。
+- 課金対象で自前の分類器に切り替わると、次の通知が最初の審査対象を止めます（Pro・Max・Ultra・Team では出ない）。<kbd>Enter</kbd> で続行、<kbd>Esc</kbd> で取り消し。
+
+```text
+We're changing auto mode to no longer charge for classifier
+requests in Claude Code. However, this session isn't eligible.
+```
+
+<div class="src">
+  出典: [permission-modes#server-side-classifier-review](https://code.claude.com/docs/en/permission-modes#server-side-classifier-review) · [auto-mode-classifier-billing](https://code.claude.com/docs/en/auto-mode-classifier-billing) · changelog 2.1.319
+</div>
+
+<span id="ch24-config" />
+
+## `autoMode` の設定: スコープ・4 段階・`"$defaults"`
+
+- 分類器は `~/.claude/settings.json`、managed settings、`--settings`・SDK のインライン JSON から `autoMode` を読みます。リポジトリが allow を差し込めないよう、`.claude/settings.json` と `.claude/settings.local.json` は読みません。
+- 各スコープのエントリは連結されます。開発者は managed のエントリを消せませんが、開発者の `allow` は組織の `soft_deny` を上書きできます。絶対に止めるには managed の `permissions.deny` を使います。
+- キーは `environment`・`allow`・`soft_deny`・`hard_deny`（正規表現ではなく文章の配列）と `classifyAllShell`（既定 `false`）です。分類器は CLAUDE.md も読みます。
+
+| 段          | 分類器内での働き                                                                                           |
+| ----------- | ---------------------------------------------------------------------------------------------------------- |
+| `hard_deny` | 無条件にブロック。ユーザーの意図も allow も効かない                                                        |
+| `soft_deny` | 次にブロック。意図と allow で解除できる                                                                    |
+| `allow`     | 一致する soft_deny の例外                                                                                  |
+| 明示の意図  | まさにその操作を具体的に頼んだときは残りの soft_deny を解除。「clean up the repo」は force push を許さない |
+
+docs の例の抜粋です。`allow` 節を省き、各文を `…` で切っています。
+
+```json
+{
+  "autoMode": {
+    "environment": [
+      "$defaults",
+      "Source control: github.example.com/acme-corp …"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Never run database migrations outside the migrations CLI, …"
+    ],
+    "hard_deny": [
+      "$defaults",
+      "Never send repository contents to third-party …"
+    ]
+  }
+}
+```
+
+:::caution[注意]
+`"$defaults"` は組み込み一覧をその位置に差し込みます。書かないとその節を置き換え、`soft_deny` なら force push や `curl | bash`、`hard_deny` ならデータ持ち出しのルールを失います。
+:::
+
+<div class="src">
+  出典: [auto-mode-config#where-the-classifier-reads-configuration](https://code.claude.com/docs/en/auto-mode-config#where-the-classifier-reads-configuration) · [#override-the-block-and-allow-rules](https://code.claude.com/docs/en/auto-mode-config#override-the-block-and-allow-rules)（例は抜粋）
+</div>
+
+<span id="ch24-config-2" />
+
+## `claude auto-mode`・`/auto-mode-setup`・Recently blocked
+
+| サブコマンド                                   | 動作                                                                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `claude auto-mode defaults [--label <prefix>]` | 組み込みルールを JSON で表示。`--label` はラベルの前方一致（大文字小文字無視）                                    |
+| `claude auto-mode config`                      | 設定を反映した実効値を JSON で表示                                                                                |
+| `claude auto-mode critique [--model <model>]`  | 独自ルールの曖昧さや重複を AI が指摘。`--model` は help のみ <span class="badge undocumented">Undocumented</span> |
+| `claude auto-mode reset [-y]`                  | user 設定の `autoMode` だけを削除。確認文は `Reset auto mode configuration to defaults?`                          |
+
+実機の組み込み一覧は allow 16・soft_deny 72・hard_deny 1・environment 21 件です。soft_deny には解除に必要な名指しを示す `[named+specifics — **must name:** …]` が付きます。
+
+`claude auto-mode defaults` の `hard_deny`（冒頭のみ）:
+
+`"Data Exfiltration: Sensitive data crossing the trust boundary (the trusted repos, domains, and buckets listed in Environment) as a result of the agent's action …"`
+
+### `/auto-mode-setup`
+
+- CLAUDE.md・README・設定ファイル・git リモート、既存の `autoMode`・`permissions.allow`、最近のセッションのコマンドのホストや名前（メッセージは読まない）から `environment` の下書きを作ります。
+- 下書きは丸ごと採用か破棄で、`~/.claude/settings.json` に書かれます。
+- Pro・Max・Ultra・Team は v2.1.228 以降、Enterprise と Console API キーは v2.1.283 以降です。`{"skillOverrides": {"auto-mode-setup": "off"}}` で無効にします（`disableBundledSkills` では止まりません）。
+
+### Recently blocked タブ
+
+- <kbd>r</kbd> で承認して再試行、<kbd>Enter</kbd> で後で承認、<kbd>Ctrl</kbd>+<kbd>C</kbd> 2 回で破棄。承認はルールを足さず、再試行も再審査されます。
+- 拒否された入力は `PermissionDenied` フックの `tool_input` で集められます。
+
+<div class="src">
+  出典: [auto-mode-config#inspect-the-defaults-and-your-effective-config](https://code.claude.com/docs/en/auto-mode-config#inspect-the-defaults-and-your-effective-config) · [#generate-environment-entries](https://code.claude.com/docs/en/auto-mode-config#generate-environment-entries) · [#review-denials](https://code.claude.com/docs/en/auto-mode-config#review-denials) · `claude auto-mode --help` · 実機確認 2.1.321
+</div>

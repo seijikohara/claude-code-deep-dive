@@ -1,0 +1,116 @@
+---
+title: ".claude ディレクトリ"
+description: "Claude Code は、プロジェクトの .claude/ とホームの ~/.claude/ から指示・設定・拡張を読み、~/.claude/ に作業中のデータを書きます。この章では、自分で書くファイルの置き場所、自動で掃除されるデータと残るデータ、プロジェクト単位で消す claude purge を扱います。"
+sidebar:
+  order: 10
+---
+
+Claude Code は、プロジェクトの `.claude/` とホームの `~/.claude/` から指示・設定・拡張を読み、`~/.claude/` に作業中のデータを書きます。この章では、自分で書くファイルの置き場所、自動で掃除されるデータと残るデータ、プロジェクト単位で消す `claude purge` を扱います。
+
+<span id="ch10-files" />
+
+## 自分で書くファイルの置き場所
+
+| プロジェクトの `.claude/` と `~/.claude/` の両方 | 役割                                                                          |
+| ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `CLAUDE.md`                                      | 毎セッション読む指示（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/)） |
+| `rules/*.md`                                     | トピック別の指示。`paths` で対象を絞れる                                      |
+| `settings.json`                                  | 権限、フック、環境変数、モデルの既定値                                        |
+| `skills/<name>/SKILL.md`                         | `/name` または自動で呼ぶ Skill                                                |
+| `commands/*.md`                                  | 1 ファイルのプロンプト。仕組みは Skill と同じ                                 |
+| `output-styles/*.md`                             | Claude の動き方を変える指示セット                                             |
+| `agents/*.md`                                    | サブエージェントの定義                                                        |
+| `workflows/*.js`                                 | dynamic workflow。各ファイルが `/<name>` になる                               |
+| `agent-memory/<name>/`                           | サブエージェントの永続メモリ                                                  |
+
+プロジェクト側は commit して共有します。プロジェクトの `CLAUDE.md` はルート直下にも置けます。`CLAUDE_CONFIG_DIR` を設定すると `~/.claude` と `~/.claude.json` はその下に移ります（Windows は `%USERPROFILE%\.claude`）。
+
+| プロジェクトだけ              | 役割                                                      |
+| ----------------------------- | --------------------------------------------------------- |
+| `.claude/settings.local.json` | 個人の上書き。Claude Code が保存するときに gitignore する |
+| `.mcp.json`（ルート）         | チームで共有する MCP サーバー                             |
+| `.worktreeinclude`（ルート）  | worktree にコピーする gitignore 済みファイル              |
+
+| `~/.claude/` 側だけ                 | 役割                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------- |
+| `~/.claude.json`                    | アプリの状態、アカウント、UI 設定、個人の MCP サーバー                                |
+| `projects/<project>/memory/`        | auto memory（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-auto-memory)） |
+| `keybindings.json`・`themes/*.json` | キー割り当て、カラーテーマ                                                            |
+| `plugins/`                          | マーケットプレイスとインストール済みプラグイン                                        |
+
+`~/.claude.json` は、無ければセッション開始時や `claude auth status` などで作られます（`--version`・`--help` では作られない）。
+
+<div class="src">
+  出典: [claude-directory](https://code.claude.com/docs/en/claude-directory)（File reference / What's not shown）
+</div>
+
+<span id="ch10-app-data" />
+
+## `~/.claude` のアプリデータ: 掃除されるものと残るもの
+
+| `cleanupPeriodDays` 経過で削除                         | 中身                                                     |
+| ------------------------------------------------------ | -------------------------------------------------------- |
+| `projects/<project>/<session>.jsonl`                   | トランスクリプトと、退避された旧版                       |
+| `<session>/subagents/`・`tool-results/`・`mcp-tasks/`  | サブエージェント、大きな出力、MCP タスク                 |
+| `file-history/<session>/`                              | 編集前スナップショット（直近 100 チェックポイント分）    |
+| `plans/`・`debug/`・`paste-cache/`                     | 計画、デバッグログ、大きな貼り付け                       |
+| `uploads/`・`dev-mods/`・`tasks/`                      | Remote Control の添付、Claude が書いた mod、タスクリスト |
+| `session-env/`・`shell-snapshots/`                     | セッションの環境情報、シェルのスナップショット           |
+| `backups/`                                             | `~/.claude.json` の旧版（新しい 5 つ）                   |
+| `feedback-bundles/`・`feedback/drafts/`・`usage-data/` | フィードバック、`/insights` のレポート                   |
+| `skills/.trash/`・`plugins/.trash/`                    | claude.ai の同期で外れたもの                             |
+| `image-cache/`・`todos/`・`statsig/`・`logs/`          | 旧版のディレクトリ                                       |
+
+- **保持期間**: この節の表の対象は `cleanupPeriodDays`（既定 30 日、最小 1）を過ぎると消えます（[Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-retention)）。
+- **独自の規則**: `sessions/` は実行中のセッションごとに 1 ファイルで、終了時に消えます。Desktop・Cowork のトランスクリプトは期限なしで残り、`desktopSessionCleanupPeriodDays` で期限を付けます。
+- **auto memory**: `projects/<project>/memory/` は sweep の対象外です。保持期間中ずっと空のときだけディレクトリを消します（2.1.228 より前は中のフォルダを消すことがあった）。
+- **削除するまで残る**: `history.jsonl`（<kbd>↑</kbd>・<kbd>Ctrl</kbd>+<kbd>R</kbd>・`!` 補完）、`stats-cache.json`（`/usage`）、`remote-settings.json`、`cache/changelog.md`、`policy-limits.json`
+- **残しておく状態**: `.credentials.json`、`agent-memory/`、`jobs/`、`daemon/`。`~/.claude.json`・`settings.json`・`plugins/` も消しません。
+- **平文**: どれも暗号化されません。ツールが読んだ `.env` の値もトランスクリプトに残ります。
+
+<div class="src">
+  出典: [claude-directory#cleaned-up-automatically](https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically) · [#kept-until-you-delete-them](https://code.claude.com/docs/en/claude-directory#kept-until-you-delete-them) · [#state-files-to-keep](https://code.claude.com/docs/en/claude-directory#state-files-to-keep) · [#plaintext-storage](https://code.claude.com/docs/en/claude-directory#plaintext-storage)
+</div>
+
+<span id="ch10-purge" />
+
+## `claude purge`: プロジェクト単位で消す
+
+```bash
+claude purge ~/work/my-repo --dry-run   # 計画だけ表示
+claude purge ~/work/my-repo             # 確認して削除
+claude purge ~/work/my-repo --yes       # 確認なし（スクリプト用）
+claude purge --all                      # 全プロジェクト
+claude purge                            # 一覧から選ぶ
+```
+
+- 消すのは `projects/` 配下のトランスクリプトと auto memory、セッションごとの `tasks/`・`debug/`・`file-history/`、`history.jsonl` の該当行、`~/.claude.json` のプロジェクト項目です。
+- `--all` は `history.jsonl` を行単位でなくファイルごと消します。`-i` は計画を 1 項目ずつ確認します。
+- 一時ディレクトリにある貼り付け画像とセッションの scratchpad、`shell-snapshots/`・`backups/` は消しません。
+- 該当する状態が無いパスはエラーになり、終了コード 1 を返します。2.1.288 より前のコマンド名は `claude project purge` です。
+
+`--dry-run` の出力例（docs の例。パスの先頭は … で省略）
+
+```text
+Purge plan for …/work/my-repo:
+
+  dir:    …/.claude/projects/-home-user-work-my-repo
+           project transcripts (.jsonl) and memory/
+  config: projects["…/work/my-repo"]
+           project entry in ~/.claude.json (trust, …)
+  filter: …/.claude/history.jsonl
+           12 prompt(s) typed in this project
+
+shell-snapshots/ are not project-scoped and will not be touched
+backups/ may still contain this project entry …
+Dry run: 3 item(s) would be deleted.
+```
+
+削除時の確認: `Delete 3 item(s) for …/work/my-repo? This cannot be undone. [y/N]`
+
+- 手で `~/.claude/projects/` を消すと、過去セッションの resume・rewind と全プロジェクトの auto memory を失います。
+- `/heapdump` の `.heapsnapshot` は会話全体と認証情報を含み、sweep も purge も消しません。
+
+<div class="src">
+  出典: [claude-directory#clear-local-data](https://code.claude.com/docs/en/claude-directory#clear-local-data) · [changelog 2.1.288](https://code.claude.com/docs/en/changelog)
+</div>

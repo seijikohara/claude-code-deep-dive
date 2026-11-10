@@ -1,0 +1,428 @@
+---
+title: "設定ファイル"
+description: "Claude Code が読む設定ファイルの場所、優先順位、マージの規則を扱います。managed settings の配布と専用キーの詳細は Ch58 に任せ、この章ではファイルの重なり方だけを説明します。優先順位とマージは、空のディレクトリで -p を実行して確認しました。"
+sidebar:
+  order: 18
+---
+
+Claude Code が読む設定ファイルの場所、優先順位、マージの規則を扱います。managed settings の配布と専用キーの詳細は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) に任せ、この章ではファイルの重なり方だけを説明します。優先順位とマージは、空のディレクトリで `-p` を実行して確認しました。
+
+<span id="ch18-overview" />
+
+## 全体像: 4 つの設定ファイルと `~/.claude.json`
+
+| スコープ       | ファイル                      | 効く範囲                                             | 主な用途                                                                        |
+| -------------- | ----------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------- |
+| User           | `~/.claude/settings.json`     | 自分。このマシンの全プロジェクト                     | テーマ、エディタモード、既定モデル、個人の権限ルール                            |
+| Shared project | `.claude/settings.json`       | そのフォルダで作業する全員。git では commit して共有 | チームの権限、フック、プラグイン、必要な環境変数                                |
+| Project local  | `.claude/settings.local.json` | 自分。このプロジェクトだけ                           | 個人の上書き、共有前の試験                                                      |
+| Managed        | `managed-settings.json` ほか  | 組織が配布した全員                                   | セキュリティポリシー、コンプライアンス                                          |
+| （別ファイル） | `~/.claude.json`              | Claude Code 自身が書く                               | アカウント情報、MCP サーバー、プロジェクトごとの trust 状態、global config キー |
+
+- インストールしただけでは設定ファイルは作られません。`/config` で user 設定に保存される項目を変えると `~/.claude/settings.json` が、権限プロンプトで **Yes, and don't ask again** を選ぶと `.claude/settings.local.json` が作られます。
+- `/config` の保存先は、大半が `~/.claude/settings.json`、**Show tips** など一部が `.claude/settings.local.json`、global config が `~/.claude.json` です。`/config verbose=true` のように `key=value` でも設定できます。
+- 設定キーは 249 個です。索引のスコープ列の内訳は Any file 157、Managed 44、User or managed 31、User, local, or managed 4、User 1、Global config 12 です（[付録 A](/claude-code-deep-dive/ja/appendix/settings/)）。
+
+<div class="src">
+  出典: [settings#settings-files-and-who-they-affect](https://code.claude.com/docs/en/settings#settings-files-and-who-they-affect) · [settings#use-the-/config-menu](https://code.claude.com/docs/en/settings#use-the-%2Fconfig-menu) · [settings-reference#settings-index](https://code.claude.com/docs/en/settings-reference#settings-index)
+</div>
+
+<span id="ch18-paths" />
+
+## OS 別のパス
+
+| 種類             | macOS                                                            | Linux・WSL                               | Windows                                                                                        |
+| ---------------- | ---------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| User             | `~/.claude/settings.json`                                        | 同左                                     | `%USERPROFILE%\.claude\settings.json`                                                          |
+| Managed ファイル | `/Library/Application Support/ClaudeCode/managed-settings.json`  | `/etc/claude-code/managed-settings.json` | `C:\Program Files\ClaudeCode\managed-settings.json`                                            |
+| 同じディレクトリ | `managed-settings.d/*.json`（分割ファイル）と `managed-mcp.json` |                                          |                                                                                                |
+| MDM・OS ポリシー | 構成プロファイル。ドメイン `com.anthropic.claudecode`            | Linux はなし。WSL は条件付き             | `HKLM\SOFTWARE\Policies\ClaudeCode` の値 `Settings`（`REG_SZ` または `REG_EXPAND_SZ` の JSON） |
+| HKCU             | なし                                                             | WSL は条件付き                           | `HKCU\SOFTWARE\Policies\ClaudeCode` の値 `Settings`                                            |
+
+- `CLAUDE_CONFIG_DIR` を設定すると、`~/.claude` 全体（設定、セッション履歴、プラグイン）を別の場所に置けます。
+- Windows の旧パス `C:\ProgramData\ClaudeCode\managed-settings.json` は読まれません。
+- managed のファイルはシンボリックリンクでも読まれます。リンク先がシステムディレクトリの外にあると、`/status` と `claude doctor` に警告が出ます（警告は 2.1.290 で追加）。
+- デバッグログでは、managed ファイル、`.claude/settings.json`、`.claude/settings.local.json` の順に存在を確かめる行が出ます（[Ch27](/claude-code-deep-dive/ja/settings/diagnostics/)）。
+
+<div class="src">
+  出典: [managed-settings#where-each-mechanism-stores-the-policy](https://code.claude.com/docs/en/managed-settings#where-each-mechanism-stores-the-policy) · [settings#find-or-create-your-settings-files](https://code.claude.com/docs/en/settings#find-or-create-your-settings-files) · [changelog 2.1.290](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch18-local" />
+
+## `settings.local.json` の位置
+
+### git リポジトリではルートに置く
+
+- リポジトリのサブディレクトリで起動しても、リポジトリのルートの `.claude/settings.local.json` を読み書きします（2.1.211 から）。保存した承認はリポジトリ全体に効きます。
+- worktree では、メインチェックアウトのルートのファイルを使います。
+- 次の場合は `.claude/settings.json` と同じ場所に置きます。git リポジトリの外、リポジトリのルートがホームディレクトリ、Windows、ルートまたはその `.git`・`.claude` の所有者が自分でない場合です。
+- ファイル内のパスはルート基準になりません。`/` で始まる権限ルールと相対パスのサンドボックス指定は、セッションの主作業ディレクトリが基準です。
+- 2.1.211 より前のバージョンが起動ディレクトリに作ったファイルも読みます。同じキーはルートの値が勝ち、権限ルールは両方が有効です。
+- Agent SDK の `resolveSettings()` は、常に起動ディレクトリのファイルを読みます。
+
+### gitignore と trust
+
+- Claude Code が最初にこのファイルを書くとき、`**/.claude/settings.local.json` を global excludes ファイルに追記します。追記先は次の順で決まります。
+
+  1. `core.excludesFile`（絶対パスか `~` 始まりの場合）
+  2. `$XDG_CONFIG_HOME/git/ignore`
+  3. `~/.config/git/ignore`
+
+- 手で作ったファイルは、自分で `.gitignore` に追加します。
+
+- git で追跡されていない間、このファイルの `allow` ルールは workspace trust を待たずに効きます。追跡されている場合や `.claude` が symlink の場合は、リポジトリ由来として trust が必要です。
+
+- 共有の `.claude/settings.json` は主作業ディレクトリから読みます。`/cd` で移動すると、両方のプロジェクトファイルを移動先から読みます（2.1.246 以降）。
+
+<div class="src">
+  出典: [settings#where-claude-code-keeps-the-local-file-in-a-git-repository](https://code.claude.com/docs/en/settings#where-claude-code-keeps-the-local-file-in-a-git-repository) · [settings#keep-personal-settings-out-of-a-repository](https://code.claude.com/docs/en/settings#keep-personal-settings-out-of-a-repository) · [permissions#when-your-local-settings-file-needs-trust](https://code.claude.com/docs/en/permissions#when-your-local-settings-file-needs-trust)
+</div>
+
+<span id="ch18-delivery" />
+
+## managed settings の配布 4 方式
+
+| 方式                 | 配布の仕方                                                                           | 読み込むタイミング                                              | 向いている場面                                              |
+| -------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------- | ----------------------------------------------------------- |
+| Server-managed       | claude.ai の管理コンソール、または self-hosted の Claude apps gateway                | 起動時に取得し、1 時間ごとにポーリング                          | マシンに触れずに、claude.ai 組織のポリシーを 1 か所で変える |
+| MDM・OS ポリシー     | macOS 構成プロファイル、Windows `HKLM` レジストリ（Jamf、Intune、Group Policy など） | 起動時。以後 30 分ごとに変更を確認                              | MDM や Group Policy で既にデバイスを管理している            |
+| ファイル             | システムディレクトリの `managed-settings.json`                                       | 起動時。ファイルが変わると再読み込み                            | MDM の無いマシン、Linux ホスト、自前のイメージ              |
+| HKCU（Windows・WSL） | Windows `HKCU` レジストリ                                                            | 起動時と 30 分ごと。上位に admin ドキュメントが無いときだけ使う | `HKLM` に書き込めない                                       |
+
+- どの方式も `settings.json` と同じキーを運びます。MDM とファイルの 2 方式をまとめて endpoint-managed settings と呼びます。
+- Claude Desktop などの埋め込みホストは、SDK の `managedSettings` オプションでポリシーを追加できます。
+- クラウドセッションに届くのは server-managed settings だけです。デバイス上のファイルと MDM は届きません。
+- managed 専用キー、server-managed の承認ダイアログ、ポリシーが効いているかの確認手順は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
+
+<div class="src">
+  出典: [managed-settings#choose-a-delivery-mechanism](https://code.claude.com/docs/en/managed-settings#choose-a-delivery-mechanism) · [settings#check-what-your-organization-enforces](https://code.claude.com/docs/en/settings#check-what-your-organization-enforces) · [settings#settings-in-cloud-sessions](https://code.claude.com/docs/en/settings#settings-in-cloud-sessions)
+</div>
+
+<span id="ch18-precedence" />
+
+## 優先順位: 上の段が同じキーを上書きする
+
+1. **Managed**: 自分のファイルや `--settings` では上書きできません。`--model` などのフラグも、組織が許可したモデルからしか選べません。managed の `model` は開始時の既定値で、ロックではありません。ロックは `availableModels` と `deniedModels` です。
+2. **コマンドライン**: `--settings <file-or-json>`。そのセッションだけに効き、指定しなかったキーはファイルの値のままです。
+3. **Project local**: `.claude/settings.local.json`
+4. **Shared project**: `.claude/settings.json`
+5. **User**: `~/.claude/settings.json`
+
+環境変数と、`--model` のような個別フラグはこの段に含まれません。キーごとに優先順位が決まります（[2 つ後の節](/claude-code-deep-dive/ja/settings/settings-files/#ch18-per-key)）。
+
+project に `{"model":"sonnet"}`、local に `{"model":"haiku"}` を置き、`-p` の init イベントの `model` を読みました。
+
+| 起動オプション                              | init の `model`                 |
+| ------------------------------------------- | ------------------------------- |
+| `--setting-sources project`                 | `claude-sonnet-5-5`             |
+| `--setting-sources project,local`           | `claude-haiku-5-5`              |
+| 上に `--settings '{"model":"opus"}'` を追加 | `claude-opus-5-5`               |
+| さらに `--model sonnet` を追加              | `claude-sonnet-5-5`             |
+| `--setting-sources ""`                      | `claude-opus-5-5`（既定モデル） |
+
+プロンプトはローカルコマンド `/advisor` にして、モデルへのリクエストを送らずに init だけを取りました。既定モデルは Anthropic API・サブスクリプションの場合の値です。
+
+<div class="src">
+  出典: [settings#settings-precedence](https://code.claude.com/docs/en/settings#settings-precedence) · 実機確認 2.1.321
+</div>
+
+<span id="ch18-managed-order" />
+
+## managed の中の順序
+
+### ソースの順位（高い順）
+
+1. **Remote**: server-managed settings、または Claude apps gateway。Anthropic API へ対象の認証情報で直接認証した場合、gateway に `/login` した場合などだけ取得します。他のプロバイダや、`ANTHROPIC_BASE_URL` が Anthropic 以外を指す場合は 2 から始まります。
+2. **MDM・OS ポリシー**: macOS の plist、または HKLM
+3. **ファイル**: `managed-settings.json` と `managed-settings.d/*.json` を合成したもの
+4. **HKCU**: 上位に admin ドキュメントが無く、埋め込みホストが制限キーを渡していないときだけ使います。
+
+1〜3 を admin ソースと呼びます。HKCU はユーザーが書けるので含みません。
+
+### `managedSourcesBehavior`
+
+- `"first-wins"`（既定）: policy key を 1 つ以上届ける最上位のソースだけを使い、残りは無視します。警告は出ません。一部のキーは例外で、全 admin ソースから読みます。
+- `"merge"`（2.1.242 以降）: 全 admin ソースを合成します。多くのキーは上位の値が勝ち、リストは和集合、ロックは最も厳しい値になります。
+- policy key は `wslInheritsWindowsSettings` と `managedSourcesBehavior` 以外のキーです。制御キーだけのファイルはソースとして数えません。
+
+### `managed-settings.d/`
+
+- `managed-settings.json` を先に、続けて `*.json` をアルファベット順に合成します。隠しファイルと `.json` 以外は無視します。
+- 順序は `10-telemetry.json`、`20-security.json` のように番号で決めます。
+
+<div class="src">
+  出典: [managed-settings#how-claude-code-combines-managed-sources](https://code.claude.com/docs/en/managed-settings#how-claude-code-combines-managed-sources) · [managed-settings#split-a-file-based-policy-across-teams](https://code.claude.com/docs/en/managed-settings#split-a-file-based-policy-across-teams)
+</div>
+
+<span id="ch18-per-key" />
+
+## 環境変数とフラグはキー単位で優先する
+
+| キー                      | 優先順位（高い順）                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------- |
+| `model`                   | `--model` > `ANTHROPIC_MODEL` > キー（managed の `model` を含む）。`availableModels` の制限は残る |
+| `model` の既定            | `ANTHROPIC_DEFAULT_MODEL` は、どのファイルも `model` を設定していないときだけ効く（2.1.236 以降） |
+| `effortLevel`             | `CLAUDE_CODE_EFFORT_LEVEL` > `--effort` > キー。`maxEffortLevel` の上限は残る                     |
+| `promptCacheTtl`          | `FORCE_PROMPT_CACHING_5M` > `CLAUDE_CODE_PROMPT_CACHE_TTL` > キー > `ENABLE_PROMPT_CACHING_1H`    |
+| `permissions.defaultMode` | `--permission-mode`（`--dangerously-skip-permissions` を含む）> キー                              |
+| `viewMode`                | `--verbose` > キー                                                                                |
+| `autoCompactEnabled`      | `DISABLE_AUTO_COMPACT` とキーのどちらかが off にすると、もう一方では戻せない                      |
+
+- シェルの変数とキーの組ごとに、どちらを先に読むかが決まっています。各キーの「Per-session overrides」行に書かれています。
+- 設定ファイルの `env` ブロックは通常のキーなので、ファイルの段に従います（[Ch20](/claude-code-deep-dive/ja/settings/env-vars/)）。
+
+| 起動のしかた                                                 | init の `model`     |
+| ------------------------------------------------------------ | ------------------- |
+| `ANTHROPIC_MODEL=sonnet` と `--settings '{"model":"haiku"}'` | `claude-sonnet-5-5` |
+| `ANTHROPIC_MODEL=sonnet` と `--model haiku`                  | `claude-haiku-5-5`  |
+
+環境変数は `--settings` に勝ち、`--model` は環境変数に勝ちました。
+
+<div class="src">
+  出典: [settings#settings-precedence](https://code.claude.com/docs/en/settings#settings-precedence) · [env-vars#precedence](https://code.claude.com/docs/en/env-vars#precedence) · [settings-reference#model](https://code.claude.com/docs/en/settings-reference#model) · [#promptcachettl](https://code.claude.com/docs/en/settings-reference#promptcachettl) · 実機確認 2.1.321
+</div>
+
+<span id="ch18-strict-1" />
+
+## 厳しい値が勝つ例外
+
+次のキーでは、通常は managed を上書きできないスコープからでも、制限する側の値が採用されます。
+
+| キー                                               | 採用する値       | どこから           | 補足                                    |
+| -------------------------------------------------- | ---------------- | ------------------ | --------------------------------------- |
+| `disableClaudeAiConnectors`                        | `true`           | 全スコープ         | managed が `false` でも有効             |
+| `enableArtifact` / `disableArtifact`               | `false` / `true` | 全スコープ         | Artifact ツールは戻せない。2.1.242 以降 |
+| `isolatePeerMachines`                              | `true`           | 全スコープ         | managed が `false` でも有効             |
+| `permissions.blockReadsOutsideWorkingDirectories`  | `true`           | 全スコープ         | 2.1.257 以降                            |
+| `permissions.blockWritesOutsideWorkingDirectories` | `true`           | 全スコープ         | 2.1.314 以降                            |
+| `permissions.denyInsteadOfPrompting`               | `true`           | user、`--settings` | 2.1.319 以降                            |
+| `autoMode.classifyAllShell`                        | `true`           | user、`--settings` | managed が `false` でも有効             |
+
+設定したのに外れない場合は、どこか 1 つのファイルが制限側の値を持っていないかを探します。
+
+<div class="src">
+  出典: [settings#exceptions-to-managed-settings-precedence](https://code.claude.com/docs/en/settings#exceptions-to-managed-settings-precedence)
+</div>
+
+<span id="ch18-strict-2" />
+
+| キー                     | 採用する値                                     | どこから                           | 補足                                                     |
+| ------------------------ | ---------------------------------------------- | ---------------------------------- | -------------------------------------------------------- |
+| `remoteControlAtStartup` | `false`                                        | project、local                     | project・local の `true` は無視                          |
+| `crossSessionInbound`    | より厳しい値（`accept` \< `hold` \< `refuse`） | project、local                     | managed・`--settings`・user より優先。厳しくない値は無視 |
+| `useAutoModeDuringPlan`  | `false`                                        | managed、`--settings`、user、local | 共有 `.claude/settings.json` の `false` は無視           |
+| `syncClaudeAiSkills`     | `false`                                        | 同上                               | 同上                                                     |
+| `syncClaudeAiPlugins`    | `false`                                        | 同上                               | 同上                                                     |
+| `maxEffortLevel`         | 低い上限                                       | `--settings` を含む全スコープ      | 最も低い上限が効く。2.1.267 以降                         |
+
+:::note[補足]
+Claude Code を埋め込むアプリが `CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST` を設定した場合も例外です。全 managed ソースの `model`・`fallbackModel`・`modelPicker`・`modelOverrides` と、managed の `env` にあるモデル選択変数（`ANTHROPIC_MODEL`、`ANTHROPIC_DEFAULT_*_MODEL`）より、そのアプリのモデル設定が優先します。managed の `availableModels` は、アプリが自前のリストを渡さない限り残ります。
+:::
+
+<div class="src">
+  出典: [settings#exceptions-to-managed-settings-precedence](https://code.claude.com/docs/en/settings#exceptions-to-managed-settings-precedence)
+</div>
+
+<span id="ch18-merge" />
+
+## マージ規則（実測）
+
+- **単一の値**: 上の段の値で置き換わります。
+
+- **リスト**（`permissions.allow` など）: 全ファイルの要素を結合します。あるファイルが別のファイルの要素を消すことはできません。managed だけに絞るには `allowManagedPermissionRulesOnly` を使います。
+
+- **オブジェクト**: 実測では、上の段が `permissions.allow` だけを書いても、下の段の `permissions.defaultMode` は残りました。
+
+- **独自の規則を持つ 4 キー**
+
+  - `fallbackModel`: 定義した最上位ファイルの値を丸ごと使う
+  - `modelPicker`: managed・`--settings`・user のうち最上位の値を丸ごと使う。project・local では無視（2.1.242 以降）
+  - `availableModels`: managed の値はそのまま適用し、他スコープの追加を無視する。managed 以外どうしはマージ
+  - `modelSettings`: `effortLevel` と合わせてモデルごとに解決
+
+| 設定（`--setting-sources project,local`）                                                                                                                            | 結果                                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| project `{"model":"sonnet","permissions":{"defaultMode":"plan",…}}`、local `{"model":"haiku","permissions":{"allow":[…]}}`                                           | `model`: haiku、`permissionMode`: `plan`                                          |
+| 上に `--settings '{"permissions":{"defaultMode":"acceptEdits"}}'`                                                                                                    | `acceptEdits`。model は haiku のまま                                              |
+| allow を 3 か所に 1 件ずつ: local `Bash(touch l.txt)`、`--settings` `Bash(touch s.txt)`、共有 project `Bash(touch p.txt)`。4 つの `touch` を依頼（`default` モード） | `l.txt` と `s.txt` を作成。`permission_denials` は `touch p.txt` と `touch x.txt` |
+
+3 件目の `p.txt` は、trust していないフォルダの共有ファイルにあるため使われませんでした（次の節）。この実行だけ haiku に実際のリクエストを送りました。
+
+<div class="src">
+  出典: [settings#lists-merge-instead-of-overriding](https://code.claude.com/docs/en/settings#lists-merge-instead-of-overriding) · 実機確認 2.1.321
+</div>
+
+<span id="ch18-trust" />
+
+## workspace trust を待つキーと、リポジトリから効かないキー
+
+- 共有 `.claude/settings.json` の `permissions.allow`、`permissions.additionalDirectories`、`extraKnownMarketplaces`、大半の `env` 値は、フォルダを trust するまで効きません。`deny`・`ask` はすぐ効きます。
+- trust ダイアログは対話セッションだけです。`-p` と SDK は出さず、親フォルダの trust も数えません。
+
+| リポジトリが持つもの                         | `-p`・SDK（未 trust）   |
+| -------------------------------------------- | ----------------------- |
+| hooks、`env`、`apiKeyHelper` など            | 使う                    |
+| `permissions.allow`・`additionalDirectories` | 使わない。stderr に警告 |
+| `.mcp.json` のサーバー                       | 確認なしで接続          |
+
+- スコープが `User`、`User or managed`、`User, local, or managed`、`Managed`、`Global config` のキーは、共有ファイルからは効きません。
+- `permissions.defaultMode` の `auto` と `bypassPermissions` は project・local では無視されます（`bypassPermissions` は 2.1.257 から）。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --setting-sources project,local "/advisor"
+Ignoring 1 permissions.allow entry from .claude/settings.json:
+this workspace has not been trusted. Run Claude Code
+interactively here once and accept the trust dialog, or set
+projects["<cwd>"].hasTrustDialogAccepted: true in
+~/.claude.json.
+Advisor: off
+Usage: /advisor <fable|opus|sonnet|off>
+```
+
+git 管理外の新しいディレクトリで実行。長い行は折り返し
+
+他人のリポジトリで `-p` を使う前の手段（docs）:
+
+- `--setting-sources user` でプロジェクトの設定と `.mcp.json` を読まない
+- `--settings '{"disableAllHooks": true}'` でフックを止める（user 設定だけだと project が上書きできる）
+
+<div class="src">
+  出典: [settings#a-committed-key-doesnt-reach-teammates](https://code.claude.com/docs/en/settings#a-committed-key-doesnt-reach-teammates) · [permissions#project-allow-rules-and-workspace-trust](https://code.claude.com/docs/en/permissions#project-allow-rules-and-workspace-trust) · [#what-runs-before-you-trust-a-folder](https://code.claude.com/docs/en/permissions#what-runs-before-you-trust-a-folder) · 実機確認 2.1.321
+</div>
+
+<span id="ch18-settings-flag" />
+
+## `--settings`: 1 セッションだけの上書き（実測）
+
+```bash
+claude --settings ./settings.json
+claude --settings '{"model": "claude-opus-5-5"}'
+```
+
+- user・project・local より上、managed より下に入ります。指定しなかったキーはファイルの値のままです。
+- user ファイルに書けるキーはすべて書けます。`Managed` と `Global config` のキーは書けません。
+- ファイルは通常のファイルで、2 MiB 以下に限ります。超えると `Error: Settings file exceeds the 2MiB limit: …` で exit 1 です（2.1.214 から）。デバイス・FIFO・ソケットも拒否します。
+- agent view が起動するセッションにも適用されます。split-pane の teammate を事前承認するには、lead を `--settings` の `permissions.allow` 付きで起動します。`claude remote-control --settings <file>` は 2.1.321 で追加されました（docs のフラグ表には未掲載）。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --setting-sources project --settings '{"model":' …
+Error: Settings file not found: <cwd>/{"model":
+→ exit 1
+
+$ claude -p --setting-sources project,local \
+    --settings '{"model":"opus","permissions":
+    {"defaultMode":"bogusmode"}}' "/advisor"
+These settings files did not load, so nothing in them is
+in effect, including hooks and permission rules. …
+  --settings (inline JSON) (permissions.defaultMode):
+  Invalid value. Expected one of: "acceptEdits", "auto",
+  "bypassPermissions", "default", "dontAsk", "plan"
+Advisor: off
+…
+```
+
+- JSON として読めない文字列は、ファイルパスとして扱われます。
+- 値が 1 つでもスキーマ違反だと、`--settings` 全体が読まれません。上の 2 例目の init の `model` は opus ではなく、local の haiku でした。
+
+<div class="src">
+  出典: [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · [settings#change-a-setting-for-one-session](https://code.claude.com/docs/en/settings#change-a-setting-for-one-session) · [errors#settings-file-exceeds-the-2mib-limit](https://code.claude.com/docs/en/errors#settings-file-exceeds-the-2mib-limit) · [changelog 2.1.321](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch18-setting-sources" />
+
+## `--setting-sources`: 読むファイルを選ぶ（実測）
+
+```bash
+claude --setting-sources user,project
+CLAUDE_CONFIG_DIR=~/claude-clean/config \
+  claude --setting-sources user
+```
+
+- 値は `user`、`project`、`local` のカンマ区切りです。managed settings は常に適用されます。`--settings` は、`--setting-sources` で絞っても読まれました（実測）。
+- `project` を外すと、`.claude/rules` と `.mcp.json` のサーバーも読みません。
+- `local` を外したセッションでは、`/output-style` で切り替えられません。保存先が `.claude/settings.local.json` だからです。
+- teammate、`/bg`、`claude agents` のセッション、`--worktree --tmux` に引き継がれます（2.1.281 で修正）。SDK では `settingSources` です。
+- 2.1.314 で、除外したファイルから auto mode のルールや保存済みの権限承認が漏れる不具合が直りました。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --setting-sources bogus …
+Error processing --setting-sources: Invalid setting source:
+bogus. Valid options are: user, project, local
+→ exit 1
+```
+
+| 指定                                                            | 結果（init）                                                    |
+| --------------------------------------------------------------- | --------------------------------------------------------------- |
+| `--setting-sources ""`                                          | エラーにならず、ファイルを 1 つも読まない。`model` は既定モデル |
+| `--setting-sources project` と `--settings '{"model":"haiku"}'` | `--settings` が効く                                             |
+
+docs の clean-config 手順は、空の `CLAUDE_CONFIG_DIR` と `--setting-sources user` を組み合わせます。それでも managed settings と claude.ai のコネクタは読み込まれます。
+
+<div class="src">
+  出典: [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · [debug-your-config#test-against-a-clean-configuration](https://code.claude.com/docs/en/debug-your-config#test-against-a-clean-configuration) · [memory](https://code.claude.com/docs/en/memory) · [mcp](https://code.claude.com/docs/en/mcp) · [errors](https://code.claude.com/docs/en/errors#output-styles-are-saved-to-local-settings-which-this-session-doesnt-load) · [changelog 2.1.281, 2.1.314](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch18-reload" />
+
+## ホットリロードと `$schema`
+
+- Claude Code は設定ファイルを監視し、大半の変更を再起動なしで反映します。`permissions`、`hooks`、`apiKeyHelper` などの credential helper も含みます。
+- 対象は user・project・local・managed のファイルです。変更を検出するたびに `ConfigChange` フックが動きます。MDM と claude.ai コンソールの managed は対象外で、スケジュールで届きます。
+- 起動時にフォルダがあれば、途中で作ったファイルも読みます。project の `.claude/` は、フォルダ自体を途中で作っても読みます（2.1.257 から）。
+- **起動時にだけ読むキー**: `model`（途中で変えるには `/model`）、`effortLevel`・`modelSettings`（`/effort`）、admin 側の `requiredMinimumVersion` など。
+- `permissions.blockReadsOutsideWorkingDirectories` を途中で消しても、実行中のセッションの制限は解けません。
+
+* `env` の追加と変更は保存時に反映され、削除は再起動まで残ります。OpenTelemetry のように起動時に読む機能は起動時の値のままです。シェルの環境変数は起動時にだけ読みます。
+* 直近の修正: 起動直後 1 秒ほどの編集が効かない不具合（2.1.317）、Claude Code が書いた直後数秒以内の編集が無視される不具合（2.1.319）。
+
+### `$schema` と厳密な JSON
+
+- ファイルの先頭に `"$schema": "https://json.schemastore.org/claude-code-settings.json"` を書くと、VS Code や Cursor など JSON Schema 対応のエディタが補完と検証をします。
+- スキーマは CLI の新しいリリースより遅れることがあります。新しく載ったキーに警告が出ても、設定が無効とは限りません。
+- 設定ファイルは厳密な JSON です。`//` コメントや末尾のカンマは構文エラーになり、次の起動で Settings Error として報告されます。
+
+<div class="src">
+  出典: [settings#when-edits-take-effect](https://code.claude.com/docs/en/settings#when-edits-take-effect) · [settings#edit-a-settings-file](https://code.claude.com/docs/en/settings#edit-a-settings-file) · [env-vars#set-variables-in-settings-files](https://code.claude.com/docs/en/env-vars#set-variables-in-settings-files) · [changelog 2.1.317, 2.1.319](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch18-broken" />
+
+## 壊れた設定の扱い（実測）
+
+| 区分             | 条件と挙動                                                                                                                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Settings Error   | user・project・local のファイルが不正な JSON か、スキーマが拒否する値を持つ。ファイル全体を読み飛ばす。対話セッションは起動時にダイアログ（Claude と直す・終了・無視して続行） |
+| Settings Warning | 不正な権限ルールや未知のフックイベントなど、個別のエントリだけが失敗。そのエントリだけ読み飛ばす                                                                               |
+| Managed          | 残りのエントリは適用し、一部のキーは fail closed。JSON オブジェクトとして読めない文書があると起動しない（exit 1）                                                              |
+| `~/.claude.json` | 解析できないと `-p` は exit 1。壊れたファイルを `~/.claude/backups/.claude.json.corrupted.<timestamp>` にコピー                                                                |
+
+`-p` はダイアログを出しません。text 出力の実行は、2.1.299 から stderr に一覧を出します。stream-json の実行では、この一覧は出ませんでした。
+
+```text title="実測 2.1.321" frame="terminal"
+$ cat .claude/settings.json
+{"model":"haiku","permissions":{"defaultMode":"bogusmode"}}
+$ claude -p --setting-sources project "/advisor"
+These settings files did not load, so nothing in them is
+in effect, including hooks and permission rules. Each loads
+again once the problem listed for it is fixed:
+  <cwd>/.claude/settings.json (permissions.defaultMode):
+  Invalid value. Expected one of: "acceptEdits", "auto", …
+
+$ cat .claude/settings.json
+{"model":"haiku","permissions":{"allow":["Bash(npm run *"]},
+ "hooks":{"NotAnEvent":[]}}
+$ claude -p --setting-sources project "/advisor"
+These settings entries were skipped; the rest of each file
+is in effect:
+  <cwd>/.claude/settings.json (permissions.allow): Invalid
+  permission rule "Bash(npm run *" was skipped: …
+  <cwd>/.claude/settings.json (hooks.NotAnEvent): Unknown
+  hook event "NotAnEvent" was ignored. …
+```
+
+1 例目は init の `model` が既定モデル（`claude-opus-5-5`）に戻り、ファイル全体が無視されました。2 例目は `haiku` が効き、壊れたエントリだけが除かれました。
+
+<div class="src">
+  出典: [settings#fix-a-broken-settings-file](https://code.claude.com/docs/en/settings#fix-a-broken-settings-file) · [managed-settings#find-entries-claude-code-dropped](https://code.claude.com/docs/en/managed-settings#find-entries-claude-code-dropped) · [changelog 2.1.299](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>

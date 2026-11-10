@@ -7,6 +7,8 @@ pre-commit:
     # 1. Format the staged code and documents with oxfmt, then re-stage them.
     - name: oxfmt
       glob: "*.{js,mjs,cjs,ts,mts,cts,md,css,json,jsonc,yaml,yml}"
+      # The chapter pages (MDX) are not formatted: the Markdown formatter rewrites emphasis
+      # markers, which changed identifiers such as `CLAUDE_PLUGIN_OPTION_<KEY>` in testing.
       exclude:
         - "data/**/*.json"
       run: pnpm exec oxfmt --write {staged_files}

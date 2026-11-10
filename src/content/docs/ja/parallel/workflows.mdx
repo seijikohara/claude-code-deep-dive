@@ -1,0 +1,176 @@
+---
+title: "Dynamic Workflows"
+description: "Claude が書いた JavaScript のスクリプトを、ランタイムがバックグラウンドで実行し、多数のサブエージェントを動かす仕組みです。この章では、他の手段との違い、opt-in の経路と承認、スクリプト API と保存、実行中の管理と再開、上限・サイズ目安・コスト・無効化を扱います。"
+sidebar:
+  order: 41
+---
+
+Claude が書いた JavaScript のスクリプトを、ランタイムがバックグラウンドで実行し、多数のサブエージェントを動かす仕組みです。この章では、他の手段との違い、opt-in の経路と承認、スクリプト API と保存、実行中の管理と再開、上限・サイズ目安・コスト・無効化を扱います。
+
+<span id="ch41-compare" />
+
+## Workflows・サブエージェント・Skills・Agent Teams の違い
+
+|                  | サブエージェント          | Skills                     | Agent Teams <span class="badge experimental">Experimental</span> | Workflows                      |
+| ---------------- | ------------------------- | -------------------------- | ---------------------------------------------------------------- | ------------------------------ |
+| 実体             | Claude が起動するワーカー | Claude が従う指示          | lead が同格のセッションを監督                                    | ランタイムが実行するスクリプト |
+| 次を決める者     | Claude（ターンごと）      | Claude（プロンプトに従う） | lead（ターンごと）                                               | スクリプト                     |
+| 途中結果の置き場 | Claude のコンテキスト     | Claude のコンテキスト      | 共有タスクリスト                                                 | スクリプトの変数               |
+| 再利用できるもの | ワーカーの定義            | 指示                       | チームの定義                                                     | オーケストレーション自体       |
+| 規模             | 1 ターンに数件            | サブエージェントと同じ     | 長時間動く数体                                                   | 1 回に数十〜数百               |
+| 中断したとき     | ターンをやり直す          | ターンをやり直す           | チームメイトは動き続ける                                         | 同じセッション内で再開できる   |
+
+- ループ・分岐・途中結果はスクリプトが持ち、Claude のコンテキストには最終結果だけが入ります。スクリプト自身はファイルやシェルに触れず、作業はエージェントが行います。相互レビューや複数案の比較のような品質パターンも書けます。
+- 同梱の workflow は `/deep-research <question>` です。Web 検索を観点ごとに広げ、出典を突き合わせて、引用付きのレポートを返します。`WebSearch` ツールが必要で、呼んだときだけ動きます。
+- フォーク以外のサブエージェントは `Workflow` ツールを持たないため、workflow を起動できません。
+
+* 全有料プラン・Anthropic API・Bedrock・Agent Platform・Foundry で使えます。Pro は既定で無効で、`/config` の **Dynamic workflows** 行で有効にします（`enableWorkflows` を user 設定に書く）。
+* CLI・Desktop・IDE 拡張・`-p`・Agent SDK（v0.3.149 以降）で動きます。
+* 現在の docs にラベルはありません。2.1.154 の導入時、whats-new は research preview と紹介していました。
+
+<div class="src">
+  出典: [workflows#when-to-use-a-workflow](https://code.claude.com/docs/en/workflows#when-to-use-a-workflow) · [#bundled-workflows](https://code.claude.com/docs/en/workflows#bundled-workflows) · [sub-agents#available-tools](https://code.claude.com/docs/en/sub-agents#available-tools) · [settings-reference#enableworkflows](https://code.claude.com/docs/en/settings-reference#enableworkflows) · [whats-new/2026-w22](https://code.claude.com/docs/en/whats-new/2026-w22) · changelog 2.1.154
+</div>
+
+<span id="ch41-optin" />
+
+## opt-in の経路と、起動前の承認
+
+- workflow が動くのは 3 通りです。既存の workflow コマンド（`/deep-research`、保存した `/<name>`）を実行する。プロンプトで頼む。Ultracode を ON にする。
+- プロンプトにキーワード `ultracode` を入れるか、"use a workflow" のように頼むと、そのタスクを workflow にします。例: `ultracode: audit every API endpoint under src/routes/ for missing auth checks`
+- キーワードが効くのは、人が入力したプロンプトだけです。`-p` のプロンプト、human の印が無い SDK 入力、スケジュールタスクのプロンプト、webhook や PR コメントの中継では効きません。
+- 取り消しは <kbd>Option</kbd>+<kbd>W</kbd>（macOS）・<kbd>Alt</kbd>+<kbd>W</kbd> か、キーワード直後の Backspace です。`/config` の **Ultracode keyword trigger** で無効にできます。
+- Ultracode が ON だと、Claude が実質的なタスクごとに workflow を計画し、トークンと時間が増えます。ON の間は `Large workflow` 警告・同時サブエージェント上限・auto mode の初回承認が働きません。切り替えは [Ch3](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-ultracode) を参照してください。
+
+CLI の承認プロンプトの選択肢: **Yes, run it** / **Yes, and don't ask again for `<name>` in `<path>`**（名前で実行した workflow のみ）/ **View raw script** / **No**。<kbd>Ctrl</kbd>+<kbd>G</kbd> でエディタ、<kbd>Tab</kbd> でコメントです。
+
+| 権限モード          | 承認プロンプト                                                     |
+| ------------------- | ------------------------------------------------------------------ |
+| Auto                | 初回だけ。Yes で user 設定に同意を記録。Ultracode が ON なら出ない |
+| Manual・acceptEdits | 毎回。don't ask again を選んだ workflow を除く                     |
+| bypassPermissions   | 出ない                                                             |
+| `-p`・Agent SDK     | 出ない。`Workflow` の呼び出しとして通常の権限評価を受ける          |
+
+- `-p`・SDK で許可する方法: allow ルール `Workflow` か `Workflow(<name>)`、auto mode、bypass、`PreToolUse` の `"allow"`（plan mode では不可）、`--permission-prompt-tool`・`canUseTool`。
+- Desktop は **Once** / **Always** / **Deny** の承認カードです。起動したエージェントにも通常の権限ルールが効き、auto mode の分類器は `agent()` のプロンプトをあなたの依頼と見なしません。
+
+<div class="src">
+  出典: [workflows#ask-for-a-workflow-in-your-prompt](https://code.claude.com/docs/en/workflows#ask-for-a-workflow-in-your-prompt) · [#let-claude-decide-with-ultracode](https://code.claude.com/docs/en/workflows#let-claude-decide-with-ultracode) · [#approve-the-plan-before-it-runs](https://code.claude.com/docs/en/workflows#approve-the-plan-before-it-runs) · [#what-the-saved-script-looks-like](https://code.claude.com/docs/en/workflows#what-the-saved-script-looks-like)
+</div>
+
+<span id="ch41-script" />
+
+## スクリプト API
+
+```javascript
+export const meta = {
+  name: 'audit-routes',
+  description: 'Audit every route handler for missing auth checks',
+}
+
+const found = await agent('List every .ts file under src/routes/.', {
+  schema: { type: 'object', required: ['files'], properties: { files: { type: 'array', items: { type: 'string' } } } },
+})
+
+const audits = await pipeline(found.files, file =>
+  agent(`Audit ${file} for missing authentication checks.`, { label: file }),
+)
+
+return audits.filter(Boolean)
+```
+
+- `agent()` は 1 体、`pipeline()` は要素ごと、`parallel()` は同時に動かして全部を待ちます。ほかに `phase()`・`log()`・`args` があります。
+- `export const meta` は先頭の文で、リテラルにします。式を含むと `/<name>` が補完から消えます。`phases` のタイトルは `phase()` と一致させます。
+- `import()` を含むスクリプトは開始前に失敗します。
+
+* `Date.now()`・`Math.random()`・引数なしの `new Date()` は例外になります。時刻は `args` で渡します。
+* `agent()` は停止や回復不能な API エラーで `null` を返し、`pipeline()` はそれを残します。
+* `schema` を渡すと JSON で返り、矛盾を証明できるスキーマは起動前にエラーです。検証は 5 回まで（`MAX_STRUCTURED_OUTPUT_RETRIES`）です。
+
+<div class="src">
+  出典: [workflows#what-the-saved-script-looks-like](https://code.claude.com/docs/en/workflows#what-the-saved-script-looks-like) · [#edit-a-saved-script](https://code.claude.com/docs/en/workflows#edit-a-saved-script) · [#behavior-and-limits](https://code.claude.com/docs/en/workflows#behavior-and-limits)
+</div>
+
+<span id="ch41-save" />
+
+## 保存・配布・`Workflow` ツールの入出力
+
+- `/workflows` で run を選び <kbd>s</kbd> で保存します。<kbd>Tab</kbd> で `.claude/workflows/`（リポジトリで共有）と `~/.claude/workflows/`（個人。`CLAUDE_CONFIG_DIR` があればその下）を切り替え、以後は `/<name>` で動きます。
+- プロジェクト側は `.claude`・`.claude/workflows`・対象ファイルのどれかが symlink なら拒否します。個人側は対象ファイルだけを確認します。
+- monorepo では、ルートまでで最も近い既存の `.claude/workflows/` に保存します。読み込みは経路上のすべてからで、同名は最も近いものが、個人と同名ならプロジェクトが勝ちます。
+- プラグインはルートの `workflows/` かマニフェストの `workflows` に置き、`/acme-tools:release-audit` のように名前空間が付きます。
+- `Run /triage-issues on issues 1024, 1025, and 1030` と頼むと、構造化データが `args` に入ります。
+- 編集前に `/workflow-authoring`（v2.1.248 以降）を実行し、編集後は `/reload-skills` で読み直します。
+
+| `WorkflowInput`            | 意味                                                      |
+| -------------------------- | --------------------------------------------------------- |
+| `script?: string`          | インラインのスクリプト                                    |
+| `name?: string`            | 同梱か `.claude/workflows/` の名前                        |
+| `scriptPath?: string`      | ファイルのパス。最優先。`Read` が無いセッションではエラー |
+| `args?: unknown`           | グローバル `args`。JSON 文字列ではなく値で渡す            |
+| `resumeFromRunId?: string` | 再開する run。同じセッション内だけ                        |
+| `title`・`description`     | 無視される。`meta` が決める                               |
+
+- `script`・`name`・`scriptPath` のどれかが必須です。
+- 出力は受理した時点で返り、`status` は `"async_launched"` か、クラウドに送った `"remote_launched"` です。構文エラーでも `"async_launched"` に `error` が付くので、`error` を先に確認します。
+- ファイルのパスから起動した場合を除き、実行ごとのスクリプトは `~/.claude/projects/` のセッションディレクトリに書かれます。外部のファイルは、セッションが読める場所のものだけ起動できます。
+
+<div class="src">
+  出典: [workflows#save-the-workflow-for-reuse](https://code.claude.com/docs/en/workflows#save-the-workflow-for-reuse) · [#distribute-a-workflow-in-a-plugin](https://code.claude.com/docs/en/workflows#distribute-a-workflow-in-a-plugin) · [#how-a-workflow-runs](https://code.claude.com/docs/en/workflows#how-a-workflow-runs) · [agent-sdk/typescript#workflow](https://code.claude.com/docs/en/agent-sdk/typescript#workflow)
+</div>
+
+<span id="ch41-runs" />
+
+## `/workflows`・停止・再開
+
+| キー                          | 動作                 | キー         | 動作                            |
+| ----------------------------- | -------------------- | ------------ | ------------------------------- |
+| <kbd>↑</kbd> <kbd>↓</kbd>     | 選択                 | <kbd>p</kbd> | 一時停止・再開                  |
+| <kbd>Enter</kbd> <kbd>→</kbd> | 中へ入る・詳細の展開 | <kbd>x</kbd> | エージェントか run 全体を止める |
+| <kbd>Esc</kbd> <kbd>←</kbd>   | 1 階層戻る           | <kbd>r</kbd> | 実行中のエージェントを再起動    |
+| <kbd>j</kbd> <kbd>k</kbd>     | 詳細のスクロール     | <kbd>s</kbd> | スクリプトを保存                |
+| <kbd>f</kbd>                  | 状態で絞り込み       |              |                                 |
+
+- run が 1 つなら一覧を飛ばして開きます。入力欄の下のタスクパネルにも 1 行の進捗が出ます。
+- 止めた run は、エージェントのプロセスが残る間パネルに残ります。もう一度止めると再シグナルします。
+- 出力が途絶えたエージェントは同じプロンプトでやり直します（`(retry 1)`、`attempt 2 (stalled)`）。<kbd>r</kbd> を含め 5 回までで、6 回目も止まると `agent stalled on all 6 attempts` などで失敗します。待ち時間は `agent(prompt, { stallMs: 1800000 })` か `CLAUDE_ASYNC_AGENT_STALL_TIMEOUT_MS` で延ばします。
+
+* 一時停止した run は <kbd>p</kbd> で再開します。止めた run は、同じスクリプトでの再実行を Claude に頼みます。前回のエージェントが終わるまで拒否されます。
+* 再実行は起動順に再生されます。完了済みは保存結果を返しますが、プロンプトが前回と違う最初のエージェント以降はすべて再実行です。止めた時点で実行中のものは最初から、失敗したもの（<kbd>x</kbd> で単独停止を含む）はそれ以降も含めて再実行です。例: A・B・C・D で B が失敗すると、A はキャッシュ、B・C・D は再実行です。
+* セッションを背景に送るか終了すると、run は自分では続きません。Claude が `Workflow` を呼び直したときだけ保存結果から再生します。結果が無ければ `nothing to resume` です。`claude --resume` で戻れば、終了したセッションの run も再実行できます。
+* claude.ai の使用量上限では一時停止し、リセット後に自動で続きます（v2.1.271 以降）。条件は、対話セッションと claude.ai サブスクリプション、`autoContinueAtUsageLimit` が ON、24 時間以内のリセット、それまでの待ちが 2 回未満、のすべてです。
+
+<div class="src">
+  出典: [workflows#watch-the-run](https://code.claude.com/docs/en/workflows#watch-the-run) · [#manage-runs](https://code.claude.com/docs/en/workflows#manage-runs) · [#resume-after-a-pause](https://code.claude.com/docs/en/workflows#resume-after-a-pause) · [#when-a-run-hits-your-usage-limit](https://code.claude.com/docs/en/workflows#when-a-run-hits-your-usage-limit) · [#when-an-agent-stalls-and-restarts](https://code.claude.com/docs/en/workflows#when-an-agent-stalls-and-restarts)
+</div>
+
+<span id="ch41-limits" />
+
+## 上限・サイズ目安・コスト・無効化
+
+| 制約                       | 値                                                                                                                |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 実行中の入力               | 受け付けない。止まるのは権限確認と使用量上限の待ちだけ                                                            |
+| 同時実行                   | 既定 16（CPU が少なければ減る）。`CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS` で 1〜256                           |
+| fan-out の待ち             | 同じ prefix のエージェントを最大 5 秒遅らせ、先頭のキャッシュを読ませる。`CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS` |
+| `parallel()`・`pipeline()` | 1 回 4,096 件。超えるとエラー                                                                                     |
+| エージェント総数           | 1 run に 1,000                                                                                                    |
+
+- キャッシュはメイン会話と別枠で既定 5 分です。`"subagentPromptCacheTtl": "1h"` で延ばせます（書き込み単価は上がります）。
+- モデルはサブエージェントと同じ順で決まり、スクリプトが指定したモデルは呼び出しごとの指定です。全エージェントを 1 モデルにする `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` は changelog 2.1.296 だけに載っています。
+
+| `workflowSizeGuideline` | 目指すエージェント数 |
+| ----------------------- | -------------------- |
+| `"unrestricted"`        | 目安なし             |
+| `"small"`               | 5 未満（Pro の既定） |
+| `"medium"`              | 10 未満（既定）      |
+| `"large"`               | 50 未満              |
+
+- 目安は助言で上限ではありません。`/config workflowSizeGuideline=small`（`~/.claude.json` に保存）より設定キーが勝ちます。
+- 25 体超（選んだ目安があればその数）か予測 150 万トークン超で `Large workflow` 警告が出ます。止めはしません。
+- 無効化: `/config` の Dynamic workflows、`"disableWorkflows": true`、`CLAUDE_CODE_DISABLE_WORKFLOWS=1`、組織は managed 設定です。`disableWorkflows` と環境変数は `enableWorkflows: true` に勝ちます。
+- 無効時は `/workflows`・workflow コマンド・キーワード・Ultracode が使えません。実行中の run は続きます。実機では `-p` の init から `Workflow`・`deep-research`・`workflow-authoring` が消えました。
+
+<div class="src">
+  出典: [workflows#behavior-and-limits](https://code.claude.com/docs/en/workflows#behavior-and-limits) · [#prompt-caching-in-a-fan-out](https://code.claude.com/docs/en/workflows#prompt-caching-in-a-fan-out) · [#cost](https://code.claude.com/docs/en/workflows#cost) · [#turn-workflows-off](https://code.claude.com/docs/en/workflows#turn-workflows-off) · [settings-reference](https://code.claude.com/docs/en/settings-reference#workflowsizeguideline) ·changelog 2.1.296（リファレンス未掲載） · 実機確認 2.1.321
+</div>

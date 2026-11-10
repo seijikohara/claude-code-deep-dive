@@ -1,0 +1,487 @@
+---
+title: "コンテキスト管理"
+description: "会話がウィンドウを埋めていくときの制御を扱います。/clear・/compact・自動圧縮・アイドル圧縮の違い、auto-compact window の設定と優先順位、圧縮で残るもの、圧縮フックの発火順、プロンプトキャッシュの層・TTL・無効化条件を、実測を交えて説明します。"
+sidebar:
+  order: 6
+---
+
+会話がウィンドウを埋めていくときの制御を扱います。`/clear`・`/compact`・自動圧縮・アイドル圧縮の違い、auto-compact window の設定と優先順位、圧縮で残るもの、圧縮フックの発火順、プロンプトキャッシュの層・TTL・無効化条件を、実測を交えて説明します。
+
+<span id="ch06-compare" />
+
+## `/clear`・`/compact`・rewind 要約・自動圧縮の比較
+
+| 手段                                               | 起きること                                                      | 元の会話                                                              | 補足                                                                                                                                    |
+| -------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `/clear [name]` （`/reset`、`/new`）               | 空のコンテキストで新しい会話を始める                            | 保存される。`/resume`、または同じプロセスなら rewind メニューで戻れる | `name` は離れる側の会話に付く。引数なしなら `--name`・`/rename` の名前を引き継ぐ（生成タイトルは引き継がない）。有効な `/goal` は消える |
+| `/compact [instructions]`                          | 履歴を構造化された要約に置き換える。引数で要約の焦点を指定      | 同じセッションのまま要約に置き換わる                                  | 会話層のキャッシュは作り直し。システムプロンプトとプロジェクト層は残り得る                                                              |
+| rewind の **Summarize from here** / **up to here** | 選んだ地点以降、または以前だけを要約する                        | 元のメッセージはトランスクリプトに残る                                | 部分的な `/compact` に相当（[Ch8](/claude-code-deep-dive/ja/fundamentals/checkpoints/#ch08-rewind)）                                    |
+| 自動圧縮                                           | auto-compact window に近づくと、`/compact` と同じ処理が走る     | 同上                                                                  | PreCompact の matcher は `auto`                                                                                                         |
+| アイドル圧縮                                       | 1 時間 TTL のキャッシュが切れる前に、放置中の長い会話を要約する | 同上                                                                  | 条件は後述（[アイドル圧縮](/claude-code-deep-dive/ja/fundamentals/context/#ch06-idle)）                                                 |
+| `/recap`                                           | 1 行の要約を表示する                                            | 履歴は置き換えない                                                    | 要約はコマンド出力として追記されるので、キャッシュは壊れない                                                                            |
+
+- `/clear` は SessionEnd（reason `clear`）と SessionStart（source `clear`）を発火させます。Bash やフックに渡る `CLAUDE_CODE_SESSION_ID` も新しい ID に変わります。
+- 自動圧縮の要約は、初期の詳細な指示を落とすことがあります。守らせたい規則は会話ではなく CLAUDE.md に書きます。
+
+<div class="src">
+  出典: [sessions#manage-context-within-a-session](https://code.claude.com/docs/en/sessions#manage-context-within-a-session) · [commands](https://code.claude.com/docs/en/commands) · [prompt-caching#running-/recap](https://code.claude.com/docs/en/prompt-caching#running-%2Frecap) · [hooks#sessionend](https://code.claude.com/docs/en/hooks#sessionend) · [env-vars](https://code.claude.com/docs/en/env-vars)
+</div>
+
+<span id="ch06-compact-internals" />
+
+## `/compact` の内部とキャッシュコスト
+
+- 要約は別のリクエストで作ります。そのリクエストは会話のシステムプロンプト、ツール、要約対象の履歴を繰り返し、最後に要約の指示を付けます。
+- キャッシュが温かいうちは prefix をキャッシュから読むので安く、時間の大半は要約の生成です。寿命を過ぎた後は履歴をキャッシュなしで処理し直すため、古いセッションの再開直後の `/compact` が最も高くつきます。
+- 要約リクエストは、セッションの extended thinking の設定を引き継ぎます（v2.1.198 以降）。要約を拒否されると fallback モデルで再試行します（2.1.282）。
+- 要約の焦点は 3 通りで指定できます: `/compact focus on the auth bug fix`、CLAUDE.md の `# Compact instructions` 節、PreCompact フックの stdout（exit 0 のとき。1 フック 10,000 文字まで）。
+- 自動圧縮は、ウィンドウが埋まる前に要約を背景で用意しておくことがあります。OTel の `claude_code.compaction` イベントの `precompute_reuse` 属性が、その再利用の可否を記録します。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --input-format stream-json \
+    --output-format stream-json --verbose
+  （入力: 応答 1 回 → "/compact keep only the word OK" → 応答 1 回）
+{"type":"system","subtype":"status","status":"compacting",…}
+{"type":"system","subtype":"status","status":null,
+ "compact_result":"success",…}
+{"type":"system","subtype":"compact_boundary",…,
+ "compact_metadata":{"trigger":"manual","pre_tokens":19167,
+ "post_tokens":6680,"cumulative_dropped_tokens":12487,
+ "duration_ms":3880},…}
+{"type":"user","message":{"role":"user","content":"This
+ session is being continued from a previous conversation that
+ ran out of context. The summary below covers the earlier
+ portion of the conversation.\n\n<system-reminder>\n
+ <tools-used-before-summary></tools-used-before-summary>\n
+ </system-reminder>\nSummary:\n1. Primary Request and Intent:…
+{"type":"result",…,"num_turns":0,…,"local_command":"compact",…}
+```
+
+この要約リクエストは約 15.0k トークンをキャッシュから読み、5 分バケットに 4,180 トークンを書いた（result の `modelUsage` の差分）。SDK の型定義にある `compact_metadata` は `trigger` と `pre_tokens` だけで、<span class="undocumented">`post_tokens`・`cumulative_dropped_tokens`・`duration_ms`</span> は記載がない <span class="badge undocumented">Undocumented</span>
+
+<div class="src">
+  出典: [prompt-caching](https://code.claude.com/docs/en/prompt-caching#compacting-the-conversation) · [costs](https://code.claude.com/docs/en/costs#reduce-token-usage) · [hooks](https://code.claude.com/docs/en/hooks#precompact) · [monitoring-usage](https://code.claude.com/docs/en/monitoring-usage) · [agent-sdk/typescript](https://code.claude.com/docs/en/agent-sdk/typescript) · [changelog 2.1.198, 2.1.282, 2.1.314](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch06-autocompact" />
+
+## auto-compact window の設定経路と優先順位
+
+| 順  | 経路                                      | 効く範囲と保存先                                                                                                                                      |
+| --- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `CLAUDE_CODE_AUTO_COMPACT_WINDOW`         | 最優先（値が無視される場合を除く）。設定中の `/autocompact` は上書きを報告し、保存しない                                                              |
+| 2   | `--autocompact <auto\|tokens>`            | その起動だけ。保存値は変えず、managed にも負けない。`auto` で既定へ（v2.1.221 以降）                                                                  |
+| 3   | `modelSettings.<model>.autoCompactWindow` | `/autocompact` の保存先（user 設定、v2.1.288 以降）。同じファイルのトップレベルより優先。managed など上位スコープに値があれば、保存しても適用されない |
+| 4   | `autoCompactWindow`                       | 全モデル共通。ファイル間は設定の優先順位                                                                                                              |
+| 5   | 既定                                      | モデルごとに調整された値                                                                                                                              |
+
+サブエージェントは frontmatter の `autoCompactWindow: 200000` で早めに圧縮できます（v2.1.296 以降、下げる方向のみ）。`200k` は 200 と読まれて無視され、`--agent` で起動したセッション自体には効きません。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --settings '{"autoCompactWindow":300000}' \
+    --autocompact 500k "/context"
+**Tokens:** 14.3k / 500k (3%)
+
+$ CLAUDE_CODE_AUTO_COMPACT_WINDOW=150000 \
+    claude -p --autocompact 500k "/context"
+**Tokens:** 14.3k / 150k (10%)
+
+$ claude -p --settings '{"autoCompactWindow":300000,
+    "modelSettings":{"claude-haiku-5-5":
+    {"autoCompactWindow":400000}}}' "/context"
+**Tokens:** 14.3k / 400k (4%)
+```
+
+:::danger[食い違い]
+サブエージェントの値と環境変数の関係（未検証）
+
+- **sub-agents ページ**: 環境変数があると、サブエージェントはその値を使い、frontmatter は効かない
+- **changelog 2.1.312**: frontmatter が環境変数の window を下げるよう変更。上げはしない
+  :::
+
+<div class="src">
+  出典: [model-config#set-the-auto-compact-window](https://code.claude.com/docs/en/model-config#set-the-auto-compact-window) · [settings-reference#modelsettings](https://code.claude.com/docs/en/settings-reference#modelsettings) · [sub-agents](https://code.claude.com/docs/en/sub-agents#subagent-auto-compact-window) · [changelog 2.1.288, 2.1.296, 2.1.312](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch06-window-values" />
+
+## window の書式・バリデーション
+
+- `/autocompact` と `--autocompact` は 100K〜1M を受け付けます。書式は `200000`、`500k`・`1M`、または 100〜1000 の数字だけ（千単位。`200` は 200,000）です。
+- 環境変数は数字をトークン数として読みます。`k`・`M` 接尾辞は v2.1.304 以降です（以前は `200k` が黙って 100K になっていた）。
+- どの経路でも、window はモデルのコンテキストウィンドウで頭打ちになります。
+
+| 環境変数の警告に含まれる文                                          | 使われる window                          |
+| ------------------------------------------------------------------- | ---------------------------------------- |
+| `reads as <N> tokens, so Claude Code treats it as the 100k minimum` | 100,000 とモデルのウィンドウの小さい方   |
+| `is too large, so Claude Code treats it as the 1M maximum`          | 1,000,000 とモデルのウィンドウの小さい方 |
+| `isn't a usable size, so Claude Code ignores it`                    | フラグ・コマンド・設定の値。無ければ既定 |
+
+<span class="undocumented">`--settings` の `autoCompactWindow` に範囲外の `50000` を渡すと、警告なしで無視され、window は 1m のままでした。 <span class="badge undocumented">Undocumented</span></span>
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --autocompact 200 "/context"
+**Tokens:** 14.3k / 200k (7%)
+
+$ claude -p --autocompact 50k "/context"
+error: option '--autocompact <auto|tokens>' argument '50k'
+is invalid. It must be 'auto', or between 100k and 1M (e.g.
+500k, 200000, or 200 as shorthand)              → exit 1
+
+$ CLAUDE_CODE_AUTO_COMPACT_WINDOW=200 claude -p "/context"
+CLAUDE_CODE_AUTO_COMPACT_WINDOW="200" reads as 200 tokens, so
+Claude Code treats it as the 100k minimum. Set it to a size
+from 100k to 1M, such as 200k or 200000, or unset it.
+**Tokens:** 14.3k / 100k (14%)
+
+$ CLAUDE_CODE_AUTO_COMPACT_WINDOW=5M claude -p "/context"
+CLAUDE_CODE_AUTO_COMPACT_WINDOW="5M" is too large, so Claude
+Code treats it as the 1M maximum. …
+**Tokens:** 14.3k / 1m (1%)
+
+$ CLAUDE_CODE_AUTO_COMPACT_WINDOW=abc claude -p "/context"
+CLAUDE_CODE_AUTO_COMPACT_WINDOW="abc" isn't a usable size, so
+Claude Code ignores it. …
+```
+
+<div class="src">
+  出典: [model-config#set-the-auto-compact-window](https://code.claude.com/docs/en/model-config#set-the-auto-compact-window) · [#claude_code_auto_compact_window-values](https://code.claude.com/docs/en/model-config#claude_code_auto_compact_window-values) · [changelog 2.1.304](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch06-window-defaults" />
+
+## モデル別の既定とゲートウェイ
+
+| セッション                                                      | 自動圧縮が走る位置                                                                                            |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| ネイティブ 1M（Fable、Sonnet 5 以降、Haiku 5.5、Opus 4.7 以降） | ウィンドウが埋まる前、既定で約 967K                                                                           |
+| `[1m]` なしの Sonnet 4.6・Opus 4.6                              | 200K の境界                                                                                                   |
+| `CLAUDE_CODE_DISABLE_1M_CONTEXT=1`                              | ネイティブ 1M も 200K の境界。window を大きくしても上がらない。自動圧縮 off なら 200K で context-limit エラー |
+| クラウドセッション                                              | モデルの上限に近づいたとき                                                                                    |
+| 認識できないモデル ID                                           | 200K と仮定したウィンドウ                                                                                     |
+
+- 200K で拒否するゲートウェイには `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` を設定します。
+- ステータスラインの `used_percentage` はモデルの全ウィンドウに対する割合です。環境変数で window を変えると、圧縮時期の目安になりません。
+- プラン別の 1M 提供条件と `[1m]` の選び方は [Ch2](/claude-code-deep-dive/ja/fundamentals/models/)。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "/autocompact"
+Auto-compact window for Haiku 5.5: 1m tokens (default for this
+model)
+Auto-compact summarizes the conversation when context usage
+approaches this limit. The actual threshold is the minimum of
+this setting and your model's maximum context window.
+The auto setting picks a window tuned for your model and is
+strongly recommended for the best cost and performance.
+
+$ CLAUDE_CODE_DISABLE_1M_CONTEXT=1 \
+    claude -p --autocompact 500k "/context"
+**Tokens:** 14.3k / 200k (7%)
+```
+
+- 認識できない ID（ゲートウェイのエイリアスなど）では `isn't recognized · context assumed to be 200k tokens` と警告が出ます。直し方は `claude update`、`modelOverrides`・`modelPicker` の `behavesAs`、ID への `[1m]`、`CLAUDE_CODE_MAX_CONTEXT_TOKENS` です。
+- `CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1` は、API が too-long を返すまで圧縮しません（v2.1.223 以降）。
+
+<div class="src">
+  出典: [model-config#default-auto-compact-thresholds](https://code.claude.com/docs/en/model-config#default-auto-compact-thresholds) · [#correct-the-window-for-a-gateway-or-custom-model-id](https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id) · [#turn-off-1m-context](https://code.claude.com/docs/en/model-config#turn-off-1m-context) · 実機確認 2.1.321
+</div>
+
+<span id="ch06-disable" />
+
+## 無効化・スラッシング・サーキットブレーカー
+
+| 設定                              | 効果                                                                                                                                                            |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"autoCompactEnabled": false`     | 自動圧縮とアイドル圧縮を止める。手動の `/compact` は使える。`/config` の **Auto-compact** 行と同じキー                                                          |
+| `DISABLE_AUTO_COMPACT=1`          | 同じ効果をそのセッションに。設定とどちらかが off にすると他方で戻せない                                                                                         |
+| `DISABLE_COMPACT=1`               | 手動の `/compact` を含むすべての圧縮を止める。rewind の Summarize も出なくなる（2.1.311）。設定ファイルや mod の `$.env.set` では off にしかできない（2.1.311） |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | window の何 %（1〜100）で圧縮するか。下げる方向だけ。モデルの上限より前に圧縮するセッションでだけ効く。サブエージェントにも効く                                 |
+| PreCompact フックでブロック       | exit 2 か `{"decision":"block"}`。事前の圧縮なら飛ばして続行、API の too-long から回復する圧縮ならリクエストが失敗する                                          |
+
+実測: `DISABLE_AUTO_COMPACT=1` と `"autoCompactEnabled": false` のどちらでも、`/context` から `Autocompact buffer` 行が消えた。
+
+### スラッシング（2.1.89）
+
+圧縮は成功したのに、直後に大きなファイルやツール出力でまた上限まで埋まる状態が 3 回続くと、Claude Code は再試行をやめて次のエラーを出します。
+
+```text
+Autocompact is thrashing: the context refilled to the limit...
+```
+
+1. 大きなファイルを行範囲や関数単位で読ませる
+2. 大きな出力を落とす焦点で `/compact`（例: `/compact keep only the plan and the diff`）
+3. 大きなファイルの作業をサブエージェントへ移す
+4. 前の会話が不要なら `/clear`
+
+fallback で 1M から 200K に落ちたことが原因なら、エラーがそう示します（2.1.286）。
+
+### サーキットブレーカー（2.1.76）
+
+自動圧縮が連続 3 回失敗すると、再試行を止めます。
+
+<div class="src">
+  出典: [settings-reference#autocompactenabled](https://code.claude.com/docs/en/settings-reference#autocompactenabled) · [env-vars](https://code.claude.com/docs/en/env-vars) · [hooks#precompact](https://code.claude.com/docs/en/hooks#precompact) · [troubleshooting](https://code.claude.com/docs/en/troubleshooting#auto-compaction-stops-with-a-thrashing-error) · [changelog 2.1.76, 2.1.89, 2.1.286, 2.1.311](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>
+
+<span id="ch06-idle" />
+
+## アイドル圧縮
+
+放置した長い会話を、1 時間のプロンプトキャッシュが切れる前に要約します。次のメッセージは会話全体ではなく要約を送ります。既定で on で、次の条件をすべて満たす会話が対象です。
+
+| 条件       | 内容                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------ |
+| セッション | 対話ターミナル、VS Code 拡張のチャットパネル、Desktop の Code タブ（ローカルか SSH）       |
+| 自動圧縮   | `autoCompactEnabled` が on                                                                 |
+| キャッシュ | 会話が 1 時間 TTL（[TTL](/claude-code-deep-dive/ja/fundamentals/context/#ch06-cache-ttl)） |
+| 大きさ     | しきい値（既定 200,000 トークン）以上                                                      |
+| 放置時間   | 最後のリクエストから約 1 時間。その間マシンがスリープしない                                |
+
+- PreCompact・PostCompact は matcher `auto` で発火します。放置時間を changelog 2.1.299 は「約 54 分」と書いています。
+- 提供範囲: ターミナル 2.1.299、VS Code と Desktop 2.1.314。2.1.314 からはテレメトリ off の契約者や Bedrock・Vertex・Foundry・ゲートウェイでも、1 時間キャッシュが有効なら動きます。
+
+* 止める: `"idleCompaction": false`（キーは v2.1.290 以降）、`/config` の **Idle compaction** 行（v2.1.302 以降）、または `DISABLE_AUTO_COMPACT`。v2.1.290 より前は `autoCompactEnabled` を off にします。
+* しきい値: `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS`（正の整数。100,000 未満は 100,000）。200K ウィンドウの会話は既定値の手前で自動圧縮されるので、対象にするには下げます。
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS": "150000"
+  }
+}
+```
+
+- 通知: ターミナルは `Compacted while idle, before the prompt cache expired` で始まる行。VS Code と Desktop は `Compacted using a summary written while you were away · turn off with "idleCompaction": false in settings.json`。
+
+<div class="src">
+  出典: [settings-reference#idlecompaction](https://code.claude.com/docs/en/settings-reference#idlecompaction) · [prompt-caching#compacting-the-conversation](https://code.claude.com/docs/en/prompt-caching#compacting-the-conversation) · [hooks#precompact](https://code.claude.com/docs/en/hooks#precompact) · [changelog 2.1.299, 2.1.302, 2.1.314](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch06-survives" />
+
+## 圧縮で残るもの・消えるもの
+
+| ディスクから再注入・再構築             | 圧縮後                                                        |
+| -------------------------------------- | ------------------------------------------------------------- |
+| システムプロンプトと出力スタイル       | どちらも有効なまま                                            |
+| ルートの CLAUDE.md、スコープなし rules | ディスクから再注入                                            |
+| auto memory                            | ディスクから再注入                                            |
+| Skill の説明                           | 現在の Skill から作り直して再注入（v2.1.304 以降）            |
+| git status スナップショット            | 開始時にあれば、新しく読み直す                                |
+| plan mode で書いた計画                 | ディスクから再注入                                            |
+| 読み書きしたファイル                   | 更新が新しい順に最大 5 つ読み直す                             |
+| 呼び出した Skill の本文                | 1 Skill 5,000・合計 25,000 トークンまで再注入。古い順に落とす |
+
+| 要約・必要時の再読込・継続              | 圧縮後                                           |
+| --------------------------------------- | ------------------------------------------------ |
+| `paths:` 付きの rules                   | 必要時に読み直す                                 |
+| サブディレクトリの CLAUDE.md            | 必要時に読み直す                                 |
+| フックが追加したコンテキスト            | 会話と一緒に要約される                           |
+| 背景コマンド・背景サブエージェント      | 動き続ける。重複起動しないよう Claude に知らせる |
+| source `compact` の SessionStart フック | 実行し、出力を圧縮後の文脈に加える               |
+
+- 5,000 トークンを超えるファイルは中身なしで戻り、`Read` ではなく `Referenced file` と表示されます。
+- `paths:` rules とサブディレクトリの CLAUDE.md は会話履歴に入るので、要約で消えます。圧縮後も残すには `paths:` を外すか、ルートの CLAUDE.md に移します。
+- Skill の切り詰めは先頭を残します。重要な指示は `SKILL.md` の先頭に書きます。
+
+<div class="src">
+  出典: [context-window#what-survives-compaction](https://code.claude.com/docs/en/context-window#what-survives-compaction)
+</div>
+
+<span id="ch06-hook-order" />
+
+## 圧縮まわりのフックの発火順
+
+```text title="実測 2.1.321" frame="terminal"
+{"hook_event_name": "InstructionsLoaded", "load_reason": "session_start", "memory_type": "Project", "file": "CLAUDE.md"}
+{"hook_event_name": "SessionStart", "source": "startup"}
+{"hook_event_name": "UserPromptSubmit", "prompt": "Reply with the single word OK."}
+{"hook_event_name": "Stop"}
+{"hook_event_name": "PreCompact", "trigger": "manual", "custom_instructions": "keep only the word OK"}
+{"hook_event_name": "SessionStart", "source": "compact"}
+{"hook_event_name": "PostCompact", "trigger": "manual", "compact_summary_len": 1494, "compact_summary_head": "<analysis>\n…"}
+{"hook_event_name": "UserPromptSubmit", "prompt": "Reply with the single word DONE."}
+{"hook_event_name": "InstructionsLoaded", "load_reason": "compact", "memory_type": "Project", "file": "CLAUDE.md"}
+{"hook_event_name": "Stop"}
+{"hook_event_name": "SessionEnd", "reason": "other"}
+```
+
+1 つの `-p` プロセスに stream-json で「応答 → `/compact keep only the word OK` → 応答」を送り、7 種類のフックで入力の一部を記録した（`--model haiku`、`--setting-sources project`）
+
+- 順序は PreCompact → SessionStart（source `compact`）→ PostCompact でした。`/compact` の入力では UserPromptSubmit は発火しませんでした。
+- `load_reason: "compact"` の InstructionsLoaded は圧縮の直後ではなく、次のプロンプトの UserPromptSubmit の後に発火しました。
+- PreCompact の `custom_instructions` は `/compact` の引数（自動と引数なしは `null`）、PostCompact の `compact_summary` は生成された要約です。どちらのフックも `systemMessage` と `continue` は捨てられます。終了コードの扱いは [Ch28](/claude-code-deep-dive/ja/extensions/hooks/)。
+
+<div class="src">
+  出典: [hooks#precompact](https://code.claude.com/docs/en/hooks#precompact) · [#postcompact](https://code.claude.com/docs/en/hooks#postcompact) · [#instructionsloaded](https://code.claude.com/docs/en/hooks#instructionsloaded) · 実機確認 2.1.321
+</div>
+
+<span id="ch06-tool-results" />
+
+## ツール結果のクリアと大きな出力の扱い
+
+### 古いツール結果のクリア
+
+- Claude Code は、圧縮のほか「古いツール結果をコンテキストから消す」ことでも会話を書き換えます。
+- `/usage` の `Prompt cache (main)` 行は、この書き換えによるキャッシュの作り直しを miss ではなく `expected rebuild` と数えます。
+- ステータスラインの `prompt_cache.expected_rebuilds` も同じ数です。`recache_tokens_if_cold` はクリア直後に `null` になります。
+- 発動条件・しきい値・設定キー・環境変数・フックは、ドキュメントに記載がありません。
+
+### 画像と PDF
+
+リクエストあたりの枚数・合計サイズの上限を超えそうになると、古い画像と PDF をまとめて外します。Claude はそれらを見られなくなり、その位置から先がキャッシュなしで再処理されます。
+
+### 大きな出力をコンテキストに入れない仕組み
+
+| 対象            | 上限と超過時                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bash（成功）    | インラインは約 30,000 文字（`bashOutputMaxChars`、4,000〜128,000 に丸める。v2.1.261 以降）。超えるとファイルに保存し、パスと先頭 2,000 文字のプレビューを渡す |
+| Bash（失敗）    | 約 10,000 文字の先頭と末尾の抜粋。パスは渡さない                                                                                                              |
+| Bash の読み戻し | `BASH_MAX_OUTPUT_LENGTH`（既定 30,000、上限 150,000）。インラインの上限は上げない                                                                             |
+| MCP             | 10,000 トークン超で警告。既定の上限 25,000 トークン（`MAX_MCP_OUTPUT_TOKENS`）。超えた結果はファイルに保存してパスに置き換える                                |
+
+保存先は `~/.claude/projects/<project>/<session>/tool-results/` で、トランスクリプトと一緒に retention sweep で消えます。
+
+<div class="src">
+  出典: [costs#prompt-cache-statistics](https://code.claude.com/docs/en/costs#prompt-cache-statistics) · [statusline#prompt-cache-fields](https://code.claude.com/docs/en/statusline#prompt-cache-fields) · [prompt-caching#accumulating-many-images](https://code.claude.com/docs/en/prompt-caching#accumulating-many-images) · [tools-reference#output-limits](https://code.claude.com/docs/en/tools-reference#output-limits) · [settings-reference#bashoutputmaxchars](https://code.claude.com/docs/en/settings-reference#bashoutputmaxchars) · [mcp](https://code.claude.com/docs/en/mcp#mcp-output-limits-and-warnings) · [claude-directory](https://code.claude.com/docs/en/claude-directory#cleaned-up-automatically)
+</div>
+
+<span id="ch06-cache-layers" />
+
+## プロンプトキャッシュの層と prefix 一致
+
+- メッセージを送るたびに新しい API リクエストが出て、全文脈を送り直します。API はリクエストの先頭（prefix）を、最近処理した内容と照合してキャッシュします。
+- 照合は完全一致です。prefix のどこかが変わると、そこから後ろをすべて再計算します。ファイル単位や区間単位のキャッシュはありません。
+- Claude Code は、変わりにくいものほど前に置きます。
+
+| 層                 | 内容                                       | 変わる時                                    |
+| ------------------ | ------------------------------------------ | ------------------------------------------- |
+| システムプロンプト | コアの指示、ツール定義                     | 読み込むツール定義の集合が変わる            |
+| プロジェクト文脈   | CLAUDE.md、auto memory、スコープなし rules | セッション開始時、`/clear`・`/compact` の後 |
+| 会話               | メッセージ、応答、ツール結果               | 毎ターン                                    |
+
+- モデルごと、速度（fast mode）ごとにキャッシュは別です。effort もほとんどのモデルでレベルごとに別です。例外は API キーかサブスクリプションでの Fable 5.1 以降、Opus 5.5、Sonnet 5.5、Haiku 5.5 です。
+
+* **キャッシュの置き場所**: API キー・サブスクリプション・Claude Platform on AWS は Anthropic、Bedrock と Agent Platform はクラウド側、Foundry はホスティング方式次第、ゲートウェイは転送先次第です。
+* **範囲**: 実質「マシンとディレクトリ」単位です。同じディレクトリで並行するセッションは互いのキャッシュを読めます。順に起動したセッションは、起動時の git status スナップショットが一致するときだけ prefix を共有します。
+
+```text title="実測 2.1.321" frame="terminal"
+$ FORCE_PROMPT_CACHING_5M=1 claude -p --output-format json \
+    "Reply with the single word OK."
+"cache_creation_input_tokens": 7360,
+"cache_read_input_tokens": 11732
+
+$ CLAUDE_CODE_PROMPT_CACHE_TTL=1h FORCE_PROMPT_CACHING_5M=1 \
+    claude -p --output-format json \
+    "Reply with the single word OK."
+"cache_creation_input_tokens": 0,
+"cache_read_input_tokens": 19092
+```
+
+git 管理外の空ディレクトリで続けて実行。2 回目は別プロセスだが、同じ 19,092 トークンの prefix をすべてキャッシュから読んだ（どちらも 5 分バケット）
+
+<div class="src">
+  出典: [prompt-caching#how-the-cache-is-organized](https://code.claude.com/docs/en/prompt-caching#how-the-cache-is-organized) · [#where-the-cache-lives](https://code.claude.com/docs/en/prompt-caching#where-the-cache-lives) · [#cache-scope](https://code.claude.com/docs/en/prompt-caching#cache-scope) · 実機確認 2.1.321
+</div>
+
+<span id="ch06-cache-breakers" />
+
+## キャッシュを壊す操作・壊さない操作
+
+| 壊す操作                 | 補足                                                                                                                                                              |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| モデルの切り替え         | `opusplan` の plan mode 切り替え、自動 fallback、`model` を指定した Skill・コマンドのターンも含む。`/model` はキャッシュが温かいときだけ確認する（v2.1.238 以降） |
+| effort の変更            | 前の節の例外モデルを除く。温かいうちは確認が出る                                                                                                                  |
+| fast mode の切り替え     | 初回 on は会話全体を fast mode の単価で読み直す                                                                                                                   |
+| MCP サーバーの接続・削除 | ツールを最初から読み込む場合だけ。tool search で遅延していれば壊れない                                                                                            |
+| ツール全体の deny        | `Bash`、`Bash(*)`、`"*"`、`"mcp__*"` など。tool search が無効なときだけ                                                                                           |
+| 圧縮                     | 会話層を作り直す                                                                                                                                                  |
+| 画像の蓄積               | 古い画像をまとめて外したとき                                                                                                                                      |
+| Claude Code の更新       | 更新後の最初の会話                                                                                                                                                |
+
+| 壊さない操作                                                               | 理由・補足                                             |
+| -------------------------------------------------------------------------- | ------------------------------------------------------ |
+| リポジトリのファイル編集                                                   | 読み取り済みなら変更通知の reminder を追記するだけ     |
+| CLAUDE.md の編集                                                           | 反映もされない。`/clear`・`/compact`・再起動で読み直す |
+| 権限モードの変更                                                           | `opusplan` の plan mode を除く                         |
+| 出力スタイルの変更                                                         | 指示をメッセージとして追記する（v2.1.251 以降）        |
+| Skill とコマンドの呼び出し                                                 | 指示をユーザーメッセージとして追記する                 |
+| `/recap`・`/rewind`                                                        | rewind はキャッシュ済みの以前の prefix に戻る          |
+| サブエージェントの起動                                                     | 親の prefix は不変。fork は親のキャッシュを読む        |
+| `/advisor` の切り替え <span class="badge experimental">Experimental</span> | 定義がキャッシュ境界の後ろにある                       |
+
+<div class="src">
+  出典: [prompt-caching#actions-that-invalidate-the-cache](https://code.claude.com/docs/en/prompt-caching#actions-that-invalidate-the-cache) · [#actions-that-keep-the-cache](https://code.claude.com/docs/en/prompt-caching#actions-that-keep-the-cache) · [#subagents-and-the-cache](https://code.claude.com/docs/en/prompt-caching#subagents-and-the-cache)
+</div>
+
+<span id="ch06-cache-ttl" />
+
+## キャッシュの TTL と優先順位
+
+| バケット   | サブスクリプション（プラン内）                          | usage credits・API キー・クラウド |
+| ---------- | ------------------------------------------------------- | --------------------------------- |
+| メイン会話 | 1 時間                                                  | 5 分                              |
+| それ以外   | 5 分（サーバー側で決まる一部の補助リクエストは 1 時間） | 5 分                              |
+
+- メイン会話: 対話ターン、`-p`、SDK のターンと、それに伴う補助リクエスト。それ以外: サブエージェント、workflow、in-process のチームメイト、fork、圧縮、セッションタイトル。
+- プランの上限を超えて usage credits を使い始めると、メイン会話も 5 分に下がります。
+
+```text title="実測 2.1.321" frame="terminal"
+$ CLAUDE_CODE_PROMPT_CACHE_TTL=1h \
+    claude -p --output-format json "…"
+"cache_creation": {"ephemeral_1h_input_tokens": 7360,
+                   "ephemeral_5m_input_tokens": 0}
+$ FORCE_PROMPT_CACHING_5M=1 \
+    claude -p --output-format json "…"
+"cache_creation": {"ephemeral_1h_input_tokens": 0,
+                   "ephemeral_5m_input_tokens": 7360}
+```
+
+TTL を自分で選ぶ（v2.1.242 以降）。値は `5m` か `1h` だけで、それ以外は無視されます。複数あるときは上から最初に当たったものを使います。
+
+1. `FORCE_PROMPT_CACHING_5M=1`（両バケットを 5 分に）
+2. バケットの環境変数: `CLAUDE_CODE_PROMPT_CACHE_TTL`（メイン）、`CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`（それ以外）
+3. バケットの設定: `promptCacheTtl`、`subagentPromptCacheTtl`
+4. サブエージェントの frontmatter `experimental` の `cacheTtl`（v2.1.248 以降。usage credits 使用中の `1h` は無視）
+5. `ENABLE_PROMPT_CACHING_1H=1`（両バケットを 1 時間に）
+6. バケットの既定値（この節の表）
+
+- 1 時間 TTL はキャッシュ書き込みの単価が高くなります。
+- ゲートウェイ経由で 1 時間にするには、`anthropic-beta` ヘッダーをそのまま転送させます。Claude apps gateway は管理者がポリシーで要求します。
+- Bedrock はモデルとリージョンで対応が違います。キャッシュのトークン数が 0 のままなら AWS 側の対応表を確認します。
+
+<div class="src">
+  出典: [prompt-caching#cache-lifetime](https://code.claude.com/docs/en/prompt-caching#cache-lifetime) · [#choose-the-ttl-yourself](https://code.claude.com/docs/en/prompt-caching#choose-the-ttl-yourself) · [settings-reference#promptcachettl](https://code.claude.com/docs/en/settings-reference#promptcachettl) · [env-vars](https://code.claude.com/docs/en/env-vars) · 実機確認 2.1.321
+</div>
+
+<span id="ch06-cache-check" />
+
+## キャッシュの無効化変数とヒットの確認
+
+| 変数（値 `1`）                  | 対象                                                                |
+| ------------------------------- | ------------------------------------------------------------------- |
+| `DISABLE_PROMPT_CACHING`        | 全モデル。モデル別の変数より優先                                    |
+| `DISABLE_PROMPT_CACHING_HAIKU`  | `haiku` エイリアスが指すモデル。メイン会話でも効く（v2.1.283 以降） |
+| `DISABLE_PROMPT_CACHING_SONNET` | `sonnet` エイリアスが指すモデル                                     |
+| `DISABLE_PROMPT_CACHING_OPUS`   | `opus` エイリアスが指すモデル                                       |
+| `DISABLE_PROMPT_CACHING_FABLE`  | Fable モデル                                                        |
+
+エイリアスと別のバージョンを固定したモデル（例: `sonnet` が `claude-sonnet-5-5` のときの `claude-sonnet-5`）はキャッシュされ続けます。止めるには `DISABLE_PROMPT_CACHING` を使います。組織全体では managed settings の `env` に置きます。
+
+- **ステータスライン**: `current_usage` の `cache_creation_input_tokens`（書き込み）と `cache_read_input_tokens`（読み取り）。読み取りの比率が高いほど良好です。
+- **`prompt_cache` オブジェクト**（v2.1.251 以降）: `warm`、`ttl`、`hit_ratio`、`misses`、`expected_rebuilds`、`last_miss_cause`（v2.1.260 以降。`tools_changed`、`system_prompt_changed`、`ttl_expired_5m`、`likely_server_side` など）。
+- **`/usage`** の Session ブロック（ドキュメントの例）:
+
+```text
+Prompt cache (main):   14 requests · 91% of input tokens
+from cache · 2 misses (last 6m 10s ago, 310.2k tokens
+re-cached) · 1 expected rebuild (compaction or tool-result
+clearing) · warm (1h TTL, last activity 40s ago)
+```
+
+- **`-p` の JSON**: `usage.cache_creation` の `ephemeral_1h_input_tokens` と `ephemeral_5m_input_tokens`。
+- **再開時の SessionStart フック**（source `resume`・`fork`、v2.1.251 以降）: `prompt_cache_likely_expired` と `estimated_cache_write_usd` で再開のコストを事前に示せます。
+
+<div class="src">
+  出典: [prompt-caching#disable-prompt-caching](https://code.claude.com/docs/en/prompt-caching#disable-prompt-caching) · [#check-cache-performance](https://code.claude.com/docs/en/prompt-caching#check-cache-performance) · [costs#prompt-cache-statistics](https://code.claude.com/docs/en/costs#prompt-cache-statistics) · [statusline#prompt-cache-fields](https://code.claude.com/docs/en/statusline#prompt-cache-fields) · [hooks#sessionstart](https://code.claude.com/docs/en/hooks#sessionstart)
+</div>

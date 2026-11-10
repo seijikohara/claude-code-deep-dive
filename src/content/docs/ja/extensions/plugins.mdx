@@ -1,0 +1,667 @@
+---
+title: "プラグイン"
+description: "Skill・エージェント・フック・MCP サーバーなどを 1 つのディレクトリにまとめ、1 単位で配布・有効化する仕組みです。この章では、構成とマニフェスト、パス変数と userConfig、読み込みと名前の衝突、有効化の優先順位とキャッシュ、バージョンと依存関係、claude plugin コマンド、コストの測り方と eval を扱います。"
+sidebar:
+  order: 31
+---
+
+Skill・エージェント・フック・MCP サーバーなどを 1 つのディレクトリにまとめ、1 単位で配布・有効化する仕組みです。この章では、構成とマニフェスト、パス変数と userConfig、読み込みと名前の衝突、有効化の優先順位とキャッシュ、バージョンと依存関係、`claude plugin` コマンド、コストの測り方と eval を扱います。
+
+<span id="ch31-structure" />
+
+## プラグインの構成と、有効にすると常に増えるもの
+
+- プラグインは、コンポーネントをまとめて 1 単位で読み込むディレクトリです。マニフェスト `.claude-plugin/plugin.json` は任意です。
+
+- マニフェストが無いときは、標準の配置からコンポーネントを探します。名前はマーケットプレイスのエントリ名、`--plugin-dir` ではディレクトリ名になります。
+
+- `.claude-plugin/` に置くのは `plugin.json` だけです。`skills/` などをその中に置くと読み込まれません。
+
+- プラグインルートの `CLAUDE.md` は context に読み込まれず、`claude plugin validate` が警告します。指示は Skill に書きます。
+
+- 有効なプラグインは、使わないセッションにも効きます。
+
+  - Claude が自分で呼べる Skill・エージェント・コマンドの名前と説明が、毎ターン context に載る
+  - MCP サーバーがセッションと並んで動き、フックがイベントで発火する
+  - プラグインが動かすものは、すべてユーザーの権限で動く
+
+```text
+deploy-tools/
+├── .claude-plugin/
+│   └── plugin.json
+├── skills/
+│   └── deploy/
+│       └── SKILL.md
+├── commands/
+│   └── status.md
+├── agents/
+│   └── reviewer.md
+├── hooks/
+│   └── hooks.json
+├── monitors/
+│   └── monitors.json
+├── …
+├── bin/
+│   └── deploy-tool
+├── scripts/
+│   └── format.sh
+├── settings.json
+├── .mcp.json
+└── .lsp.json
+```
+
+docs の標準レイアウト例（抜粋）
+
+<div class="src">
+  出典: [plugins/overview#what-an-enabled-plugin-adds-to-your-sessions](https://code.claude.com/docs/en/plugins/overview#what-an-enabled-plugin-adds-to-your-sessions) · [plugins/manifest-reference#manifest-file](https://code.claude.com/docs/en/plugins/manifest-reference#manifest-file) · [#standard-layout](https://code.claude.com/docs/en/plugins/manifest-reference#standard-layout)
+</div>
+
+<span id="ch31-components" />
+
+## コンポーネント対応表: 既定の場所・マニフェストキー・名前
+
+| コンポーネント     | 既定の場所               | マニフェストキー        | 既定との関係 | セッションでの名前・備考                                                     |
+| ------------------ | ------------------------ | ----------------------- | ------------ | ---------------------------------------------------------------------------- |
+| Skill              | `skills/<name>/SKILL.md` | `skills`                | 追加         | `/<plugin>:<dir>`                                                            |
+| コマンド（旧形式） | `commands/*.md`          | `commands`              | 置換         | `commands/db/migrate.md` は `/my-plugin:db:migrate`                          |
+| エージェント       | `agents/*.md`            | `agents`（`.md` のみ）  | 置換         | `<plugin>:<name>`。サブフォルダも `:` で連結                                 |
+| フック             | `hooks/hooks.json`       | `hooks`                 | マージ       | `modules` を書くと Mod（[Ch33](/claude-code-deep-dive/ja/extensions/mods/)） |
+| MCP サーバー       | `.mcp.json`              | `mcpServers`            | マージ       | `plugin:<plugin>:<server>`                                                   |
+| LSP サーバー       | `.lsp.json`              | `lspServers`            | マージ       | 拡張子ごとに 1 サーバー                                                      |
+| 出力スタイル       | `output-styles/`         | `outputStyles`          | 置換         | `<plugin>:<name>`                                                            |
+| Workflow           | `workflows/*.js`         | `workflows`             | 置換         | [Ch41](/claude-code-deep-dive/ja/parallel/workflows/)                        |
+| テーマ             | `themes/*.json`          | `experimental.themes`   | 置換         | `/theme` にファイルの `name` で並ぶ                                          |
+| モニター           | `monitors/monitors.json` | `experimental.monitors` | 置換         | セッション中ずっと動くコマンド                                               |
+| 実行ファイル       | `bin/`                   | なし                    | —            | Bash ツールの `PATH` に入る                                                  |
+| 既定の設定         | `settings.json`          | `settings`              | ファイル優先 | `agent`・`subagentStatusLine` のみ有効                                       |
+
+置換キーを書くと既定フォルダは走査されず、両方あると `Default <folder>/ folder is ignored because the manifest sets "<key>"` と警告されます。`experimental` の形は今後変わり得ると docs は書いています。
+
+<div class="src">
+  出典: [plugins/components](https://code.claude.com/docs/en/plugins/components) · [plugins/manifest-reference#how-each-key-combines-with-its-default-location](https://code.claude.com/docs/en/plugins/manifest-reference#how-each-key-combines-with-its-default-location) · [#fields](https://code.claude.com/docs/en/plugins/manifest-reference#fields)
+</div>
+
+<span id="ch31-manifest" />
+
+## `plugin.json`（1/2）: docs の主要キー例と、メタデータの規則
+
+```json
+{
+  "name": "deploy-tools",
+  "displayName": "Deploy Tools",
+  "version": "1.2.0",
+  "description": "Deployment commands, a review agent, and a status monitor",
+  "author": {
+    "name": "Example Team",
+    "email": "dev@example.com",
+    "url": "https://example.com"
+  },
+  "homepage": "https://example.com/docs/deploy-tools",
+  "repository": "https://github.com/example/deploy-tools",
+  "license": "MIT",
+  "keywords": ["deployment", "ci"],
+  "defaultEnabled": true,
+  "dependencies": ["secrets-vault"],
+  "metadata": { "catalogId": "cat-123" },
+  "skills": ["./extra-skills/"],
+```
+
+- `name` だけが必須です。空、空白、`@`、`:`、パス区切り、制御文字は使えません。kebab-case で書きます。
+- `displayName` は表示用です。マーケットプレイスのエントリにあれば、そちらが優先します。
+- `version` は semver として検査されません。設定すると、値を変えるまで同じ版に留まります。
+- `homepage` は URL として解釈できないと読み込みに失敗します。`repository` は検証されません。
+- `metadata`（v2.1.222 以降）は Claude Code が読みません。
+- `defaultEnabled` の既定は `true` で、エントリ側が優先します。
+
+<div class="src">
+  出典: [plugins/manifest-reference#manifest-file](https://code.claude.com/docs/en/plugins/manifest-reference#manifest-file) · [#fields](https://code.claude.com/docs/en/plugins/manifest-reference#fields)
+</div>
+
+<span id="ch31-manifest-2" />
+
+## `plugin.json`（2/2）: コンポーネントキーと検証規則
+
+```json
+  "commands": {
+    "status": {
+      "source": "./commands/status.md",
+      "description": "Show the current deployment status"
+    },
+    "about": {
+      "content": "Explain what the deploy-tools plugin provides.",
+      "description": "Describe this plugin"
+    }
+  },
+  "agents": ["./agents/reviewer.md"],
+  "hooks": "./config/extra-hooks.json",
+  "mcpServers": {
+    "deploy-api": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server.js"]
+    }
+  },
+```
+
+```json
+  "lspServers": "./.lsp.json",
+  "outputStyles": "./styles/",
+  "experimental": {
+    "themes": "./themes/",
+    "monitors": "./config/monitors.json"
+  },
+  "userConfig": {
+    "api_token": {
+      "type": "string",
+      "title": "API token",
+      "description": "Token for the deployment API",
+      "sensitive": true
+    }
+  }
+}
+```
+
+- パスはプラグインルート基準で `./` から書きます（`skills` は `"."`、`mcpServers` は `https://` のバンドル URL も可）。`..`、外を指す symlink、macOS と Linux でのバックスラッシュを含むパスは、`path escapes plugin directory` になり読み込まれません。
+- 未知のトップレベルキーは除去して読み込まれ、validate が警告します。`userConfig` の各項目・`channels`・`lspServers`・`monitors` は厳格で、未知キーがあるとプラグインが読み込まれません。
+
+<div class="src">
+  出典: [plugins/manifest-reference#manifest-file](https://code.claude.com/docs/en/plugins/manifest-reference#manifest-file) · [#path-rules](https://code.claude.com/docs/en/plugins/manifest-reference#path-rules) · [#unrecognized-fields](https://code.claude.com/docs/en/plugins/manifest-reference#unrecognized-fields) · [plugins/loading#paths-that-escape-the-plugin-directory](https://code.claude.com/docs/en/plugins/loading#paths-that-escape-the-plugin-directory)
+</div>
+
+<span id="ch31-path-vars" />
+
+## パス変数: どこで展開され、どのプロセスに渡るか
+
+| 変数                    | 解決先                                                           |
+| ----------------------- | ---------------------------------------------------------------- |
+| `${CLAUDE_PLUGIN_ROOT}` | インストールされた版の絶対パス。更新で変わるので、状態を書かない |
+| `${CLAUDE_PLUGIN_DATA}` | `~/.claude/plugins/data/<id>/`。初回参照時に作られ、更新後も残る |
+| `${CLAUDE_PROJECT_DIR}` | プロジェクトルート                                               |
+
+- `<id>` は英数字・`_`・`-` 以外を `-` に置き換えた ID です（`my-plugin@my-marketplace` は `my-plugin-my-marketplace`）。
+- データディレクトリは、最後のスコープからアンインストールすると消えます。`--keep-data` で残せます。
+- Claude が Bash ツールで実行するコマンドの環境には入りません。Skill の本文に `${...}` と書けば、読み込み時に展開されます。
+- シェル形式のフックとモニターでは `"${CLAUDE_PLUGIN_ROOT}"` と二重引用符で囲みます。フックファイルで囲まないと validate が警告します。
+
+| コンポーネントと展開されるフィールド                 | プロセスへのエクスポート                                |
+| ---------------------------------------------------- | ------------------------------------------------------- |
+| フック: `command`・`args`                            | ROOT・DATA・PROJECT\_DIR と `CLAUDE_PLUGIN_OPTION_<KEY>` |
+| モニター: `command`                                  | なし                                                    |
+| MCP stdio: `command`・`args`・`env`                  | ROOT・DATA・PROJECT_DIR                                 |
+| MCP http・sse・ws: `url`・`headers`・`headersHelper` | 対象外                                                  |
+| LSP: `command`・`args`・`env`・`workspaceFolder`     | ROOT・DATA・PROJECT_DIR                                 |
+| Skill・コマンド・エージェントの本文                  | 対象外（本文中で置換）                                  |
+
+Windows では置換後のパスの多くがスラッシュ区切りになります。exec 形式のフックと PowerShell 経由のフックでは、バックスラッシュのままです。
+
+<div class="src">
+  出典: [plugins/manifest-reference#environment-variables](https://code.claude.com/docs/en/plugins/manifest-reference#environment-variables) · [#where-each-variable-resolves](https://code.claude.com/docs/en/plugins/manifest-reference#where-each-variable-resolves) · [#quoting-and-path-separators](https://code.claude.com/docs/en/plugins/manifest-reference#quoting-and-path-separators)
+</div>
+
+<span id="ch31-userconfig" />
+
+## `userConfig`: 利用者に尋ねる設定値
+
+| フィールド            | 意味                                                                     |
+| --------------------- | ------------------------------------------------------------------------ |
+| `type`（必須）        | `string`・`number`・`boolean`・`directory`・`file`                       |
+| `title`（必須）       | ダイアログのラベル                                                       |
+| `description`（必須） | ラベルの下の説明                                                         |
+| `required`            | `true` なら空の値を受け付けない                                          |
+| `default`             | 文字列・数値・真偽値・文字列の配列                                       |
+| `options`             | `string` の選択肢（各 1〜64 文字）。書くと v2.1.271 未満では読み込めない |
+| `multiple`            | `string` の配列を許す                                                    |
+| `sensitive`           | 入力を伏せ、settings ではなく OS の資格情報ストアに保存                  |
+| `min`・`max`          | `number` の範囲                                                          |
+
+キーは英数字と `_` で、数字から始められません。各項目は厳格なオブジェクトで、未知のキーは検証エラーになります。
+
+- **保存先**: 機密でない値は user の `settings.json` の `pluginConfigs` に入ります。各項目は `/config` にも行として出ます（v2.1.269 以降。`sensitive` と `multiple` は除く）。
+- **`${user_config.KEY}`**: MCP と LSP の設定、exec 形式フックの `args`、Skill・エージェントの本文で展開されます。本文では `sensitive` の値はプレースホルダーになります。
+- **`CLAUDE_PLUGIN_OPTION_<KEY>`**: 全項目がフックのプロセスへ渡ります（`api_token` なら `$CLAUDE_PLUGIN_OPTION_API_TOKEN`）。
+- シェル形式のフック、モニター、MCP の `headersHelper` は `${user_config.*}` を拒否します。展開した値をシェルが再解釈するためです。モニターと `headersHelper` には値を渡す手段がありません。
+- **入力の経路**: 未設定の項目のダイアログは、`/plugin` でのインストール・有効化と `/plugin configure <plugin>@<marketplace>` で開きます。`--plugin-dir` と `claude plugin install` では開きません。シェルからは `--config KEY=VALUE` か `claude plugin configure <id> --values-stdin` で渡します。
+
+<div class="src">
+  出典: [plugins/manifest-reference#user-configuration](https://code.claude.com/docs/en/plugins/manifest-reference#user-configuration) · [#fields-that-run-through-a-shell](https://code.claude.com/docs/en/plugins/manifest-reference#fields-that-run-through-a-shell) · [plugins/components#when-the-configuration-dialog-appears](https://code.claude.com/docs/en/plugins/components#when-the-configuration-dialog-appears)
+</div>
+
+<span id="ch31-hooks-monitors" />
+
+## フック・モニター・`bin/`・既定の設定
+
+### フック
+
+- ファイルはイベントマップをトップレベルの `"hooks"` で包みます。包まないファイルは読み込みに失敗します。`plugin.json` にインラインで書くときは包みません。
+- `hooks/hooks.json` と `hooks` キーの両方が読み込まれます。
+- Skill の使用を待たず、プラグインの読み込み時に登録されます。絞るには `matcher` を使います。
+- 自分の MCP ツールには `mcp__plugin_<plugin>_<server>__<tool>` の完全名で matcher を書きます。サーバー名だけでは発火しません。
+- イベントと入出力は [Ch28](/claude-code-deep-dive/ja/extensions/hooks/) で扱います。
+
+### 既定の設定（`settings.json`・`settings`）
+
+- 効くのは `agent` と `subagentStatusLine` だけで、他のキーは捨てられます。
+- プラグインの既定値は設定の最下層です。ユーザーの `agent` が勝ちます。2 つのプラグインが同じキーを持つと、後に読んだ方が勝ちます。
+
+### モニター
+
+- `name`・`command`・`description` が必須です。`when` は `"always"`（既定。開始時と再読み込み時）か `"on-skill-invoke:<skill>"` です。
+- セッションの作業ディレクトリで、ユーザーの全権限で、サンドボックスの外で動きます。出力は通知として Claude に届きます。
+- `-p` では起動しません。feature flag を取得しない環境（Bedrock・Foundry など、`DISABLE_TELEMETRY`）では v2.1.310 以降が必要です。
+- `${user_config.*}` は使えず、`CLAUDE_PLUGIN_OPTION_<KEY>` も渡りません。途中で無効化しても、セッション終了まで動き続けます。
+
+### `bin/`
+
+- 有効な間は Bash ツールの `PATH` に入ります。ユーザーの `PATH` より後ろなので、`git` や `ls` は上書きできません。
+- `bin/` を持つプラグインは、claude.ai と Cowork にはインストールされません。
+
+<div class="src">
+  出典: [plugins/components#hooks](https://code.claude.com/docs/en/plugins/components#hooks) · [#monitors](https://code.claude.com/docs/en/plugins/components#monitors) · [#executables](https://code.claude.com/docs/en/plugins/components#executables) · [#default-settings](https://code.claude.com/docs/en/plugins/components#default-settings) · [plugins/manifest-reference#monitors](https://code.claude.com/docs/en/plugins/manifest-reference#monitors)
+</div>
+
+<span id="ch31-mcp-lsp" />
+
+## MCP・MCPB・LSP サーバー
+
+- ルートの `.mcp.json` を先に読み、`mcpServers` キーの宣言を順にマージします。後から宣言した同名サーバーが置き換えます。
+- `/reload-plugins` では、設定が同じサーバーは接続を保ち、変わったサーバーは再接続し、消えたサーバーは切断します。
+- validate は MCP エントリも検査します（v2.1.281 以降）。読み込みで落ちるエントリ、未宣言の `${user_config.KEY}`、不正な URL はエラーです。
+
+| `mcpServers` の値                   | 動作                                         |
+| ----------------------------------- | -------------------------------------------- |
+| `"./mcp/servers.json"`              | `mcpServers` マップとして読む                |
+| `"./bundle.mcpb"`                   | `.mcpb-cache/` に展開して読む（`.dxt` も可） |
+| `"https://example.com/server.mcpb"` | ダウンロードして展開                         |
+| インラインのマップ                  | 名前ごとのサーバー設定                       |
+
+MCPB サーバーの名前はバンドル側の `name` です。必須の `user_config` が未設定だと起動しません。`/plugin` の **Configure** か `--config <server>.<key>=<value>`（v2.1.285 以降）で設定します。接続の詳細は [Ch30](/claude-code-deep-dive/ja/extensions/mcp/) で扱います。
+
+- `.lsp.json` はサーバー名から設定への対応で、包みはありません。validate はこのファイルを読みません。不正なエントリが 1 つでもあると、ファイル全体が読み飛ばされます。
+- 必須は `command` と `extensionToLanguage`（キーは `.` 始まり）です。任意: `args`、`transport`（`socket` も受け付けるが常に stdio）、`env`、`initializationOptions`、`settings`、`workspaceFolder`、`startupTimeout`、`shutdownTimeout`、`requestTimeout`（既定 60000、v2.1.288 以降）、`restartOnCrash`（既定 true）、`maxRestarts`、`diagnostics`（既定 true）。
+- バイナリは同梱されません。`PATH` に無いと `Executable not found in $PATH` になります。
+- 1 つの拡張子は先に登録したサーバーだけが受け持ちます。stdout はプロトコル専用で、ヘッダー 64 KiB・本文 32 MiB を超えると切断され、クラッシュとして数えられます。
+- 公式マーケットプレイスには 13 個のコードインテリジェンスプラグインがあります。編集後の診断と読み取り専用の `LSP` ツールが加わります。クラウドセッションでは起動しません。
+
+<div class="src">
+  出典: [plugins/components#mcp-servers](https://code.claude.com/docs/en/plugins/components#mcp-servers) · [#lsp-servers](https://code.claude.com/docs/en/plugins/components#lsp-servers) · [plugins/manifest-reference#mcpservers](https://code.claude.com/docs/en/plugins/manifest-reference#mcpservers) · [#lspservers](https://code.claude.com/docs/en/plugins/manifest-reference#lspservers) · [plugins/code-intelligence](https://code.claude.com/docs/en/plugins/code-intelligence)
+</div>
+
+<span id="ch31-session-load" />
+
+## セッション限定のロードと skills-dir プラグイン
+
+| 指定方法                  | 動作                                                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `--plugin-dir <path>`     | ディレクトリか `.zip`。フラグ 1 つにパス 1 つで、繰り返せる                                                    |
+| `--plugin-url <url>`      | 起動時に `.zip` を取得。失敗してもプラグインなしで起動し、**Errors** タブに記録                                |
+| `CLAUDE_CODE_PLUGIN_DIRS` | 絶対パスを `:`（Windows は `;`）区切り。相対パスは無視。project・local 設定からは設定できない（v2.1.280 以降） |
+
+- `.claude-plugin/` もコンポーネントも無いフォルダを渡すと、直下で `.claude-plugin/plugin.json` を持つ子をそれぞれ読み込みます（v2.1.265 以降）。`.claude-plugin/` に `marketplace.json` だけがあっても同様で、その `marketplace.json` は読みません（v2.1.281 以降）。
+- ディレクトリはコピーせずにその場で読みます。対話セッションでは、子フォルダの追加と削除にも追従します。
+- ID は `<name>@inline` です。`"enabledPlugins": {"hello-plugin@inline": false}` で止められます。
+
+```text
+$ claude plugin init my-tool
+✔ Created plugin "my-tool" at ~/.claude/skills/my-tool
+It will auto-load next session as my-tool@skills-dir.
+Run /reload-plugins to load it now.
+```
+
+- `~/.claude/skills/<name>/` か `.claude/skills/<name>/` に `.claude-plugin/plugin.json` があれば、インストールなしで毎セッション読み込みます。
+- ルートの `SKILL.md` は個人の Skill として `/my-tool` になります。`skills/` 配下は `/my-tool:example` です。
+- プロジェクト側は workspace trust の承認が必要で、primary working directory だけを見ます。MCP はサーバーごとに承認され、MCPB とモニターは読み込まれません。
+- `strictPluginOnlyCustomization` や、`skills-dir` を含まない `strictKnownMarketplaces` があると、エラー表示なしで読み込まれません。
+- 2.1.321 から、`~/.claude/plugins` の中の `.claude/skills` は、Claude がそこで作業しても読み込まれません。
+
+<div class="src">
+  出典: [plugins/create#develop-without-a-marketplace](https://code.claude.com/docs/en/plugins/create#develop-without-a-marketplace) · [plugins/cli-reference#flags-that-load-a-plugin-for-one-session](https://code.claude.com/docs/en/plugins/cli-reference#flags-that-load-a-plugin-for-one-session) · [plugins/loading#plugins-shared-through-a-repository](https://code.claude.com/docs/en/plugins/loading#plugins-shared-through-a-repository) · changelog 2.1.321
+</div>
+
+<span id="ch31-ids" />
+
+## ID と名前の衝突・`/reload-plugins`
+
+| ID の末尾        | 由来                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| `@<marketplace>` | マーケットプレイスからインストール。名前はエントリ名                               |
+| `@inline`        | `--plugin-dir`・`--plugin-url`・`CLAUDE_CODE_PLUGIN_DIRS`・SDK の `plugins`        |
+| `@skills-dir`    | skills ディレクトリのプラグイン                                                    |
+| `@synced`        | claude.ai のアカウントや組織で有効にしたもの                                       |
+| `@builtin`       | Claude Code の内蔵プラグイン（[Ch33](/claude-code-deep-dive/ja/extensions/mods/)） |
+
+同じ manifest 名が複数あるときの優先順は、次のとおりです。
+
+1. managed の `enabledPlugins` にある ID
+2. `--plugin-dir` などのセッション限定版。インストール版は黙って置き換わる
+3. インストール済みのマーケットプレイス版
+4. skills-dir 版（`~/.claude/skills/` がプロジェクトより先）
+5. claude.ai から同期した版
+
+- インストール・更新・有効化・無効化・ディスク上の編集を、再起動せずに反映します。`/plugin` で変更して閉じると自動で実行されます。
+
+```text
+Reloaded: N plugins · N skills · N agents · N hooks ·
+N plugin MCP servers · N plugin LSP servers
+```
+
+- MCP サーバーか `LSP` ツールの増減で prompt cache が壊れる場合は、適用せずに `Run /reload-plugins --force to apply.` と表示します。
+- `-p`・SDK・Desktop でも動きます（v2.1.260 以降）。ただし本人が入力したときだけで、プラグインの MCP サーバーの接続と切断はしません。
+- 別マーケットプレイスの同名プラグインを 2 つ有効にすると、フックを登録するのは片方だけです。**Errors** タブに `Its hooks.json hooks do not run` と出ます（v2.1.296 以降）。
+
+<div class="src">
+  出典: [plugins/loading#find-where-a-plugin-came-from](https://code.claude.com/docs/en/plugins/loading#find-where-a-plugin-came-from) · [#name-conflicts](https://code.claude.com/docs/en/plugins/loading#name-conflicts) · [plugins/cli-reference#reload-plugins](https://code.claude.com/docs/en/plugins/cli-reference#reload-plugins)
+</div>
+
+<span id="ch31-enable" />
+
+## 有効化の優先順位とディスク上の配置
+
+| ソース      | 場所と効き方（下ほど優先）                                      |
+| ----------- | --------------------------------------------------------------- |
+| `--add-dir` | 渡したディレクトリの `.claude/settings.json`。`true` だけが効く |
+| user        | `~/.claude/settings.json`                                       |
+| project     | `.claude/settings.json`                                         |
+| local       | `.claude/settings.local.json`                                   |
+| flag        | `--settings` の値                                               |
+| managed     | `true` は強制有効、`false` は禁止。上書き不可                   |
+
+- プラグイン ID ごとにマージし、その ID に触れている最上位の値が勝ちます。
+- project の `true` だけでは、外部ソースのプラグインは取得されません（相対パスのソースとシードは例外）。取得されるのは、user・git 管理外の local・`--settings`・managed が `true` のときです。
+
+| `~/.claude/plugins` 以下                  | 中身                          |
+| ----------------------------------------- | ----------------------------- |
+| `cache/<marketplace>/<plugin>/<version>/` | 版ごとのコピー                |
+| `data/<plugin-id>/`                       | `${CLAUDE_PLUGIN_DATA}`       |
+| `marketplaces/<name>/`                    | git・URL のマーケットプレイス |
+| `installed_plugins.json`                  | インストール記録              |
+| `flagged-plugins.json`                    | 掲載終了で外したもの          |
+
+- ルートは `CLAUDE_CODE_PLUGIN_CACHE_DIR` で変えられます。旧版には `.orphaned_at` が付き、14 日後に消えます。
+- コピーされる版では、`package.json` とロックファイルがあれば依存を自動で入れます。`--ignore-scripts` 付き、60 秒まで、無効化はできません。
+
+<div class="src">
+  出典: [plugins/loading#find-where-a-plugin-is-enabled](https://code.claude.com/docs/en/plugins/loading#find-where-a-plugin-is-enabled) · [#find-plugins-on-disk](https://code.claude.com/docs/en/plugins/loading#find-plugins-on-disk) · [#node-js-package-dependencies](https://code.claude.com/docs/en/plugins/loading#node-js-package-dependencies)
+</div>
+
+<span id="ch31-versions" />
+
+## バージョンの決まり方と自動更新
+
+manifest の `version`、エントリの `version` の順に使います。どちらも無ければ、ソース種別で決まります。
+
+| ソース                             | 版の値                                                                 |
+| ---------------------------------- | ---------------------------------------------------------------------- |
+| `github`・`url`・`git-subdir`      | コミット SHA の先頭 12 文字                                            |
+| `archive`                          | SHA-256 の先頭 12 文字                                                 |
+| git マーケットプレイス内の相対パス | そのディレクトリのコミット SHA                                         |
+| git でないローカル、`npm`          | `unknown`                                                              |
+| `command`                          | 常に出力のハッシュ 12 文字（manifest に版があれば `<version>-<hash>`） |
+
+- `version` を固定すると、値を変えるまで全員が同じキャッシュに留まります。コミットを追わせるなら、manifest にもエントリにも書きません。
+- 版が同じなら `claude plugin update` は `<name> is already at the latest version (<version>).` と表示します。
+
+* **インストール前の更新**: `name@marketplace` の指定では、その marketplace を先に更新します。名前だけの `claude plugin install` は何も更新しません。
+* **実行タイミング**: 対話セッションで最初のメッセージを送ると、最大 10 分後に自動更新が走ります。ディスク上のプラグインが更新され、`Plugin updated: <name> · Run /reload-plugins to apply` と出ます。
+* **有効かどうか**: `extraKnownMarketplaces` の `autoUpdate`、`/plugin` のトグル、既定値の順です。既定で有効なのは公式（`knowledge-work-plugins`・`first-party-plugins` を除く）と claude.ai から追加したものです。
+* **停止**: `DISABLE_UPDATES`・`DISABLE_AUTOUPDATER`・`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` で全体が止まります。`FORCE_AUTOUPDATE_PLUGINS=1` で再開します。エントリに `headersHelper` があるプラグインは対象外です。
+* **反映**: 実行中のセッションは旧版のパスを使い続けます。フック・MCP・LSP は `/reload-plugins` で切り替わり、モニターは再起動が必要です。
+
+<div class="src">
+  出典: [plugins/loading#how-claude-code-computes-the-version](https://code.claude.com/docs/en/plugins/loading#how-claude-code-computes-the-version) · [#when-claude-code-refreshes-a-marketplace-before-an-install](https://code.claude.com/docs/en/plugins/loading#when-claude-code-refreshes-a-marketplace-before-an-install) · [#when-auto-update-runs](https://code.claude.com/docs/en/plugins/loading#when-auto-update-runs)
+</div>
+
+<span id="ch31-deps" />
+
+## プラグイン間の依存関係
+
+```json
+{
+  "name": "deploy-kit",
+  "version": "3.1.0",
+  "dependencies": [
+    "audit-logger",
+    { "name": "secrets-vault", "version": "~2.1.0" }
+  ]
+}
+```
+
+- 要素は `"name"`、`"name@marketplace"`、`{ "name", "version", "marketplace" }` のどれかです。名前だけなら、同じ marketplace で解決します。
+- `version` は semver の範囲です。`<plugin-name>--v<version>` 形式の git タグのうち、範囲を満たす最大の版が入ります。プレリリースは `^2.0.0-0` のように明示します。
+- `npm`・`archive`・`command` では取得する版を制御できません。読み込み時に依存先の `version` を検査するだけです。
+
+| A の範囲 | B の範囲 | 結果                                               |
+| -------- | -------- | -------------------------------------------------- |
+| `^2.0`   | `>=2.1`  | 2.1.0 以上の最大の 2.x タグ                        |
+| `~2.1`   | `~3.0`   | B が `has conflicting version requirements` で失敗 |
+| `=2.1.0` | なし     | 2.1.0 に固定。自動更新も新版を飛ばす               |
+
+- 別の marketplace の依存には、ルート marketplace の `allowCrossMarketplaceDependenciesOn` が必要です。
+- 依存されているプラグインは無効化できません。自動で入った依存は `claude plugin prune` か `uninstall --prune` で消します。
+- 開発中は `claude --plugin-dir ./my-dependency --plugin-dir ./my-plugin` で両方を読み込みます。この場合、範囲は検査されません。
+- `claude plugin tag --push` は検証のうえで `Created tag secrets-vault--v2.1.0` のようにタグを作ります。
+
+<div class="src">
+  出典: [plugins/dependencies](https://code.claude.com/docs/en/plugins/dependencies) · [plugins/manifest-reference#dependencies](https://code.claude.com/docs/en/plugins/manifest-reference#dependencies)
+</div>
+
+<span id="ch31-scopes" />
+
+## `/plugin` とインストールスコープ
+
+| スコープ | 記録先                        | 届く範囲                                     |
+| -------- | ----------------------------- | -------------------------------------------- |
+| user     | `~/.claude/settings.json`     | 自分の全プロジェクト                         |
+| project  | `.claude/settings.json`       | リポジトリの全員。各自が一度インストールする |
+| local    | `.claude/settings.local.json` | 自分、このリポジトリだけ                     |
+| managed  | managed settings              | 更新はできるが、インストール先にはできない   |
+
+- 同じプラグインでは local、project、user の順に優先します。
+- ターミナル、Desktop のローカルセッション、VS Code は同じ設定ファイルを読みます。クラウドセッションは、手元でインストールしたプラグインも project の `enabledPlugins` も読みません。
+- project で有効なプラグインのアンインストールでは、**y** で自分の `settings.local.json` に `false` を書き、**u** で共有設定から消します。
+
+* `/plugins` と `/marketplace` は別名です。対話ターミナルでだけ動き、`-p` では `/plugin isn't available in this environment.` と返ります。インストール済みのプラグインは `-p` でも読み込まれます。
+* タブは **Discover**、**Installed**、**Marketplaces**、**Errors** と、`/skill-doctor` がある環境の **Stats** です。Installed では Space で有効・無効を切り替え、<kbd>f</kbd> でお気に入りにします。
+* `/plugin install <plugin>@<marketplace>` はすぐにはインストールせず、詳細（**Will install** など）を開きます。スコープを選ぶと、結果は `Plugin is now active.`、`Run /reload-plugins to apply.`、`The plugin couldn't be loaded` のどれかです。
+* セッション用のサブコマンドは `help`・`list`・`install`・`manage`・`stats`・`enable`・`disable`・`uninstall`・`configure`・`validate`・`tag`・`marketplace` です。`init`・`update`・`details`・`prune`・`eval`・`test` にはセッション版がありません。
+
+<div class="src">
+  出典: [plugins/install#choose-an-install-scope](https://code.claude.com/docs/en/plugins/install#choose-an-install-scope) · [#manage-installed-plugins](https://code.claude.com/docs/en/plugins/install#manage-installed-plugins) · [plugins/cli-reference#plugin-in-a-session](https://code.claude.com/docs/en/plugins/cli-reference#plugin-in-a-session)
+</div>
+
+<span id="ch31-cli" />
+
+## `claude plugin` コマンド（1/2）: インストールと管理
+
+| サブコマンド（別名）          | 主なフラグ                                                                                                       | 注意                                                                                          |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `install`（`i`）              | `-s`（既定 user）、`--config <key=value>`、`-y`、`--accept-command <sha256>`、`--json`、`--marketplace <source>` | userConfig は尋ねない。`command` ソースと `headersHelper` は `Run this command now? [y/N]`    |
+| `uninstall`（`remove`・`rm`） | `-s`（既定 user）、`--keep-data`、`--prune`、`-y`、`--json`                                                      | 最後のスコープで、オプション・秘密・データも消す                                              |
+| `enable`・`disable`           | `-s`（local→project→user で自動判定）、`--json`、disable は `-a`                                                 | 目的の状態なら exit 1（`already_in_goal_state`）                                              |
+| `update`                      | `-s`（managed も可、自動判定）、`-y`、`--accept-command`、`--json`                                               | 反映は再起動か `/reload-plugins`                                                              |
+| `configure`                   | `--values-stdin`、`--json`                                                                                       | `name@marketplace` だけ受け付ける                                                             |
+| `prune`（`autoremove`）       | `--dry-run`、`-s`、`-y`                                                                                          | 非 TTY で `-y` が無ければ一覧だけ                                                             |
+| `restore-set-aside`           | `--discard`                                                                                                      | changelog 2.1.321 のみ（[Ch32](/claude-code-deep-dive/ja/extensions/marketplaces/#ch32-org)） |
+| `marketplace`                 | `add`・`list`・`update`・`remove`（`rm`）                                                                        | [Ch32](/claude-code-deep-dive/ja/extensions/marketplaces/#ch32-marketplace-sources)           |
+
+- stdin か stdout が TTY でなく、`-y` も `--accept-command` も無いと、コマンドを表示するだけで exit 1 になります。Claude の Bash ツールやフックから実行した場合、`-y` は無視されます。
+- <span class="undocumented">`install --registry <url>` は `<package>@npm` の取得元の npm レジストリを指定します。`--help` にだけあり、docs にはありません。 <span class="badge undocumented">Undocumented</span></span>
+
+<div class="src">
+  出典: [plugins/cli-reference#claude-plugin-commands](https://code.claude.com/docs/en/plugins/cli-reference#claude-plugin-commands) · changelog 2.1.321（`restore-set-aside` はリファレンス未掲載）· 実機確認 2.1.321（`--help`）
+</div>
+
+<span id="ch31-cli-2" />
+
+## `claude plugin` コマンド（2/2）: 開発・検査と終了コード
+
+| サブコマンド        | 主なフラグと動作                                                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `init`（`new`）     | `--with`、`--description`、`--author`、`-f`                                                                                           |
+| `validate`          | `--strict`（警告もエラー）、`--json`。exit 0・1・2                                                                                    |
+| `tag`               | `--push`、`--remote`、`--dry-run`、`-f`、`-m`                                                                                         |
+| `list`              | `--json`。`--available`・`--data-size` は `--json` が必要                                                                             |
+| `details`           | 読み込み済みのプラグインだけ。フラグなし                                                                                              |
+| `test`              | Mod のテスト（[Ch33](/claude-code-deep-dive/ja/extensions/mods/)）                                                                    |
+| `eval`・`eval init` | exit 2・130・143 を追加（[後述](/claude-code-deep-dive/ja/extensions/plugins/#ch31-evals-run)）。init は `--bare`・`-i`・`--eval-dir` |
+
+- `claude plugins` は別名です。終了コードは成功 0、失敗 1 です。
+- `install`・`uninstall`・`update`・`enable`・`disable` と marketplace の add・remove・update の `--json` は、stdout の最終行に `command`・`outcome`・`message` を持つ 1 オブジェクトを出します。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude plugin validate ./lab-plugin --profile directory
+Validating plugin manifest: …/lab-plugin/.claude-plugin/plugin.json
+
+Plugin directory checks for …/lab-plugin. …
+
+✘ Found 2 problems the plugin directory refuses a submission for:
+  ❯ README.md: README missing (README_MISSING). …
+  ❯ LICENSE: License missing (LICENSE_MISSING). …
+
+⚠ Found 1 plugin directory warning:
+  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). …
+…
+✘ Validation failed (--profile directory: the plugin directory
+would refuse a submission of this plugin)          → exit 1
+```
+
+<span class="undocumented">`--profile directory` と「Plugin directory checks」は docs にありません。フラグなしでもこの検査結果は表示されますが、判定は `Validation passed`（exit 0）のままです。 <span class="badge undocumented">Undocumented</span></span>
+
+<div class="src">
+  出典: [plugins/cli-reference#plugin-validate](https://code.claude.com/docs/en/plugins/cli-reference#plugin-validate) · [#plugin-json-result](https://code.claude.com/docs/en/plugins/cli-reference#plugin-json-result) · 実機確認 2.1.321
+</div>
+
+<span id="ch31-cost" />
+
+## コストを測る: `claude plugin details` と使用状況
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude --plugin-dir ./lab-plugin plugin details lab-plugin
+lab-plugin 0.0.1
+  Description: Throwaway research plugin
+  Source: lab-plugin@inline
+
+Component inventory
+  Skills (2)  greet, ping
+  Agents (1)  helper
+  Hooks (0)
+  MCP servers (1)  cc  (tool schemas resolved at runtime; not counted)
+  LSP servers (0)
+
+Projected token cost
+  Always-on:   ~64 tok   added to every session
+
+Per-component (rounded)
+  component  always-on  on-invoke
+  greet            ~30        ~30
+  helper           ~20       < 20
+  ping            < 20       < 20
+…
+```
+
+- **Always-on** は、Skill・エージェント・コマンドの名前と `description`・`when_to_use` の合計です。有効なセッションは常にこの分を払います。
+- **on-invoke** は本文で、呼ばれるたびに払います。コマンド（上の `ping`）は Skills に数えます。フックと MCP は見積もりません。MCP の分は `/context` で見ます。
+- 公式マーケットプレイスのプラグインは、導入前に **Context cost**（`Every turn:`・`When invoked:`）を表示します。2,000 トークン以上なら強調されます。
+- 使用状況: `/plugin` の **Not used recently**（14 日かつ 10 セッション未使用）、`/skill-doctor`、`/doctor`、`/usage`。
+- 組織全体は OTel の `claude_code.plugin_loaded` などと Analytics API で測ります。公式以外のプラグイン名は既定で伏せられるか省かれます（`plugin_loaded` では `third-party`）（[Ch61](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)）。
+
+<div class="src">
+  出典: [plugins/measure](https://code.claude.com/docs/en/plugins/measure) · [plugins/cli-reference#plugin-details](https://code.claude.com/docs/en/plugins/cli-reference#plugin-details) · 実機確認 2.1.321
+</div>
+
+<span id="ch31-hints" />
+
+## CLI ヒントと relevance による推奨
+
+```text
+<claude-code-hint v="1" type="plugin" value="example-cli@claude-plugins-official" />
+```
+
+- **CLI ヒント**: 自作 CLI が `CLAUDECODE` か `CLAUDE_CODE_CHILD_SESSION`（v2.1.172 以降）を見て、上のタグを stderr の独立した 1 行に出します。Bash・PowerShell の出力からは常に除かれます。
+- 対象は公式マーケットプレイス名の marketplace にある未インストールのプラグインだけです。
+- 確認が出るのは、対話ターミナルで analytics が有効なときだけです。1 セッション 1 回、プラグインごとに 1 回きり、1 台で 100 件までです。
+- **Yes, install** は user スコープに入れます。30 秒応答が無ければ No です。
+
+```json
+      "relevance": {
+        "topic": "Terraform",
+        "signals": {
+          "cli": ["terraform"],
+          "filesRead": ["**/*.tf"]
+        }
+      }
+```
+
+- **relevance**: marketplace のエントリに書きます。signals は `cwd`・`cli`・`hosts`・`filesRead`・`manifestDeps` で、照合は手元だけで行います。
+- `cli` は先頭のコマンド名だけを見ます。`cd infra && terraform plan` は `cd` です。
+- スピナーの tip と起動時の通知（合わせて 3 セッションに 1 回まで）、Discover の先頭固定（初回のみ）で出ます。ターミナルでは managed の `pluginSuggestionMarketplaces` に名前が必要です。
+
+<div class="src">
+  出典: [plugins/cli-hints](https://code.claude.com/docs/en/plugins/cli-hints) · [plugins/relevance](https://code.claude.com/docs/en/plugins/relevance)
+</div>
+
+<span id="ch31-evals" />
+
+## Plugin evals（1/2）: ケース・grader・ベースライン
+
+```text
+my-plugin/
+├── .claude-plugin/plugin.json
+├── skills/...
+└── evals/
+    ├── first-case/
+    │   ├── prompt.md
+    │   ├── graders/
+    │   │   ├── criteria.md
+    │   │   └── skill-fired.md
+    │   └── case.yaml
+    ├── ignores-unrelated-request/
+    │   └── ...
+    └── results/
+```
+
+- `prompt.md` は frontmatter に設定、本文にプロンプトを書きます。`graders/` は 1 ファイル 1 grader で、`case.yaml` は任意です。
+- `claude plugin eval`（v2.1.269 以降）は、各ケースを隔離した `claude -p` で既定 3 回実行し、プラグインなしでも同じ回数実行します。結果は `WITH`・`W/OUT`・`Δ` です。
+- 1 回の得点は通過した grader の加重割合、ケースの得点はその平均です。`--threshold`（既定 1.0）以上で合格です。
+
+* `prompt.md` の frontmatter: `runs`（3、1〜50）、`max_turns`（10、200 まで）、`timeout_seconds`（300、3600 まで）、`allowed_tools`、`model`、`env`（キーは `EVAL_[A-Z0-9_]*` のみ）など。未知のキーはエラーです。
+* grader は 6 種類です。`regex`・`tool_used`・`tool_order`・`file_exists` は無料で、`llm`（3 票中 2 票で PASS）と `baseline` は判定モデルを呼びます。コードで書く grader はありません。
+* 2 アームの実行では、`tool: Skill` の `tool_used`、プラグイン自身のサーバーへの `mock_calls`、`arm: with-only` の grader を採点から外します。`arm: both` で採点に戻せます。
+* 呼び出し回数の目安は、ケース × 回数 × 2 アームと、`llm`・`baseline` 1 つにつき 1 回あたり 3 回の判定です。すべて課金対象です。
+* 判定モデルの既定値は、docs では「バックグラウンドタスク用のモデル」、`--help` では `haiku` です。
+
+<div class="src">
+  出典: [plugin-evals#how-an-eval-run-works](https://code.claude.com/docs/en/plugin-evals#how-an-eval-run-works) · [#eval-suite-reference](https://code.claude.com/docs/en/plugin-evals#eval-suite-reference) · [#score-against-the-no-plugin-baseline](https://code.claude.com/docs/en/plugin-evals#score-against-the-no-plugin-baseline) · 実機確認 2.1.321（`--help`）
+</div>
+
+<span id="ch31-evals-run" />
+
+## Plugin evals（2/2）: 実行・CI・隔離
+
+```bash
+claude plugin eval . \
+  --trust-plugin \
+  --json results.json \
+  --threshold 0.8 \
+  --model claude-sonnet-5 \
+  --judge-model claude-haiku-4-5 \
+  --no-publish \
+  --max-cost-usd 20
+```
+
+| exit     | 意味                                                                         |
+| -------- | ---------------------------------------------------------------------------- |
+| 0        | 全ケースが閾値以上                                                           |
+| 1        | 閾値未満、読み込み失敗、ケースなし、信頼されていないディレクトリ、API エラー |
+| 2        | 途中終了（`--max-cost-usd` 到達、認証拒否）                                  |
+| 130・143 | 中断・終了シグナル                                                           |
+
+- target は `--tag`・`--allow-tools`・`--json` より前に書きます。後ろに書くと、それらの値として読まれます。
+- 実行中は確認を出しません。`allowed_tools` に書いた読み取り専用ツールだけが使えます。`Bash`・`Write`・`Edit`・`WebFetch` は `--allow-tools` で与え、Bash は OS サンドボックスの中で動きます。
+- 既定の `--mocks record` では、実際の MCP サーバーを起動せず、`evals/mocks/<server>/<tool>.md` が答えます。
+- 実行ごとに一時的な home・作業ディレクトリ・設定を使います。個人とプロジェクトの設定は読まず、managed のポリシーは効きます。
+- 初回は `Trust this plugin directory?` と尋ねます。CI では `--trust-plugin` を付けます。合格しても、安全性の審査にはなりません。
+- 結果は `results/<timestamp>/` の `aggregate-result.json`（`schemaVersion: 1`）と `report.html` です。
+- `--disallow-tools` とケースの `disallowed_tools` は changelog 2.1.299 でだけ説明されています。
+
+<div class="src">
+  出典: [plugin-evals#run-evals-in-ci](https://code.claude.com/docs/en/plugin-evals#run-evals-in-ci) · [#grant-tools](https://code.claude.com/docs/en/plugin-evals#grant-tools) · [#what-a-run-can-access](https://code.claude.com/docs/en/plugin-evals#what-a-run-can-access) · changelog 2.1.299（`--disallow-tools` はリファレンス未掲載）
+</div>

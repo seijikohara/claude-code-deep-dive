@@ -1,0 +1,173 @@
+---
+title: "インストールと更新"
+description: "Claude Code を配る方法と、版を管理する仕組みを扱います。ネイティブインストーラーの配置と署名検証、各パッケージマネージャーのチャンネル、自動更新と minimumVersion、組織で版の範囲を強制する managed キー、更新を止める 2 つの環境変数を順に説明します。"
+sidebar:
+  order: 56
+---
+
+Claude Code を配る方法と、版を管理する仕組みを扱います。ネイティブインストーラーの配置と署名検証、各パッケージマネージャーのチャンネル、自動更新と `minimumVersion`、組織で版の範囲を強制する managed キー、更新を止める 2 つの環境変数を順に説明します。
+
+<span id="ch56-methods" />
+
+## インストール方法とリリースチャンネル
+
+| 方法               | コマンド                                                                                     | チャンネルの決め方                                               | 自動更新                    |
+| ------------------ | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------- |
+| ネイティブ（推奨） | `curl -fsSL https://claude.ai/install.sh \| bash` `irm https://claude.ai/install.ps1 \| iex` | インストール時の指定が既定。以後は `autoUpdatesChannel`          | する（バックグラウンド）    |
+| Homebrew           | `brew install --cask claude-code`                                                            | cask 名。`claude-code` は stable、`claude-code@latest` は latest | しない。opt-in あり         |
+| WinGet             | `winget install Anthropic.ClaudeCode`                                                        | ―                                                                | しない。opt-in あり         |
+| apt・dnf・apk      | 署名付きリポジトリ（[後述](/claude-code-deep-dive/ja/enterprise/install/#ch56-packages)）    | リポジトリの URL                                                 | しない（root が必要なため） |
+| npm                | `npm install -g @anthropic-ai/claude-code`                                                   | `autoUpdatesChannel`                                             | する                        |
+
+- チャンネルは 2 つです。`latest`（既定）は公開直後の版、`stable` はおよそ 1 週間前の版で、大きな退行のあった版を飛ばします。
+- 新しいモデルは、stable が配る版より新しい Claude Code を要求することがあります。その場合は latest に移ります。
+
+* 要件: macOS 13.0+、Windows 10 1809+ / Server 2019+、Ubuntu 20.04+、Debian 10+、Alpine 3.19+。RAM 4 GB 以上、x64 か ARM64。
+* Windows ネイティブはサンドボックス非対応です（WSL 2 は対応）。Git for Windows が無いと、シェルコマンドは PowerShell ツールで動きます。
+* Alpine など musl 系は `bash curl libgcc libstdc++ ripgrep` を入れ、`env` に `USE_BUILTIN_RIPGREP=0` を設定します。
+
+<div class="src">
+  出典: [setup#install-claude-code](https://code.claude.com/docs/en/setup#install-claude-code) · [#configure-release-channel](https://code.claude.com/docs/en/setup#configure-release-channel) · [#system-requirements](https://code.claude.com/docs/en/setup#system-requirements) · [#set-up-on-windows](https://code.claude.com/docs/en/setup#set-up-on-windows) · [#alpine-linux-and-musl-based-distributions](https://code.claude.com/docs/en/setup#alpine-linux-and-musl-based-distributions)
+</div>
+
+<span id="ch56-native" />
+
+## ネイティブインストーラーの配置と `claude install`
+
+- macOS・Linux では、ランチャー `~/.local/bin/claude` が `~/.local/share/claude/versions/` 内の版を指すシンボリックリンクです。Windows は `%USERPROFILE%\.local\bin\claude.exe` です。
+- 古い版の掃除では、ランチャーが指す版、同じマシンで実行中の版、最新 2 版を残します。
+- **カスタムランチャー**: `~/.local/bin/claude` を自前のものに置き換えると、自動更新と `claude update` はそれを残し、全版を消さずに残します。`claude doctor` が検出します。戻すには `~/.local/bin/claude` を消して `claude update` を実行します。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude install --help
+Usage: claude install [options] [target]
+
+Install Claude Code native build. Use [target] to specify version (stable,
+latest, or specific version)
+
+Options:
+  --force     Force installation even if already installed
+  -h, --help  Display help for command
+```
+
+- インストーラーにも `bash -s stable`、`bash -s 2.1.89` の形で版を渡せます。
+- `claude install stable|latest` は指定したチャンネルを `autoUpdatesChannel` に保存します。
+- `claude update`（別名 `upgrade`）は `Successfully updated from <old version> to version <new version>` か `Claude Code is up to date (<version>)` を返します。Homebrew・WinGet・apk 管理下では `Claude is up to date!` です。
+
+<div class="src">
+  出典: [setup#auto-updates](https://code.claude.com/docs/en/setup#auto-updates) · [#install-a-specific-version](https://code.claude.com/docs/en/setup#install-a-specific-version) · [#update-manually](https://code.claude.com/docs/en/setup#update-manually) · [#install-on-network-storage](https://code.claude.com/docs/en/setup#install-on-network-storage) · [settings-reference#autoupdateschannel](https://code.claude.com/docs/en/settings-reference#autoupdateschannel) · 実機確認 2.1.321
+</div>
+
+<span id="ch56-verify" />
+
+## バイナリの署名検証
+
+- 各リリースの `manifest.json` は全プラットフォームのバイナリの SHA256 を持ち、Anthropic の GPG 鍵で署名されています。manifest の署名を確かめれば、載っている全バイナリを検証できます。
+- 鍵の指紋は `31DD DE24 DDFA B679 F42D 7BD2 BAA9 29FF 1A7E CACE` です。
+- 成功時は `Good signature from "Anthropic Claude Code Release Signing <security@anthropic.com>"` です。取り込んだ直後の鍵では `not certified with a trusted signature` の警告も出ますが、想定どおりです。
+- 署名付き manifest は `2.1.89` 以降のリリースだけです。
+
+| OS      | プラットフォーム署名                                                                |
+| ------- | ----------------------------------------------------------------------------------- |
+| macOS   | "Anthropic PBC" で署名し、Apple が公証。`codesign --verify --verbose ./claude`      |
+| Windows | "Anthropic, PBC" で署名。`Get-AuthenticodeSignature .\claude.exe`                   |
+| Linux   | 個々のバイナリは未署名。manifest で検証する。apt・dnf・apk はリポジトリ鍵で自動検証 |
+
+```bash
+curl -fsSL https://downloads.claude.ai/keys/claude-code.asc | gpg --import
+gpg --fingerprint security@anthropic.com
+
+REPO=https://downloads.claude.ai/claude-code-releases
+VERSION=2.1.89
+curl -fsSLO "$REPO/$VERSION/manifest.json"
+curl -fsSLO "$REPO/$VERSION/manifest.json.sig"
+gpg --with-fingerprint --verify manifest.json.sig manifest.json
+
+# platforms.<platform>.checksum と比べる
+shasum -a 256 claude          # macOS
+sha256sum claude              # Linux
+```
+
+出力末尾の `Primary key fingerprint` が指紋と一致し、`BAD signature` が無いことを確かめます。インストール済みの版は `~/.local/share/claude/versions/VERSION` を対象にします。
+
+<div class="src">
+  出典: [setup#binary-integrity-and-code-signing](https://code.claude.com/docs/en/setup#binary-integrity-and-code-signing) · [#verify-the-manifest-signature](https://code.claude.com/docs/en/setup#verify-the-manifest-signature) · [#platform-code-signatures](https://code.claude.com/docs/en/setup#platform-code-signatures)
+</div>
+
+<span id="ch56-packages" />
+
+## パッケージマネージャー: apt・dnf・apk と npm
+
+```bash
+sudo install -d -m 0755 /etc/apt/keyrings
+sudo curl -fsSL https://downloads.claude.ai/keys/claude-code.asc \
+  -o /etc/apt/keyrings/claude-code.asc
+echo "deb [signed-by=/etc/apt/keyrings/claude-code.asc] https://downloads.claude.ai/claude-code/apt/stable stable main" \
+  | sudo tee /etc/apt/sources.list.d/claude-code.list
+sudo apt update
+sudo apt install claude-code
+```
+
+- latest にするには URL のパスとスイート名の両方を変えます（`.../apt/latest latest main`）。
+- 鍵の取得に失敗すると、`apt update` が `NO_PUBKEY BAA929FF1A7ECACE` で失敗します。`gpg --show-keys` の指紋は `31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE` だけのはずです。
+- dnf は `baseurl=https://downloads.claude.ai/claude-code/rpm/stable`、apk は `https://downloads.claude.ai/claude-code/apk/stable` を登録します（latest は末尾を変える）。
+
+* **npm**: Node.js 22 以降が要ります（古い Node は `EBADENGINE` の警告だけ）。実体は同じネイティブバイナリで、`@anthropic-ai/claude-code-darwin-arm64` などの OS 別 optional dependency で入ります（2.1.113 から）。
+* 更新は `npm install -g @anthropic-ai/claude-code@latest` です。`npm update -g` は元の semver 範囲に縛られます。
+* `sudo npm install -g` は使いません。自己更新は sudo なしで npm を呼ぶためです。
+
+<div class="src">
+  出典: [setup#install-with-linux-package-managers](https://code.claude.com/docs/en/setup#install-with-linux-package-managers) · [#install-with-npm](https://code.claude.com/docs/en/setup#install-with-npm) · changelog 2.1.113
+</div>
+
+<span id="ch56-versions" />
+
+## 自動更新・`minimumVersion`・版の範囲の強制
+
+| キー                     | スコープ       | 効果                                                                                                                                       |
+| ------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `autoUpdatesChannel`     | 任意のファイル | `"latest"`（未設定時）か `"stable"`。自動更新と `claude update` が従う。managed に置くと組織で統一できる。Homebrew・apt・dnf・apk では無視 |
+| `minimumVersion`         | 任意のファイル | これより古い版を更新で入れない。stable へ移っても新しい latest から下がらない。managed に置くと利用者が下げられない下限になる              |
+| `requiredMinimumVersion` | managed のみ   | 実行中の版が古いと **起動時に終了** する。検査は起動時だけで、実行中のセッションは続く。v2.1.163 以降                                      |
+| `requiredMaximumVersion` | managed のみ   | 実行中の版が新しいと起動時に終了する。自動更新と `claude update` は上限を超える版を飛ばす。v2.1.163 以降                                   |
+
+- ネイティブ版は起動時と実行中に定期的に更新を確認し、バックグラウンドで入れ、次回起動から反映します。
+- `/config` の **Auto-update channel** で latest から stable に移ると、現在の版に留まるか下げるかを聞かれます。留まると `minimumVersion` がその版に設定され、latest に戻すと消えます。
+- 版の値が版の形でないと無視されます。`requiredMinimumVersion` と `requiredMaximumVersion` は不正値を捨てる fail open です。
+
+* 範囲外でも `claude update`・`claude install`・`claude doctor` は動くので、利用者は自分で復旧できます。
+* `requiredM*Version` は managed 以外に書いても警告なしで無視されます。
+* `claude doctor` は最後の更新試行の結果を表示します。
+* 何週間も開いたままのセッションは配布から遅れます。`requiredMinimumVersion` は新しい起動だけを止めます。
+
+managed-settings.json の例: `{ "autoUpdatesChannel": "stable", "minimumVersion": "2.1.100", "requiredMinimumVersion": "2.1.150", "requiredMaximumVersion": "2.1.321" }`
+
+<div class="src">
+  出典: [setup#configure-release-channel](https://code.claude.com/docs/en/setup#configure-release-channel) · [#pin-a-minimum-version](https://code.claude.com/docs/en/setup#pin-a-minimum-version) · [settings-reference#requiredminimumversion](https://code.claude.com/docs/en/settings-reference#requiredminimumversion) · [#requiredmaximumversion](https://code.claude.com/docs/en/settings-reference#requiredmaximumversion) · [managed-settings#keys-that-fail-closed](https://code.claude.com/docs/en/managed-settings#keys-that-fail-closed) · changelog 2.1.163
+</div>
+
+<span id="ch56-disable" />
+
+## `DISABLE_AUTOUPDATER` と `DISABLE_UPDATES`
+
+| 変数                                        | 止めるもの                                                                                                                  |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `DISABLE_AUTOUPDATER=1`                     | バックグラウンドの確認と更新だけ。`claude update` と `claude install` は動く                                                |
+| `DISABLE_UPDATES=1`                         | 手動の `claude update`・`claude install` を含む全経路（2.1.118 から）。自前の経路で配り、利用者に自己更新させないときに使う |
+| `CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE=1` | 逆に有効化する。Homebrew・WinGet でアップグレードを自動実行し、再起動を促す（2.1.129 から）                                 |
+| `FORCE_AUTOUPDATE_PLUGINS=1`                | 止めない。`DISABLE_AUTOUPDATER` の下でもプラグインの自動更新を続ける                                                        |
+| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`  | 自動更新を含む不要な通信全体（[Ch60](/claude-code-deep-dive/ja/enterprise/network-gateways/#ch60-allowlist)）               |
+
+設定では `"env": { "DISABLE_AUTOUPDATER": "1" }` と書きます。ネイティブ版と npm 版では、`claude doctor` の `Auto-updates` 行が `disabled (set by env: DISABLE_AUTOUPDATER)` になれば反映済みです。
+
+### ネットワークストレージ（NFS のホーム）
+
+- セッションは実行中も実行ファイルをディスクから読みます。途中で切り詰めや削除が起きるとクラッシュし、Linux では `Bus error` になります。
+- ネイティブ版の既定の `versions/` も、ユーザー単位の npm prefix もホームにあります。バイナリは各マシンのローカルディスクに置きます。
+- 版ごとに別ディレクトリへ入れます。npm の上書き更新は旧バイナリを消すため、他のマシンで動くセッションが落ちます。
+- 他のマシンのプロセスは見えないので、実行中プロセスを確かめてから消す方法では不十分です。
+- `DISABLE_UPDATES` を設定し、自前の仕組みで入れます。`DISABLE_AUTOUPDATER` だけでは、利用者が `claude update` を実行できるため足りません。
+
+<div class="src">
+  出典: [setup#disable-auto-updates](https://code.claude.com/docs/en/setup#disable-auto-updates) · [#install-on-network-storage](https://code.claude.com/docs/en/setup#install-on-network-storage) · [env-vars](https://code.claude.com/docs/en/env-vars) · changelog 2.1.118, 2.1.129
+</div>

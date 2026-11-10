@@ -1,0 +1,179 @@
+---
+title: "診断"
+description: "設定が効かないとき、何が読み込まれ、どの値が勝ったかを確かめる手段をまとめます。/status、claude doctor、--debug、--setting-sources による切り分け、--safe-mode と clean-config による再現の順に扱います。"
+sidebar:
+  order: 27
+---
+
+設定が効かないとき、何が読み込まれ、どの値が勝ったかを確かめる手段をまとめます。`/status`、`claude doctor`、`--debug`、`--setting-sources` による切り分け、`--safe-mode` と clean-config による再現の順に扱います。
+
+<span id="ch27-status" />
+
+## `/status`: 読み込まれた設定ソースを見る
+
+- 設定ダイアログの Status タブを開きます。バージョン、モデル、アカウント、接続状態を表示し、Claude の応答中でも使えます。`/config` は同じダイアログの別タブです。
+- `Setting sources` 行は、このセッションが読んだファイルを並べます（`User settings`、`Project local settings` など）。
+- managed が効いていると `Enterprise managed settings` の後ろの括弧に経路が出ます。
+- 見つかったが選ばれなかった managed ソースは `Skipped sources` 行に出ます（2.1.242 以降）。
+- `Session kind` 行は `interactive` か、背景セッションでは `background job · attached` などです。
+- `Organization policy` 行は、組織ポリシーを読めたかと、その結果を待っている機能（WebFetch など）を示します。
+
+| 括弧内の表示                                | 経路                                             |
+| ------------------------------------------- | ------------------------------------------------ |
+| `(remote)`                                  | server-managed settings（claude.ai・gateway）    |
+| `(plist)`・`(HKLM)`                         | MDM・OS ポリシー                                 |
+| `(file)`・`(drop-ins)`・`(file + drop-ins)` | `managed-settings.json` と `managed-settings.d/` |
+| `(remote + file, merged)` など              | `managedSourcesBehavior: "merge"` で合成         |
+| `(HKCU)`                                    | ユーザーが書けるレジストリ                       |
+| `(parent process)`                          | 埋め込みホストが渡した制限                       |
+| `(helper)`                                  | `policyHelper` の出力                            |
+
+:::caution[注意]
+`Setting sources` は読んだファイルを示すだけで、各キーをどのファイルが決めたかは示しません。project や managed が `model` を決めた場合は、起動時のヘッダーがそのファイルを示します。
+:::
+
+<div class="src">
+  出典: [settings#confirm-what-loaded](https://code.claude.com/docs/en/settings#confirm-what-loaded) · [managed-settings#read-the-source-in-/status](https://code.claude.com/docs/en/managed-settings#read-the-source-in-%2Fstatus) · [commands](https://code.claude.com/docs/en/commands)（`/status`）· [tools-reference#webfetch-availability](https://code.claude.com/docs/en/tools-reference#webfetch-availability)
+</div>
+
+<span id="ch27-doctor" />
+
+## `claude doctor` と `/doctor`（実測）
+
+|          | `claude doctor`                                                                                                                            | `/doctor`                                                                   |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| 実行場所 | ターミナル。セッションを開始しない                                                                                                         | セッション内。Skill                                                         |
+| 動作     | 読み取り専用の診断                                                                                                                         | 修正を提案し、確認後に適用                                                  |
+| 対象     | インストール、自動更新、managed の取得、組織ポリシー、不正な設定、Remote Control                                                           | インストール、不正な設定、未使用の拡張、サブエージェント名の重複、CLAUDE.md |
+| 補足     | <span class="undocumented">カレントディレクトリの設定を trust の確認なしで読む <span class="badge undocumented">Undocumented</span></span> | 別名 `/checkup`。`DISABLE_DOCTOR_COMMAND=1` で隠せる                        |
+
+- `-p` の実行が設定を捨てたときは、ターミナルで `claude doctor` を実行して何が落ちたかを確かめます。
+- 次の実測ブロックは不正な `defaultMode` を置いたディレクトリでの出力です。Suggested fix が挙げるモードは 4 つで、エラー文の 6 つより少なくなっています。プランなどを含む値は … にしました。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude doctor
+Claude Code doctor
+
+Running: …
+…
+Organization policy: …
+
+Invalid settings
+- <cwd>/.claude/settings.json › permissions.allow:
+  Invalid permission rule "Bash(npm run *" was skipped: …
+- <cwd>/.claude/settings.json › hooks.NotAnEvent:
+  Unknown hook event "NotAnEvent" was ignored. …
+…
+```
+
+```text title="実測 2.1.321" frame="terminal"
+Invalid settings
+- <cwd>/.claude/settings.json › permissions.defaultMode:
+  Invalid value. Expected one of: "acceptEdits", "auto",
+  "bypassPermissions", "default", "dontAsk", "plan"
+  Suggested fix: Valid modes: "acceptEdits" (ask before
+  file changes), "plan" (analysis only), "bypassPermissions"
+  (auto-accept all), or "default" (standard behavior)
+```
+
+<div class="src">
+  出典: [cli-reference#cli-commands](https://code.claude.com/docs/en/cli-reference#cli-commands) · [commands](https://code.claude.com/docs/en/commands)（`/doctor`）· [debug-your-config#check-resolved-settings](https://code.claude.com/docs/en/debug-your-config#check-resolved-settings) · [env-vars](https://code.claude.com/docs/en/env-vars#variables) · 実機確認 2.1.321
+</div>
+
+<span id="ch27-debug" />
+
+## `--debug` とデバッグログ（実測）
+
+```bash
+claude --debug='mcp,startup'
+claude --debug='!mcp'
+claude --debug-file /tmp/claude-debug.log
+```
+
+- フィルタは `=` の形でだけ効きます。空白で区切ると、フィルタなしでデバッグが有効になります。
+- `--debug-file` はデバッグを有効にし、`CLAUDE_CODE_DEBUG_LOGS_DIR` より優先します。既定の出力先は `~/.claude/debug/<session-id>.txt` です。
+- `DEBUG=1` は `--debug` と同じです。`CLAUDE_CODE_DEBUG_LOGS_DIR` は名前に反してファイルパスで、単独では有効になりません。
+- セッションの途中からは `/debug [description]`（Skill）でログを取り始め、Claude にログを読ませて診断させます。
+- フックが発火しないときは `claude --debug` で、イベント、照合した matcher、終了コードと出力を確かめます（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --setting-sources project \
+    --debug-file ./d1.log "/advisor"
+… [DEBUG] MDM settings load completed in 0ms
+… [DEBUG] Broken symlink or missing file encountered
+  for settings.json at path: /Library/Application
+  Support/ClaudeCode/managed-settings.json
+… [DEBUG] Broken symlink or missing file encountered
+  for settings.json at path: <cwd>/.claude/settings.json
+… [DEBUG] Watching for changes in setting files
+  ~/.claude/settings.json...
+```
+
+設定に関する行の抜粋。時刻は … に置き換え
+
+- `--debug=mcp` のログは 14 行、`--debug='!mcp'` は 135 行で、`[MCP]` の行はそれぞれ 2 行と 0 行でした。
+- `--debug=hooks` を付けた同じ実行では、ログファイルが作られませんでした。
+- <span class="undocumented">`--debug-file` は同じディレクトリに、最新のログを指す `latest` シンボリックリンクを作りました <span class="badge undocumented">Undocumented</span></span>
+
+<div class="src">
+  出典: [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · [env-vars#variables](https://code.claude.com/docs/en/env-vars#variables) · [commands](https://code.claude.com/docs/en/commands)（`/debug`）· [debug-your-config#check-hooks](https://code.claude.com/docs/en/debug-your-config#check-hooks) · 実機確認 2.1.321
+</div>
+
+<span id="ch27-which-won" />
+
+## どの設定が勝ったかを突き止める
+
+1. `/status` で、読まれたファイルと managed の経路を確かめる。
+2. settings-reference でキーの「Per-session overrides」行を読み、フラグや環境変数が上書きしていないかを確かめる（[Ch18](/claude-code-deep-dive/ja/settings/settings-files/#ch18-per-key)）。
+3. `claude doctor` で、不正として捨てられたファイルとエントリを確かめる。
+4. `--setting-sources` で読むファイルを 1 つずつ絞り、`-p --output-format stream-json --verbose` の init にある `model` や `permissionMode` を比べる。プロンプトを `/advisor` のようなローカルコマンドにすると、モデルへのリクエストは送られない（実測）。
+5. デバッグログで、どの設定パスが存在し、どれが無いかを確かめる。
+6. それでも分からなければ、次の節の clean-config で再現させる。
+
+| コマンド         | 表示する内容                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| `/context [all]` | コンテキストの内訳。メモリファイル、Skill（バンドル分を含む）、出どころ付きのサブエージェント |
+| `/permissions`   | 実際に効いている allow・deny ルール                                                           |
+| `/hooks`         | このセッションに登録されたフック（イベント別）                                                |
+| `/mcp`           | MCP サーバーごとの接続状態と、このプロジェクトでの承認                                        |
+| `/memory`        | メモリファイルの場所と auto memory の切り替え                                                 |
+| `/skills`        | project・user・プラグインの Skill                                                             |
+
+<div class="src">
+  出典: [debug-your-config#see-what-loaded-into-context](https://code.claude.com/docs/en/debug-your-config#see-what-loaded-into-context) · [#check-resolved-settings](https://code.claude.com/docs/en/debug-your-config#check-resolved-settings) · [settings#troubleshoot-a-setting-that-doesnt-apply](https://code.claude.com/docs/en/settings#troubleshoot-a-setting-that-doesnt-apply) · 実機確認 2.1.321
+</div>
+
+<span id="ch27-isolate" />
+
+## `--safe-mode`・`--bare` と clean-config での切り分け
+
+### `--safe-mode`（`CLAUDE_CODE_SAFE_MODE=1`）
+
+- 読み込まないもの: CLAUDE.md、Skill、プラグイン、フック、MCP サーバー、カスタムコマンドとエージェント、出力スタイル、workflow、カスタムテーマ、キーバインド、ステータスラインとファイル候補のコマンド、LSP サーバー、auto memory。
+- 認証、モデル選択、組み込みツール、権限は通常どおり動きます。managed のポリシーとフックは残り、managed のプラグイン・Skill・CLAUDE.md・MCP は止まります。
+- 問題が消えたら、止めたもののどれかが原因です。
+
+### `--bare`（`CLAUDE_CODE_SIMPLE=1`）
+
+- 自動検出を省き、ツールは `Bash`・`Read`・`Edit` だけです。診断よりスクリプト向けで、詳細は [Ch44](/claude-code-deep-dive/ja/automation/headless/) です。
+
+### clean-config で再現させる
+
+```bash
+mkdir -p ~/claude-clean/empty && cd ~/claude-clean/empty
+CLAUDE_CONFIG_DIR=~/claude-clean/config \
+  claude --setting-sources user
+```
+
+- 初回セットアップ画面が出れば、空の設定ディレクトリが効いています。managed settings と claude.ai のコネクタは残ります。
+- **問題が消えた**: 原因は user か project の設定です。`~/.claude.json` と `~/.claude` のファイルを 1 つずつ戻して探します。
+- **問題が残った**: `/status` で managed を確かめ、シェルの環境変数を確かめます。
+
+### よくある取り違え
+
+- `permissions`・`hooks`・`env` を `~/.claude.json` に書いている。
+- `mcpServers` を `settings.json` に書いている。project は `.mcp.json`、user は `claude mcp add --scope user`。
+
+<div class="src">
+  出典: [debug-your-config#test-against-a-clean-configuration](https://code.claude.com/docs/en/debug-your-config#test-against-a-clean-configuration) · [#check-common-causes](https://code.claude.com/docs/en/debug-your-config#check-common-causes) · [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags)
+</div>

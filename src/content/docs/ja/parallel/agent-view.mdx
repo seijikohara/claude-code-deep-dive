@@ -1,0 +1,187 @@
+---
+title: "Agent View とバックグラウンド"
+description: "端末を占有しないバックグラウンドセッションを起動し、claude agents の 1 画面で状態を見て、必要なときだけ介入する仕組みです。この章では、画面と状態、dispatch の入力、キーとフィルタ、claude --bg とシェルからの管理、supervisor による永続化、worktree への隔離と削除規則、claude agents --json を扱います。"
+sidebar:
+  order: 38
+  badge:
+    text: "Preview"
+    variant: note
+---
+
+端末を占有しないバックグラウンドセッションを起動し、`claude agents` の 1 画面で状態を見て、必要なときだけ介入する仕組みです。この章では、画面と状態、dispatch の入力、キーとフィルタ、`claude --bg` とシェルからの管理、supervisor による永続化、worktree への隔離と削除規則、`claude agents --json` を扱います。
+
+<span id="ch38-overview" />
+
+## 画面と状態 <span class="badge preview">Preview</span>
+
+- `claude agents` は端末全体を使う一覧を開きます。全プロジェクトのバックグラウンドセッションが並び、固定したものと入力待ちが上に来ます。
+- `claude agents --cwd ~/projects/my-app` はその配下で始まったセッションに絞ります。`.claude/worktrees/` へ移ったものも含みます。
+- 他の端末で開いている対話セッションは、背景へ送るまで出ません。サブエージェントとチームメイトは行になりません。
+- 未信頼のディレクトリでは先に信頼ダイアログが出ます。`/config defaultToAgentsView=true` にすると、引数なしの `claude` がこの画面を開きます。
+- 行の要約は Haiku クラスのモデルがターンの終わりと、長いターン中の数分ごとに書きます（課金あり）。15 秒ごとの更新はセッションの出力を使い、リクエストを送りません。
+- PR を開いたセッションには `#1234`（GitLab は `!1234`）が付きます。黄はチェック・レビュー待ちか失敗、緑は通過、紫はマージ済み、灰は draft か closed です。
+
+| 状態        | アイコン | 意味                                                                              |
+| ----------- | -------- | --------------------------------------------------------------------------------- |
+| Working     | 動く     | ツール実行中か応答を生成中                                                        |
+| Needs input | 黄       | 質問・権限判断・sandbox や MCP の入力要求など、あなたにしか返せないものを待つ     |
+| Idle        | 薄い     | やることがなく、次のプロンプトを待つ                                              |
+| Completed   | 緑       | タスクが成功した                                                                  |
+| Failed      | 赤       | エラーで終わった                                                                  |
+| Stopped     | 灰       | <kbd>Ctrl</kbd>+<kbd>X</kbd>・`claude stop`・外部からの終了・サービス停止中の終了 |
+
+- 形: `✻`・動く `✽` はプロセスが動いている、`∙` はプロセスが終了済み（返信か attach で保存済みの会話から再起動）、`✢` は `/loop` の待機中（実行回数とカウントダウン）。
+- グループは Pinned、Ready for review（要レビューか失敗チェックの PR がある）、Needs input、Working、Completed（失敗・停止を含む）です。<kbd>Ctrl</kbd>+<kbd>S</kbd> でディレクトリ別に切り替えます。
+
+<div class="src">
+  出典: [agent-view#monitor-sessions-with-agent-view](https://code.claude.com/docs/en/agent-view#monitor-sessions-with-agent-view) · [#read-session-state](https://code.claude.com/docs/en/agent-view#read-session-state) · [#row-summaries](https://code.claude.com/docs/en/agent-view#row-summaries) · [#pull-request-status](https://code.claude.com/docs/en/agent-view#pull-request-status) · [#open-agent-view-by-default](https://code.claude.com/docs/en/agent-view#open-agent-view-by-default)
+</div>
+
+<span id="ch38-dispatch" />
+
+## dispatch の入力と、セッションを背景へ送る方法 <span class="badge preview">Preview</span>
+
+| 入力                    | 効果                                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `<agent-name> <prompt>` | 最初の語がカスタムサブエージェント名なら、それをメインエージェントにして起動する                                     |
+| `@<agent-name>`         | 文中のどこでも。同上                                                                                                 |
+| `@<repo>`               | そのリポジトリで起動する。1 階層下の git リポジトリ、ツリー内の登録済み worktree、セッションのあるディレクトリが候補 |
+| `/<command>`            | Skill やコマンドを最初のプロンプトとして送る                                                                         |
+| `! <command>`           | Claude でなくシェルコマンドを背景ジョブとして動かす                                                                  |
+| `#<number>`・PR の URL  | それを扱うセッションがあれば、その行を選ぶ                                                                           |
+
+- 入力ごとに新しいセッションが始まり、4 文字未満は `Too short` で拒否されます。`@name` がサブエージェントとリポジトリの両方に当たると、サブエージェントが優先です。
+- 権限モード: `/bg`・<kbd>←</kbd> は元のモードを保ちます。<kbd>←</kbd> で開いた view からの dispatch は、対象の `permissions.defaultMode`（project 側で元より緩いモードは不可）、次に元のセッションのモードです。それ以外は新しい `claude` と同じ起動順です。
+
+* ビュー内で実行されるコマンド: `/exit`・`/quit`、`/logout`、`/login`、引数なしの `/resume`・`/continue`、次の dispatch 用の `/model`・`/effort`・`/fast`（後の 2 つは v2.1.299 以降）。`/init` のようにプロンプトへ展開する組み込みは最初のプロンプトとして送られ、それ以外の組み込みは `isn't available in agent view` です。
+* 起動時に既定値を渡せます。`--agent` の既定は `agent` 設定、なければ組み込みの `claude` です。
+
+```bash
+claude agents --permission-mode plan --model opus --effort high
+```
+
+- dispatch 入力の `/effort` は `ultracode` を受け付けないので、このフラグで `--effort ultracode` を渡します。`--restricted`（v2.1.248 以降）と `--dangerously-skip-permissions` も使えます。
+- セッション内からは `/background`（別名 `/bg [prompt]`）で会話ごと背景へ送り、空のプロンプトで <kbd>←</kbd> を押すと背景へ送って agent view を開きます（`leftArrowOpensAgents`）。`/fork [prompt]` は会話のコピーを新しい背景セッションにします（[Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-branch)）。
+
+<div class="src">
+  出典: [agent-view#dispatch-an-agent-from-agent-view](https://code.claude.com/docs/en/agent-view#dispatch-an-agent-from-agent-view) · [#dispatch-defaults](https://code.claude.com/docs/en/agent-view#dispatch-defaults) · [#from-inside-a-session](https://code.claude.com/docs/en/agent-view#from-inside-a-session) · [#permission-mode-model-and-effort](https://code.claude.com/docs/en/agent-view#permission-mode-model-and-effort)
+</div>
+
+<span id="ch38-keys" />
+
+## キー・フィルタ・peek と attach <span class="badge preview">Preview</span>
+
+| キー                                                       | 動作                                                                          |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| <kbd>Enter</kbd>・<kbd>→</kbd>                             | 選んだセッションに attach（<kbd>Enter</kbd> は入力欄が空でなければ dispatch） |
+| <kbd>Space</kbd>                                           | peek パネルの開閉                                                             |
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd>                           | dispatch してすぐ attach（対応端末のみ）                                      |
+| <kbd>Alt</kbd>+<kbd>1</kbd>〜<kbd>9</kbd>                  | 同じディレクトリの 1〜9 番目に attach                                         |
+| <kbd>Tab</kbd>                                             | 空の入力欄で全サブエージェントを一覧                                          |
+| <kbd>Ctrl</kbd>+<kbd>T</kbd>                               | 固定と解除。固定するとアイドルでもプロセスを止めない                          |
+| <kbd>Ctrl</kbd>+<kbd>F</kbd>・<kbd>Ctrl</kbd>+<kbd>R</kbd> | 名前で検索・名前の変更                                                        |
+| <kbd>Ctrl</kbd>+<kbd>G</kbd>                               | dispatch の入力を `$VISUAL`・`$EDITOR` で編集                                 |
+| <kbd>Ctrl</kbd>+<kbd>X</kbd>                               | 停止。2 秒以内にもう一度で一覧から削除                                        |
+| <kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd>                 | 並べ替え                                                                      |
+| <kbd>?</kbd>                                               | その場のキー一覧                                                              |
+
+| フィルタ    | 表示するもの                                                                |
+| ----------- | --------------------------------------------------------------------------- |
+| `a:<name>`  | その名前のエージェントで動くセッション                                      |
+| `s:<state>` | 状態かグループ。`s:blocked` は自分待ちすべて、`s:ready` は Ready for review |
+| `n:<text>`  | 名前か最初のプロンプトに含む（v2.1.287 以降）                               |
+| `o:<text>`  | 結果に含む。`o:` だけなら結果のあるもの全部                                 |
+
+- 空白区切りで組み合わせると AND です（例: `s:blocked a:reviewer`）。
+- peek から返信できます。`!` 始まりは Bash です。作業中のセッションでは `/model`・`/effort`・`/rename`・`/usage` がすぐ動き、他はキューに入ります。`/stop` だけの返信はセッションを止めます。権限ダイアログには attach して答えます。
+- attach 中は常にフルスクリーン表示です。空のプロンプトで <kbd>←</kbd> か `/exit` で一覧へ、<kbd>Ctrl</kbd>+<kbd>Z</kbd> で来た場所へ戻ります。どの方法で離れてもセッションは止まりません。
+
+<div class="src">
+  出典: [agent-view#keyboard-shortcuts](https://code.claude.com/docs/en/agent-view#keyboard-shortcuts) · [#filter-sessions](https://code.claude.com/docs/en/agent-view#filter-sessions) · [#peek-and-reply](https://code.claude.com/docs/en/agent-view#peek-and-reply) · [#attach-to-a-session](https://code.claude.com/docs/en/agent-view#attach-to-a-session)
+</div>
+
+<span id="ch38-shell" />
+
+## `claude --bg` とシェルからの管理 <span class="badge preview">Preview</span>
+
+```text
+$ claude --bg --name "flaky-test-fix" \
+    "investigate the flaky SettingsChangeDetector test"
+backgrounded · 7c5dcf5d · flaky-test-fix
+  claude agents             list sessions
+  claude attach 7c5dcf5d    open in this terminal
+  claude logs 7c5dcf5d      show recent output
+  claude stop 7c5dcf5d      stop this session
+```
+
+- プロンプトは位置引数です。`--name`・`--agent` を併用できます。`-p` との併用は拒否されます。
+- `--bg` は `--` より前で、他のフラグの値でない位置でだけフラグと読みます。曖昧なら `Couldn't tell whether --bg is a flag or text here` で終了します（v2.1.299 以降）。
+- `--resume <session-id> --bg` は同じ ID で続けるか、`note:` を出してコピーを作ります（v2.1.257 以降）。`--continue` は常にコピーです。
+- `--bg --exec 'pytest -x'` はモデルを呼ばない PTY ジョブです（`--exec` は `--help` 非表示）。出力はメモリだけで、終了の約 5 分後に消えます。
+
+| コマンド                                     | 動作                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `claude attach <id\|name>`                   | この端末で開く。名前の一部でもよい（v2.1.290 以降。名前は動作中だけ）                 |
+| `claude logs <id\|name>`                     | 最近の端末出力を表示する                                                              |
+| `claude stop\|kill <id>`                     | 停止。会話は残り、`claude attach <id>` で再び開ける                                   |
+| `claude respawn <id>\|--all`                 | 再起動して現在のバイナリに載せ替える                                                  |
+| `claude rm <id>`                             | セッションと、安全なら worktree を削除。終了済みにも使える                            |
+| `--discard-unpushed <commit>@<worktree-id>`  | `rm` 用。未 push のコミットも捨てる（v2.1.260 以降）                                  |
+| `--force-remove-worktree <worktree-id>`      | `rm` 用。git かフックが消せなかった worktree を消す。branch は残す（v2.1.268 以降）   |
+| `claude daemon status`・`logs`・`stop --any` | supervisor の状態・ログ・停止（`--help` 非表示）。`--keep-workers` でセッションを残す |
+
+ID は `~/.claude/jobs/` 配下のディレクトリ名です。`--agent` の名前が見つからないと、セッションは `--agent '<name>' not found` で即終了します。
+
+<div class="src">
+  出典: [agent-view#from-your-shell](https://code.claude.com/docs/en/agent-view#from-your-shell) · [#manage-sessions-from-the-shell](https://code.claude.com/docs/en/agent-view#manage-sessions-from-the-shell) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · 実機確認 2.1.321（`--help`）
+</div>
+
+<span id="ch38-hosting" />
+
+## supervisor・永続化・アイドル停止 <span class="badge preview">Preview</span>
+
+| 状況                                                  | プロセスの扱い                                                                                                                                                                    |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 作業中・ダイアログ待ち・attach 中                     | 動き続ける。実行中のサブエージェント・workflow・monitor と、保留中の `/loop` の wakeup も作業中に数える                                                                           |
+| 終了済みか次のメッセージ待ちで、約 1 時間 attach なし | supervisor が止める。会話はディスクに残り、attach か返信で再開する。<kbd>Ctrl</kbd>+<kbd>T</kbd> で固定すると止めない                                                             |
+| supervisor 稼働中の予期しない終了                     | 再起動する。<kbd>←</kbd>・`/background` で送ったセッションを外から終了させた場合は stopped                                                                                        |
+| 自動更新                                              | supervisor が新しい版で再起動し、アイドルのセッションを移す。作業中・入力待ち・attach 中は中断しない                                                                              |
+| supervisor 自体の停止                                 | macOS・Linux では、約 1 分以内に新しい supervisor が接続しないとセッションが止まる。`claude agents` で起動する                                                                    |
+| マシンの停止                                          | スリープでは止まらない。シャットダウンで止まり、最後の進捗から 48 時間以内なら failed、超えると stopped（`ended while the background service was off`）。返信か attach で再開する |
+
+- 背景のシェルコマンドと背景サブエージェントは次のプロセスへ引き継がれます。workflow は Claude が再起動したときだけ続きます。monitor は止まります。`CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF=1` で引き継ぎを止めます。
+- 状態は `~/.claude/daemon.log`、`~/.claude/daemon/roster.json`、`~/.claude/jobs/<id>/state.json` にあります。`~/.claude/jobs/<id>/tmp/`（`$CLAUDE_JOB_DIR/tmp`）への Write・Edit は確認なしです。
+
+* `CLAUDE_CONFIG_DIR` を変えると、別の supervisor が別のセッション群を持ちます。
+* 各セッションが利用枠を個別に使います。10 本動かせば約 10 倍の速さで減ります。
+* 無効化は `disableAgentView: true` か `CLAUDE_CODE_DISABLE_AGENT_VIEW` です（managed で強制可）。<span class="undocumented">環境変数つきの `-p` の init では `claude` エージェントが消えます <span class="badge undocumented">Undocumented</span></span>
+
+<div class="src">
+  出典: [agent-view#the-supervisor-process](https://code.claude.com/docs/en/agent-view#the-supervisor-process) · [#where-state-is-stored](https://code.claude.com/docs/en/agent-view#where-state-is-stored) · [#turn-off-agent-view](https://code.claude.com/docs/en/agent-view#turn-off-agent-view) · [#limitations](https://code.claude.com/docs/en/agent-view#limitations) · 実機確認 2.1.321
+</div>
+
+<span id="ch38-worktree" />
+
+## worktree への隔離・削除規則・`claude agents --json` <span class="badge preview">Preview</span>
+
+- dispatch と `claude --bg` のセッションは、編集の前に `.claude/worktrees/` の worktree へ移ります。子のサブエージェントも同じ worktree に書きます。
+- 移らない場合: <kbd>←</kbd>・`/background` で送ったセッション、既に linked worktree の中、編集先が linked worktree の中、`WorktreeCreate` フックのない非 git ディレクトリ、作業ディレクトリ外への書き込み。隔離自体を止めるには `{"worktree": {"bgIsolation": "none"}}` を書きます。
+- worktree では確認なしでコミットし、remote があれば push し、必要なら draft PR を開きます。`main`・`master` への push、force push、マージはしません。CLAUDE.md などの git の指示が優先です。
+- agent view の削除（<kbd>Ctrl</kbd>+<kbd>X</kbd> 2 回）は未コミットの変更ごと worktree を消します。`claude rm` は未コミットがあれば行と worktree を残します。
+- 未 push のコミットがあると branch と件数を示して拒否します。もう一度削除するか `--discard-unpushed` で捨てます。remote にあるコミットは妨げません。
+
+| フィールド                 | 出る条件と値                                                                                                          |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `cwd`・`kind`・`startedAt` | 常に。`kind` は `interactive` か `background`、時刻は Unix ミリ秒                                                     |
+| `id`・`state`              | 背景セッション。`state` は `working`・`blocked`・`done`・`failed`・`stopped`                                          |
+| `pid`・`status`            | プロセスが生きている間。`busy`・`waiting`・`idle`                                                                     |
+| `waitingFor`               | `status` が `waiting` のとき。`permission prompt`・`input needed`・`sandbox request`・`worker request`・`dialog open` |
+| `sessionId`・`name`        | 設定されているとき。`sessionId` は `claude --resume` に使える                                                         |
+
+- 既定は生きているセッションと、プロセス終了後も working・blocked の背景セッションです。`--all` で完了分も含めます。
+- 次の指示待ちは `done` で、`blocked` は常にあなたの対応が要る状態です。
+- スクリプトからは `claude agents --json --all` を読みます。`~/.claude/jobs/` のファイルは安定したインターフェースではありません。
+
+<div class="src">
+  出典: [agent-view#how-file-edits-are-isolated](https://code.claude.com/docs/en/agent-view#how-file-edits-are-isolated) · [#what-deleting-a-session-removes](https://code.claude.com/docs/en/agent-view#what-deleting-a-session-removes) · [#list-sessions-as-json](https://code.claude.com/docs/en/agent-view#list-sessions-as-json) · [#read-session-state-from-a-script](https://code.claude.com/docs/en/agent-view#read-session-state-from-a-script) · 実機確認 2.1.321（`--help`）
+</div>

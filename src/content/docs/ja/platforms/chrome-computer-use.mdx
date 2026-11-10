@@ -1,0 +1,91 @@
+---
+title: "Chrome と Computer use"
+description: "Claude Code がブラウザとデスクトップを直接操作する 2 つの仕組みです。この章では、Claude in Chrome の有効化・権限・組織による制御と、CLI の Computer use（research preview）の有効化と安全策を扱います。"
+sidebar:
+  order: 54
+---
+
+Claude Code がブラウザとデスクトップを直接操作する 2 つの仕組みです。この章では、Claude in Chrome の有効化・権限・組織による制御と、CLI の Computer use（research preview）の有効化と安全策を扱います。
+
+<span id="ch54-chrome" />
+
+## Claude in Chrome: 要件と有効化
+
+- Claude in Chrome 拡張を通じて、ログイン状態を共有したままブラウザを操作します（コンソール・DOM の確認、テスト、データ抽出、アップロード、GIF 録画など）。Claude は自分のタブを開き、セッションのタブグループにまとめます。ログイン画面や CAPTCHA では止まります。
+- CLI と VS Code 拡張（`@browser`）から使えます。`claude remote-control --chrome` でも有効にできます（[Ch49](/claude-code-deep-dive/ja/platforms/remote-control/)）。
+
+### 要件
+
+- Chrome か Edge。Brave・Arc・Vivaldi・Opera でも検出されます。WSL では使えません。
+- 拡張 1.0.36 以降と、Pro・Max・Ultra・Team・Enterprise の直接契約。`/login` でのサインインが必要で、API キーや `claude setup-token` のトークンでは `--chrome` を付けてもオフのままです。
+- Bedrock・Agent Platform・Foundry では使えません。HIPAA 構成の Enterprise では既定オフです（Owner が有効化）。
+
+```bash
+claude --chrome       # このセッションで有効
+claude --no-chrome    # このセッションで無効
+```
+
+- `/chrome`: 状態（`Status: Enabled`、`Extension: Installed`）、権限の管理、**Reconnect extension**、**Select browser…**（複数接続時）、**Enabled by default**。
+- **Enabled by default** は global config の `claudeInChromeDefaultEnabled` で、CLI と VS Code で共有します。VS Code では v2.1.287 以降、セッション開始時に接続します。
+- ブラウザツールと説明が常にロードされるため、既定でオンにするとコンテキストの消費が増えます。
+- 起動時の「Claude in Chrome extension detected」で **Yes, use my browser** を選ぶと既定オン、**No, keep browser tools off** で既定オフになります。
+- 拡張が見つからないと、インストール案内を 1 セッションに 1 回だけ出します（**Don't ask again** で以後出さない）。
+
+<div class="src">
+  出典: [chrome#prerequisites](https://code.claude.com/docs/en/chrome#prerequisites) · [#enable-chrome-by-default](https://code.claude.com/docs/en/chrome#enable-chrome-by-default) · [settings-reference#claudeinchromedefaultenabled](https://code.claude.com/docs/en/settings-reference#claudeinchromedefaultenabled) · 実機確認 2.1.321（`claude --help`）
+</div>
+
+<span id="ch54-chrome-control" />
+
+## Claude in Chrome: 権限・組織の制御・トラブル対応
+
+- サイト単位の権限は拡張の設定から継承します。確認は `Claude in Chrome wants to` で始まり、そのサイトをセッション中すべて許可する選択肢があります。
+- auto mode で分類器がブラウザ操作を承認した場合、拡張は自身のサイト確認を省きます。ただし権限ルールでいずれかのサイトを deny していれば省きません。
+- plan mode では、GIF 録画・新しいタブ・ショートカット実行（を含む `browser_batch`）の前に確認します。
+- プロジェクトの設定では有効にできません。`.claude/settings.json` の `env` にある `CLAUDE_CODE_ENABLE_CFC=1` は警告付きで無視されます。
+- アップロードは合計 10 MB までです。複数のハードリンクを持つファイルと、`.env`・`.pem`・`.key`・`.ssh` 配下（v2.1.293 以降）は拒否します。`Read` の deny も効きます。
+- `/clear` はタブグループを閉じます。`/resume` や終了では、空の新規タブだけのグループを閉じます。
+
+### 組織の制御
+
+- `deniedMcpServers` で `claude-in-chrome` を拒否するか、`managed-mcp.json` を配布すると、インストール案内は出ません。
+- `managed-mcp.json` と併用するには `"allowClaudeInChromeWithManagedMcp": true` を設定します。
+- 2.1.321 から、Desktop の Code タブなどアプリが提供する Claude in Chrome のツールも、組織の Claude in Chrome ポリシーに従います。
+
+### うまく動かないとき
+
+- 初回の有効化でネイティブメッセージングホストの設定を書きます。Chrome は起動時に読むため、検出されなければ Chrome を再起動します。
+- `Receiving end does not exist`（service worker の休止）は、`/chrome` の **Reconnect extension** で直します。
+- 拡張は Claude Code と同じ claude.ai 組織にサインインしている必要があります（`/status` の `Organization` 行）。違うと `Browser extension is not connected` になります。
+
+<div class="src">
+  出典: [chrome#manage-site-permissions](https://code.claude.com/docs/en/chrome#manage-site-permissions) · [#browser-tools-in-plan-mode](https://code.claude.com/docs/en/chrome#browser-tools-in-plan-mode) · [#upload-files-to-web-pages](https://code.claude.com/docs/en/chrome#upload-files-to-web-pages) · [#troubleshooting](https://code.claude.com/docs/en/chrome#troubleshooting) · [managed-mcp](https://code.claude.com/docs/en/managed-mcp) · changelog 2.1.321
+</div>
+
+<span id="ch54-computer-use" />
+
+## CLI の Computer use <span class="badge preview">Preview</span>
+
+- macOS の research preview で、Pro・Max・Ultra のみです（Team・Enterprise 不可）。対話セッション専用で、`-p` では使えません。
+- 組み込みの MCP サーバー `computer-use` です。`/mcp` で選んで **Enable** にします。設定はプロジェクトごとに保存されます。
+- 初回にアクセシビリティと画面収録の許可を求めます。許可後に **Try again** を選びます（画面収録後は再起動が要ることがあります）。
+- アプリごとにセッション単位で **Allow for this session** か **Deny** を選びます。ターミナル・IDE には `Equivalent to shell access`、Finder には `Can read or write any file`、System Settings には `Can change system settings` の警告が付きます。
+- 操作の段階: ブラウザと取引プラットフォームは閲覧のみ、ターミナルと IDE はクリックのみ、その他は全操作です。
+- Claude はまず MCP サーバー、Bash、Claude in Chrome を試し、どれも当てはまらないときに画面操作を使います。
+
+* マシン全体で 1 セッションだけが使えます。最初の操作でロックを取り、セッション終了時に解放します（タスク完了では解放しない）。他は `Computer use is in use by another Claude session` で失敗します。
+* 操作中は他のアプリを隠し、ターン終了時に戻します。自分のターミナルは表示されたまま、スクリーンショットから除外されます。
+* スクリーンショットは自動で縮小されます（例: 3456×2234 から約 1372×887）。設定はありません。
+* <kbd>Esc</kbd> でどこからでも中止できます。キー入力は消費されるため、プロンプトインジェクションに使われません。<kbd>Ctrl</kbd>+<kbd>C</kbd> でも止まります。
+
+|                    | Desktop                    | CLI                      |
+| ------------------ | -------------------------- | ------------------------ |
+| OS                 | macOS・Windows             | macOS のみ               |
+| 有効化             | 設定のトグル               | `/mcp` で `computer-use` |
+| 拒否アプリの一覧   | 設定できる                 | 未提供                   |
+| アプリの自動再表示 | 選べる                     | 常にオン                 |
+| Dispatch           | 起動したセッションで使える | 該当なし                 |
+
+<div class="src">
+  出典: [computer-use](https://code.claude.com/docs/en/computer-use)（Enable computer use / Approve apps per session / How Claude works on your screen / Differences from the Desktop app） · [desktop#let-claude-use-your-computer](https://code.claude.com/docs/en/desktop#let-claude-use-your-computer)
+</div>

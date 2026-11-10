@@ -1,5 +1,7 @@
 # Claude Code Deep Dive — deck design
 
+> **Historical.** This document was written for the original Reveal.js slide format. On 2026-11-11 the reference moved to a Starlight documentation site (one MDX page per chapter); see `docs/authoring-guide.md` for the current format.
+
 Status: draft for approval (2026-11-10)
 
 ## 1. Intent

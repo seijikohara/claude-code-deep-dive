@@ -1,0 +1,319 @@
+---
+title: "パーミッションモード"
+description: "セッションが確認なしで実行できる範囲を決める 6 つのモードを扱います。Manual への改名、開始モードの決まり方、Shift+Tab での切り替え、各モードの細部、どのモードでも自動承認されない操作と保護パス・危険な rm の扱いまでを示します。"
+sidebar:
+  order: 23
+---
+
+セッションが確認なしで実行できる範囲を決める 6 つのモードを扱います。Manual への改名、開始モードの決まり方、<kbd>Shift</kbd>+<kbd>Tab</kbd> での切り替え、各モードの細部、どのモードでも自動承認されない操作と保護パス・危険な `rm` の扱いまでを示します。
+
+<span id="ch23-modes" />
+
+## 6 つのモードと Manual への改名
+
+| 設定値              | 確認なしで実行されるもの                                                 | ステータスバー             |
+| ------------------- | ------------------------------------------------------------------------ | -------------------------- |
+| `default`（Manual） | 読み取りのみ                                                             | `⏸ manual mode on`         |
+| `acceptEdits`       | 読み取り、ファイル編集、`mkdir`・`touch`・`mv`・`cp` などのファイル操作  | `⏵⏵ accept edits on`       |
+| `plan`              | 読み取り。auto mode が使えるときは分類器が承認したコマンドも             | `⏸ plan mode on`           |
+| `auto`              | すべて。バックグラウンドの安全確認つき                                   | `⏵⏵ auto mode on`          |
+| `dontAsk`           | 作業ディレクトリ内の読み取りと事前承認済みのツール。確認が要るものは拒否 | `⏵⏵ don't ask on`          |
+| `bypassPermissions` | すべて                                                                   | `⏵⏵ bypass permissions on` |
+
+- 2.1.200 で、CLI・`--help`・VS Code・JetBrains の表示名が "default" から "Manual" に変わりました。設定値は `default` のままで、フックや SDK もこの値を使います。
+- `manual` は値を書く場所ならどこでも別名として使えます（`--permission-mode manual`、`"defaultMode": "manual"`）。`--help` は `default` の代わりに `manual` を載せていますが、両方とも受け付けます。
+- deny ルールは `bypassPermissions` を含む全モードで効きます。allow ルールは `bypassPermissions` では意味を持ちません。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --permission-mode bogus hi
+error: option '--permission-mode <mode>' argument 'bogus' is
+invalid. Allowed choices are acceptEdits, auto,
+bypassPermissions, manual, dontAsk, plan.      → exit 1
+```
+
+空のディレクトリで `--no-session-persistence --setting-sources project` も付けて実行
+
+<div class="src">
+  出典: [permission-modes#available-modes](https://code.claude.com/docs/en/permission-modes#available-modes) · [#switch-permission-modes](https://code.claude.com/docs/en/permission-modes#switch-permission-modes) · [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · changelog 2.1.200 · 実機確認 2.1.321
+</div>
+
+<span id="ch23-starting-mode" />
+
+## 開始モードの決まり方
+
+1. `--permission-mode` または `--dangerously-skip-permissions`
+2. 設定ファイルの `permissions.defaultMode`。`.claude/settings.json` と `.claude/settings.local.json` の `"auto"` は効かず、ユーザー設定ではなく組み込み既定に落ちます。同じ 2 ファイルの `"bypassPermissions"` も効かず、Manual で始まります（v2.1.257 以降）。
+3. 組み込み既定（この節の表。上から最初に当たる行）
+
+- 選ばれた `auto` が使えない場合は Manual で始まります。
+- `-p` と SDK は v2.1.302 以降 `default` です。2.1.285〜2.1.301 は、サードパーティプロバイダかテレメトリ無効なら auto でした。
+- VS Code 拡張は `claudeCode.initialPermissionMode` を先に見て、プロジェクト設定は読みません。再開時は [Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/)。
+
+user 設定を読まない `-p`（モード未指定）の init イベント:
+
+```text title="実測 2.1.321" frame="terminal"
+"permissionMode":"default"
+```
+
+| 実行方法                                                  | 組み込みの開始モード                                                                                                |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| いずれかの設定ファイルが `disableAutoMode` を `"disable"` | `default`                                                                                                           |
+| `claude -p` または Agent SDK                              | `default`                                                                                                           |
+| HIPAA 構成が適用された組織の対象セッション                | `default`（v2.1.285 以降）。auto への切り替えは可                                                                   |
+| ターミナルまたは VS Code 拡張                             | `auto`（2.1.284 以降の全プラン。下の食い違いを参照）。それより前は Pro・Max・Ultra・Team のフラグ取得セッションのみ |
+
+:::danger[食い違い]
+対話セッションがすべてのプラン・プロバイダで auto 開始になったバージョンが食い違っています。
+
+- **permission-modes**: 「v2.1.283 以降」
+- **changelog**: 2.1.283 はサードパーティプロバイダとテレメトリ無効の対話セッションだけを変更。全プラン・全プロバイダは 2.1.284 で変更
+  :::
+
+<div class="src">
+  出典: [permission-modes#which-mode-a-session-starts-in](https://code.claude.com/docs/en/permission-modes#which-mode-a-session-starts-in) · [#which-mode-a-non-interactive-run-starts-in](https://code.claude.com/docs/en/permission-modes#which-mode-a-non-interactive-run-starts-in) · [settings-reference#permissions-defaultmode](https://code.claude.com/docs/en/settings-reference#permissions-defaultmode) · changelog 2.1.283, 2.1.284, 2.1.285, 2.1.302 · 実機確認 2.1.321
+</div>
+
+<span id="ch23-switch" />
+
+## <kbd>Shift</kbd>+<kbd>Tab</kbd> と各サーフェスでの切り替え
+
+- CLI では `auto` から 1 回押すと `default` になり、以降 `default` → `acceptEdits` → `plan` と巡回します。
+- 任意のモードは `plan` の後に入ります。順序は `bypassPermissions` が先、`auto` が最後です。`auto` へは確認なしで切り替わります。
+- `bypassPermissions` が巡回に入るのは、`--permission-mode bypassPermissions`・`--dangerously-skip-permissions`・`--allow-dangerously-skip-permissions` で起動したときか、user・`--settings`・managed の `defaultMode` が `"bypassPermissions"` のときだけです。
+- `dontAsk` は巡回に入りません。フラグか `defaultMode` で指定します。
+- Manual と `acceptEdits` の Bash 確認には、auto mode が使えると **Yes, and switch to auto mode** が加わります（v2.1.247 以降）。ask ルールやフックが強制した確認と、PowerShell の確認には出ません。
+
+| サーフェス                                     | 選べるモードと既定の決め方                                                                                                                    |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| VS Code                                        | Manual / Edit automatically / Plan / Auto / Bypass permissions。Bypass は **Allow dangerously skip permissions** の有効化が必要               |
+| JetBrains <span class="badge beta">Beta</span> | IDE のターミナルで CLI と同じ操作                                                                                                             |
+| Desktop                                        | モードセレクタ。Bypass は Pro・Max・Ultra では **Allow bypass permissions mode**、Team・Enterprise では組織ポリシー。選択はフォルダごとに記憶 |
+| クラウド                                       | Accept edits（`default` に相当）/ Plan / Auto。Bypass なし                                                                                    |
+| Remote Control                                 | Manual / Accept edits / Plan / Auto。アプリから Bypass は選べない                                                                             |
+
+### サブエージェントの `permissionMode`
+
+- 親が `bypassPermissions`・`acceptEdits`・`auto` なら親のモードで動き、指定は無視されます。親が `plan` なら plan のままです。
+- 親が `default`・`dontAsk` なら指定に従います。ただし `bypassPermissions`（v2.1.267 以降）と使えない `auto` は親のモードになります。
+
+<div class="src">
+  出典: [permission-modes#switch-permission-modes](https://code.claude.com/docs/en/permission-modes#switch-permission-modes) · [sub-agents#permission-modes](https://code.claude.com/docs/en/sub-agents#permission-modes)
+</div>
+
+<span id="ch23-acceptedits-plan" />
+
+## `acceptEdits` と `plan`
+
+### `acceptEdits`
+
+- ファイル編集に加え、`mkdir`・`touch`・`rm`・`rmdir`・`mv`・`cp`・`sed` を自動承認します。対象は作業ディレクトリと `additionalDirectories` 内のパスだけです。
+- `touch` 以外は、`LANG=C` のような安全な環境変数や `timeout`・`nice`・`nohup` を前に付けても承認されます。
+- 確認が残るもの: 範囲外のパス、保護パス、クリティカルパスの削除、オプション・glob・前置きつきの `touch`、読み取り専用以外の Bash。各パスは symlink の検査も通ります。
+- PowerShell <span class="badge preview">Preview</span> では `Set-Content`・`Add-Content`・`Clear-Content`・`Remove-Item` も対象です。引用符を含む位置引数は確認になるので `-Value` で渡します。
+
+### `plan`
+
+計画中のシェルコマンドは、上から最初に当たる条件で扱いが決まります。
+
+1. bypass が使える対話ターミナル: 分類器も確認も適用されない
+2. auto mode が使え `useAutoModeDuringPlan`（既定 `true`、user・local・managed のみ）が有効: 分類器が審査（クリティカルパス削除を除く）
+3. それ以外: 読み取り専用以外は確認。サンドボックスの auto-allow でも確認
+
+- 入り方: <kbd>Shift</kbd>+<kbd>Tab</kbd>、プロンプト先頭の `/plan`、`--permission-mode plan`。
+- 承認の選択肢: **Yes, and use auto mode**（auto が使えなければ **Yes, auto-accept edits**）/ **Yes, manually approve edits** / **No, keep planning**。<kbd>Ctrl</kbd>+<kbd>G</kbd> で計画をエディタで編集できます。
+- PreToolUse フックの `"allow"` は、読み取り専用以外の呼び出しを承認できません（`ExitPlanMode` を除く）。
+
+<div class="src">
+  出典: [permission-modes#auto-approve-file-edits-with-acceptedits-mode](https://code.claude.com/docs/en/permission-modes#auto-approve-file-edits-with-acceptedits-mode) · [#analyze-before-you-edit-with-plan-mode](https://code.claude.com/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode) · [settings-reference#useautomodeduringplan](https://code.claude.com/docs/en/settings-reference#useautomodeduringplan) · [permissions#hook-approvals-in-plan-mode](https://code.claude.com/docs/en/permissions#hook-approvals-in-plan-mode)
+</div>
+
+<span id="ch23-dontask-headless" />
+
+## `dontAsk` と非対話実行での拒否
+
+- `dontAsk` は確認が必要な呼び出しを自動拒否します（mod は一部を承認可）。読み取り、読み取り専用の Bash、`permissions.allow` 一致、PreToolUse フックの承認は実行されます。
+- allow があっても拒否: 明示の ask 一致、`AskUserQuestion`、組織が `ask` にしたコネクタ、`requiresUserInteraction` の MCP ツール、クリティカルパス削除、ネットワークパスの読み取り。
+- フラグか `defaultMode` でだけ指定できます。クラウドセッションは設定の `"dontAsk"` を無視します。
+
+```bash
+claude -p "run the test suite" --permission-mode dontAsk \
+  --allowedTools "Bash(npm test)" "Read"
+```
+
+モード未指定の `-p` も、allow ルール・フック・`canUseTool`・`--permission-prompt-tool` がなければ拒否します。user 設定なしで `touch new.txt` を実行させた結果:
+
+`touch in '<dir>/new.txt' needs approval. The path is inside the working directories for this session …`
+
+| 手段                                                                               | 効果                                                                                                                                                     |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--permission-prompts none`（v2.1.259 以降）                                       | 確認になるものを拒否（`PermissionRequest` フックの承認は有効）。Claude に再試行しないよう伝え、`AskUserQuestion` を外し、未応答の elicitation を取り消す |
+| `permissions.denyInsteadOfPrompting`（v2.1.319 以降。user・managed・`--settings`） | `-p` 以外（対話・VS Code・Desktop のローカル）でも同じ拒否。`EnterPlanMode`・`ExitPlanMode` も外し、`canUseTool` とプロンプトツールに問い合わせない      |
+| `--permission-prompt-tool`                                                         | MCP ツールが確認に答える。`--help` には載らない（[Ch44](/claude-code-deep-dive/ja/automation/headless/)）                                                |
+
+```bash
+claude -p "Update the dependency pins and run the tests" \
+  --permission-mode auto --permission-prompts none
+```
+
+`denyInsteadOfPrompting` の拒否文は `Permission for this tool use was denied. It requires approval, and this session has no approval surface` で始まることがあります。拒否は stream-json の `permission_denied` と結果の `permission_denials` に出ます。
+
+<div class="src">
+  出典: [permission-modes#allow-only-pre-approved-tools-with-dontask-mode](https://code.claude.com/docs/en/permission-modes#allow-only-pre-approved-tools-with-dontask-mode) · [headless#turn-off-permission-prompts-in-unattended-runs](https://code.claude.com/docs/en/headless#turn-off-permission-prompts-in-unattended-runs) · [settings-reference#permissions-denyinsteadofprompting](https://code.claude.com/docs/en/settings-reference#permissions-denyinsteadofprompting) · [cli-reference](https://code.claude.com/docs/en/cli-reference#cli-flags) · 実機確認 2.1.321
+</div>
+
+<span id="ch23-bypass" />
+
+## `bypassPermissions` と 2 つのフラグ
+
+| フラグ                                 | 動作                                                                                      |
+| -------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `--dangerously-skip-permissions`       | `--permission-mode bypassPermissions` と同等。bypass で開始                               |
+| `--allow-dangerously-skip-permissions` | 巡回に bypass を加えるだけで、開始はしない。`-p`・SDK・VS Code では後から選べるようにする |
+
+- 確認と安全確認を省き、保護パスへの書き込みも即実行します。それでも「どのモードでも自動承認されないもの」とセッション間メッセージングの保護は残ります。
+- bypass が使える対話ターミナルでは plan mode の制限が強制されません（ask ルールと危険な `rm` は確認）。`-p`・SDK・VS Code では plan の制限が残ります。
+- 有効にせず始めたセッションから bypass には入れません。
+- 初回の対話起動で警告ダイアログが出ます。承諾すると `~/.claude/settings.json` に `skipDangerousModePermissionPrompt: true` が書かれ、拒否すると終了します。`-p` では出ません。
+
+* Linux と macOS では root・`sudo` での起動を拒否します。認識されたサンドボックス内ではこの検査を省きます。
+
+```text
+--dangerously-skip-permissions cannot be used with root/sudo
+privileges for security reasons
+```
+
+- <span class="badge preview">Preview</span> バックグラウンドセッションは承諾の記録がないと bypass 起動を拒否し、承諾が `.claude/settings.local.json` だけなら bypass 要求を無視して通知します。
+- `permissions.disableBypassPermissionsMode: "disable"` はどのスコープでも効き、フラグとエージェント定義の `permissionMode: bypassPermissions` を無効にします。`--restricted` も bypass を拒否します。クラウドセッションは設定の `"bypassPermissions"` を黙って無視します。
+
+:::caution[注意]
+プロンプトインジェクションに対する保護はありません。インターネットに出られないコンテナや VM でだけ使います。
+:::
+
+<div class="src">
+  出典: [permission-modes#skip-all-checks-with-bypasspermissions-mode](https://code.claude.com/docs/en/permission-modes#skip-all-checks-with-bypasspermissions-mode) · [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · [settings-reference#permissions-disablebypasspermissionsmode](https://code.claude.com/docs/en/settings-reference#permissions-disablebypasspermissionsmode) · [#skipdangerousmodepermissionprompt](https://code.claude.com/docs/en/settings-reference#skipdangerousmodepermissionprompt)
+</div>
+
+<span id="ch23-no-auto-approve" />
+
+## どのモードでも自動承認されないもの
+
+1. 明示の ask ルールに一致したツール
+2. 組織が `ask` に設定したコネクタツール（その設定が届くセッション）
+3. `AskUserQuestion` と `requiresUserInteraction` の MCP ツール
+4. 認識された `rm`・`rmdir` のクリティカルパス削除と、`Dangerous rm operation not ruled out` と判定されたコマンド
+5. セッション間メッセージングの保護
+6. `permissions.blockReadsOutsideWorkingDirectories` が有効なときの作業ディレクトリ外の読み取り（v2.1.257 以降）。追跡できないコマンドも確認になる
+7. `permissions.blockWritesOutsideWorkingDirectories` が有効なときの外部への書き込み（v2.1.314 以降）。Write・Edit・NotebookEdit を拒否
+
+4 の確認は bypass でだけ消せます（[危険な rm (2/2)](/claude-code-deep-dive/ja/settings/permission-modes/#ch23-critical-rm-2)）。
+
+### 保護パスへの書き込み
+
+| モード                   | 扱い                                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `default`, `acceptEdits` | 確認                                                                                      |
+| `plan`                   | bypass が使える対話ターミナルでは許可。それ以外は auto が使えれば分類器、使えなければ確認 |
+| `auto`                   | 分類器へ                                                                                  |
+| `dontAsk`                | 拒否                                                                                      |
+| `bypassPermissions`      | 許可                                                                                      |
+
+- 保護パスの安全確認は allow ルールより先に走るため、`Edit(.claude/**)` のような allow ルールは効きません。
+- 確認では、そのセッションに限り `.claude` フォルダの編集を許可する選択肢が出ることがあります。
+- `--restricted` では分類器が保護パスの書き込みを承認できません。
+
+<div class="src">
+  出典: [permission-modes#actions-no-mode-auto-approves](https://code.claude.com/docs/en/permission-modes#actions-no-mode-auto-approves) · [#protected-paths](https://code.claude.com/docs/en/permission-modes#protected-paths)
+</div>
+
+<span id="ch23-protected-paths" />
+
+## 保護パスの一覧
+
+### ディレクトリ
+
+- `.git`、`.config/git`、`.vscode`、`.idea`、`.husky`、`.cargo`、`.devcontainer`、`.yarn`、`.mvn`
+- `.claude`。例外: `.claude/worktrees/`、現在のセッションの計画ファイル、バックグラウンドセッションの `~/.claude/jobs/<id>/tmp/`、auto memory とサブエージェントメモリの Markdown（`--restricted` なしのとき）
+- `--plugin-dir` で読み込んだディレクトリ（mod のコードを再読み込みして実行するため）
+- `~/.claude/dev-mods/`
+
+### ファイル
+
+- `.gitconfig`、`.gitmodules`
+- `.bashrc`、`.bash_profile`、`.bash_login`、`.bash_aliases`、`.bash_logout`、`.zshrc`、`.zprofile`、`.zshenv`、`.zlogin`、`.zlogout`、`.profile`、`.envrc`
+- `.npmrc`、`.yarnrc`、`.yarnrc.yml`、`.pnp.cjs`、`.pnp.loader.mjs`、`.pnpmfile.cjs`、`bunfig.toml`、`.bunfig.toml`
+- `.bazelrc`、`.bazelversion`、`.bazeliskrc`、`.pre-commit-config.yaml`、`lefthook.yml` 系 4 種
+- `gradle-wrapper.properties`、`maven-wrapper.properties`、`.devcontainer.json`、`.ripgreprc`、`pyrightconfig.json`
+- `.mcp.json`、`.claude.json`、`remote-settings.json` とその署名・同期・同意ファイル
+- `--settings`・`--mcp-config`・`--agents` に渡したファイル
+- symlink になった user・project・local 設定ファイルのリンク先。分類器を使うモードでは確認になる
+
+<div class="src">
+  出典: [permission-modes#protected-paths](https://code.claude.com/docs/en/permission-modes#protected-paths)
+</div>
+
+<span id="ch23-critical-rm" />
+
+## 危険な `rm`: クリティカルパスと判定対象
+
+### クリティカルパス
+
+- ファイルシステムのルートと、その直下（`/usr`、`/etc`、`/data` など）
+- ホームディレクトリ（Windows の 8.3 短縮名を含む）
+- Windows のドライブルートとその直下（`\\?\C:\` などの表記も含む）
+- 作業ディレクトリとその親
+- 追加ディレクトリとその親。ただし `rm -rf <dir>/*` のような glob 削除のときだけ
+
+`(...)`・`{ ...; }`・`$(...)`・`<(...)` の中と、`sh`・`bash`・`zsh` の `-c` スクリプトの中も調べます。どの allow ルールも PreToolUse の `"allow"` も承認できません。
+
+| 対象として扱う例        | 理由                                         |
+| ----------------------- | -------------------------------------------- |
+| `rm -rf "$DIR"/*`       | 変数が空ならルートからの削除になる           |
+| `rm -rf "$1"/*`         | 値が与えられない位置パラメータ               |
+| `rm -rf "$TMPDIR/mnt"`  | 空展開で `/mnt` を削除する                   |
+| `D=$(pwd); rm -rf "$D"` | 作業ディレクトリやリポジトリルートを指しうる |
+| `rm -rf "$(pwd)"`       | 実行前に対象を確認できない                   |
+| `rm -rf ~/$(cmd)`       | 空展開でホームが残る                         |
+| `rm -rf "\\"`           | Git Bash は現在のドライブのルートと解釈する  |
+| `rm -rf logs/*/*`       | どのディレクトリに届くか実行前に分からない   |
+
+`rm -rf "${DIR:?}"/*` のように展開をガードすると検査を通ります。シェルが解析と違う読み方をしうるコマンドには次の理由が付き、削除と同じ扱いになります。
+
+```text
+Dangerous rm operation not ruled out — the shell may read
+this command differently than it was parsed
+```
+
+<div class="src">
+  出典: [permission-modes#critical-paths](https://code.claude.com/docs/en/permission-modes#critical-paths)（Which paths are critical / Other targets / Removals inside nested commands / Rewrite a flagged command）
+</div>
+
+<span id="ch23-critical-rm-2" />
+
+## 危険な `rm`: モード別の扱いと無効化
+
+| モード                   | クリティカルパス削除の扱い                                                             |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| `default`, `acceptEdits` | 確認                                                                                   |
+| `plan`                   | 確認。計画中に分類器が審査し bypass がない場合は `auto` と同じ                         |
+| `auto`                   | ターミナルでは時間制限つきで確認。それ以外の場所では拒否                               |
+| `dontAsk`                | 拒否                                                                                   |
+| `bypassPermissions`      | ターミナルでは時間制限つきで確認。`-p`・SDK ではプロンプトツールか `canUseTool` が判断 |
+
+- 時間制限は 2 分です（v2.1.281 以降）。キーを押すと止まります。3 回時間切れになると以降は即拒否し、次のメッセージで数え直します。
+- 明示の ask ルールに一致すると、`auto` でも時間制限なしで確認します。
+- この節の表の変数は起動時の環境でだけ読まれ、設定ファイルの `env` ブロックでは無視されます。
+
+| 変数                                                   | 効果                                         |
+| ------------------------------------------------------ | -------------------------------------------- |
+| `CLAUDE_CODE_DISABLE_DANGEROUS_RM_TIMEOUT=1`           | bypass は時間制限なし。auto は分類器が判断   |
+| `CLAUDE_CODE_DISABLE_SUBSTITUTION_RM_PROMPT=1`         | 置換出力だけの対象の検査を止める             |
+| `CLAUDE_CODE_DISABLE_INLINE_SHELL_RM_PROMPT=1`         | `-c` スクリプト内の検査を止める              |
+| `CLAUDE_CODE_DISABLE_MOUNTED_DRIVE_RM_PROMPT=1`        | `/Volumes`・`/mnt` などの確認を止める        |
+| `CLAUDE_CODE_DISABLE_POWERSHELL_CMD_RM_DENY=1`         | `cmd` の `rd`・`del` などの拒否を止める      |
+| `CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS=1` | bypass でのみ確認なしで削除（v2.1.311 以降） |
+
+最後の変数は Bash・Edit・Read への deny/ask ルール、`PermissionRequest` フック、入れ子の `claude` などがあると効きません。起動時の表示（`is set, …` / `has no effect in this session`）で確認します。
+
+<div class="src">
+  出典: [permission-modes#critical-path-removals-in-each-permission-mode](https://code.claude.com/docs/en/permission-modes#critical-path-removals-in-each-permission-mode) · [#time-limits-and-denials-in-auto-and-bypasspermissions-modes](https://code.claude.com/docs/en/permission-modes#time-limits-and-denials-in-auto-and-bypasspermissions-modes) · [#turn-off-the-critical-path-removal-prompt-in-bypasspermissions-mode](https://code.claude.com/docs/en/permission-modes#turn-off-the-critical-path-removal-prompt-in-bypasspermissions-mode) · [env-vars](https://code.claude.com/docs/en/env-vars)
+</div>

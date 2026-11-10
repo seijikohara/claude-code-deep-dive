@@ -1,0 +1,78 @@
+---
+title: "ベストプラクティスと大規模リポジトリ"
+description: "公式ドキュメントの best-practices と large-codebases の 2 ページを、指示と設定の置き場所に絞って整理します。この章では、Claude が判断する指示と Claude Code が強制する設定の区別、CLAUDE.md に書く内容、モノレポで読み込む範囲を絞る設定を扱います。"
+sidebar:
+  order: 11
+---
+
+公式ドキュメントの best-practices と large-codebases の 2 ページを、指示と設定の置き場所に絞って整理します。この章では、Claude が判断する指示と Claude Code が強制する設定の区別、CLAUDE.md に書く内容、モノレポで読み込む範囲を絞る設定を扱います。
+
+<span id="ch11-best-practices" />
+
+## 判断に任せる指示と強制する設定、CLAUDE.md に書くもの
+
+| 観点           | 非決定的（Claude が判断）                        | 決定的（Claude Code が強制）                                      |
+| -------------- | ------------------------------------------------ | ----------------------------------------------------------------- |
+| 何をするか     | プロンプト、CLAUDE.md、Claude が自分で使う Skill | フック、ユーザーだけが起動できる Skill                            |
+| 何に触れるか   | auto mode の分類器                               | deny ルール、strict mode の sandbox、managed settings             |
+| いつ完了か     | 根拠の要求、`/goal`、`/code-review`              | テスト、型チェック、`Stop` フック、CI                             |
+| どれだけ使うか | effort、Claude 自身のペース                      | `-p` での `--max-turns`・`--max-budget-usd`、設定した spend limit |
+| 最終判断       | Claude による作業の要約                          | ブランチ保護、マージを承認する人                                  |
+
+CLAUDE.md には、コードから分からないことだけを書きます。「コードを読めば分かるか」「Claude は実際に見に行くか」が両方 yes なら書きません。
+
+- 作業の確認方法: テスト・型チェック・lint の正確なコマンド、1 ファイルだけのテスト方法
+- コードが誤解を招く箇所: 新しいコードで真似してはいけない古いパターンなど
+- リポジトリにない決定: 採用したエラーヘルパー、デプロイ手順など
+- すでに 2 回訂正したこと
+
+* 例外が 1 つも許されない規則は、フック・deny ルール・managed settings に置きます。CLAUDE.md の規則は、Claude が「当てはまらない」と判断できるガイドラインです。
+* 強調を足しても守られない行は、フックに移す合図です。IMPORTANT や全大文字の強調は不要になった助言に挙げられ、重ねると規則を過剰に当てはめやすくなります。
+* アーキテクチャやファイル構成の説明も、不要になった助言に挙げられています（memory ページとの食い違いは [Ch9](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-two-systems)）。
+
+<div class="src">
+  出典: [best-practices#deterministic-and-non-deterministic-instructions](https://code.claude.com/docs/en/best-practices#deterministic-and-non-deterministic-instructions) · [#tell-claude-what-it-cant-see](https://code.claude.com/docs/en/best-practices#tell-claude-what-it-cant-see) · [#keep-claude-md-short](https://code.claude.com/docs/en/best-practices#keep-claude-md-short) · [#enforce-the-rules-that-cant-have-exceptions](https://code.claude.com/docs/en/best-practices#enforce-the-rules-that-cant-have-exceptions) · [#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing)
+</div>
+
+<span id="ch11-large-codebases" />
+
+## 大規模リポジトリとモノレポで読み込む範囲を絞る
+
+| 起動場所         | ファイルアクセス                     | 起動時に読む CLAUDE.md                   |
+| ---------------- | ------------------------------------ | ---------------------------------------- |
+| ルート           | 全ファイル                           | ルートのみ。サブディレクトリの分は必要時 |
+| サブディレクトリ | そのサブツリーのみ（許可を足すまで） | そのディレクトリと全祖先の分             |
+
+| 目的                                  | 手段                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 触るコードの規約だけを読ませる        | ディレクトリごとの CLAUDE.md                                                                      |
+| 触らないパッケージの CLAUDE.md を外す | `claudeMdExcludes`（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-add-dir-excludes)） |
+| 生成コード・vendor を開かせない       | `permissions.deny` の `Read`                                                                      |
+| 定義と参照を走査なしで引く            | code intelligence プラグイン                                                                      |
+| worktree に必要な分だけ置く           | `worktree.sparsePaths`                                                                            |
+| 隣のパッケージも編集する              | `--add-dir`、`additionalDirectories`                                                              |
+| その領域だけで使う手順                | ディレクトリごとの Skill                                                                          |
+| 規約を一元管理する                    | 社内マーケットプレイスのプラグイン                                                                |
+
+`packages/api/.claude/settings.json`（docs の「Put it together」）
+
+```json
+{
+  "worktree": {
+    "sparsePaths": [".claude", "packages/api", "packages/shared"],
+    "symlinkDirectories": ["node_modules"]
+  },
+  "permissions": {
+    "additionalDirectories": ["../shared"],
+    "deny": ["Read(./**/dist/**/*)", "Read(./**/build/**/*)"]
+  }
+}
+```
+
+- `.claude/settings.json` は CLAUDE.md と違い、親から継承されません。ディレクトリごとに単独で完結させます。
+- worktree 内の作業ディレクトリは worktree のルートです。このファイルは読まれないため、deny ルールはルートの `.claude/settings.json` にも置きます。
+- deny を `/**` でなく `/**/*` で終えると、`ls dist` や `cd build` はできます。
+
+<div class="src">
+  出典: [large-codebases#settings-on-this-page](https://code.claude.com/docs/en/large-codebases#settings-on-this-page) · [#choose-where-to-start-claude](https://code.claude.com/docs/en/large-codebases#choose-where-to-start-claude) · [#block-reads-of-generated-and-vendored-code](https://code.claude.com/docs/en/large-codebases#block-reads-of-generated-and-vendored-code) · [#put-it-together](https://code.claude.com/docs/en/large-codebases#put-it-together)
+</div>

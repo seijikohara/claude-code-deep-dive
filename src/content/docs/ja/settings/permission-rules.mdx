@@ -1,0 +1,487 @@
+---
+title: "権限ルール"
+description: "allow・ask・deny の権限ルールを扱います。確認プロンプトと保存先、評価順とスコープ間の優先、フック・mod との関係、構文、Bash の照合規則と限界、Read・Edit のパス規則、WebFetch・MCP・Agent・Skill・Cd のルール、作業ディレクトリとワークスペース信頼までを示します。"
+sidebar:
+  order: 22
+---
+
+allow・ask・deny の権限ルールを扱います。確認プロンプトと保存先、評価順とスコープ間の優先、フック・mod との関係、構文、Bash の照合規則と限界、Read・Edit のパス規則、WebFetch・MCP・Agent・Skill・Cd のルール、作業ディレクトリとワークスペース信頼までを示します。
+
+<span id="ch22-layers" />
+
+## 権限の層: ツール種別ごとの既定
+
+Manual mode で実行前に確認するかどうか（他のモードの違いは [Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)）:
+
+| ツール種別                             | 承認                                           | 「Yes, and don't ask again」   |
+| -------------------------------------- | ---------------------------------------------- | ------------------------------ |
+| 読み取り専用（ファイル読み取り、Grep） | 不要（作業ディレクトリと追加ディレクトリ内）   | なし                           |
+| Bash                                   | 必要。組み込みの読み取り専用コマンドを除く     | リポジトリ・コマンド単位で永続 |
+| ファイル変更                           | 必要                                           | セッション終了まで             |
+| WebFetch                               | 必要。事前承認済みのドキュメントドメインを除く | リポジトリ・ドメイン単位で永続 |
+| WebSearch                              | 必要                                           | リポジトリ単位で永続           |
+
+:::note[補足]
+権限ルールを強制するのはモデルではなく Claude Code です。プロンプトや CLAUDE.md の指示は Claude が試みることを変えますが、Claude Code が許すことは変えません。
+:::
+
+### 判断に関わる層
+
+- **パーミッションモード**: 確認なしで動く範囲の基準（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)）
+- **権限ルール**: `permissions.allow`・`ask`・`deny` で特定のツールや引数を事前承認・確認・拒否（この章）
+- **PreToolUse フックと mod**: 実行時に独自のロジックで判断（[後述](/claude-code-deep-dive/ja/settings/permission-rules/#ch22-hooks-mods)）
+- **auto mode の分類器**: 確認の代わりに別モデルが審査（[Ch24](/claude-code-deep-dive/ja/settings/auto-mode/)）
+- **サンドボックス**: シェルコマンドのファイル・ネットワークを OS が制限（[Ch25](/claude-code-deep-dive/ja/settings/sandbox/)）
+
+* `.claudeignore` は効果がありません。中身は `Read` の deny ルールに移します。`permissions.deny` は非推奨の `ignorePatterns` を置き換えるキーです。
+
+<div class="src">
+  出典: [permissions#permission-system](https://code.claude.com/docs/en/permissions#permission-system) · [#manage-permissions](https://code.claude.com/docs/en/permissions#manage-permissions) · [#read-and-edit](https://code.claude.com/docs/en/permissions#read-and-edit) · [settings-reference#permissions-deny](https://code.claude.com/docs/en/settings-reference#permissions-deny)
+</div>
+
+<span id="ch22-prompt" />
+
+## 確認プロンプトと保存先
+
+Manual mode の Bash 確認の例（docs の画面）には 4 つの選択肢があり、フッターに <kbd>Esc</kbd>（取り消し）と <kbd>Tab</kbd>（追記）が出ます。
+
+1. **Yes**
+2. **Yes, and don't ask again for:** `npm test *`
+3. **Yes, and switch to auto mode**
+4. **No**
+
+- 永続する承認は、git リポジトリのルートの `.claude/settings.local.json` に保存されます。worktree からはメインのチェックアウトに解決されます。サブディレクトリや worktree で始めたセッションにも効きます。
+- ファイル変更の承認はファイルに保存されず、セッション終了まで有効です。
+- git の外や Windows では、リポジトリルート以外に保存されることがあります。
+- コマンドの前方一致を保存すると、空白区切りの形（`npm test *`）で書かれます。
+- 3 番目の選択肢は auto mode が使えるときだけ出ます（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/#ch23-switch)）。
+
+* **複合コマンド**: 承認が必要だったサブコマンドごとに別のルールを保存します（最大 5 個）。`git status && npm test` なら `npm test` のルールだけです。作業ディレクトリ外への `cd` はそのパスの Read ルールになります。
+* **1 回限りの承認しか出ない確認**: 選択肢が許す範囲をすべて表示できないとき、Claude Code は「今後は確認しない」系の選択肢を出しません。必要なら `/permissions` でルールを書きます。
+* **コメント**: Yes か No に移って <kbd>Tab</kbd> を押すと入力欄が開き、<kbd>Enter</kbd> で回答と一緒に送ります。Yes では結果の後に Claude へ届きます。No では拒否の理由になり、Claude は作業を続けます。メイン会話の確認でコメントなしの No を選ぶとターンが止まります。WebFetch とブラウザの確認には入力欄がありません。
+
+<div class="src">
+  出典: [permissions#permission-system](https://code.claude.com/docs/en/permissions#permission-system) · [#add-a-comment-when-you-answer-a-permission-prompt](https://code.claude.com/docs/en/permissions#add-a-comment-when-you-answer-a-permission-prompt) · [#compound-commands](https://code.claude.com/docs/en/permissions#compound-commands) · [#wildcard-patterns](https://code.claude.com/docs/en/permissions#wildcard-patterns)
+</div>
+
+<span id="ch22-permissions-cmd" />
+
+## `/permissions` とルールの検証
+
+- すべてのルールと、それぞれの出所の `settings.json` を一覧します。ルールの追加・削除、作業ディレクトリの管理、auto mode の拒否の確認ができます。別名は `/allowed-tools` です。
+- Claude の作業中にも開けます。ルールの変更は同じターンの次のツール呼び出しから効きます（v2.1.234 以降。それ以前はターン終了まで保留）。
+- `/permissions` で足したルールの `/path` は、保存先の設定ファイルを基準に解決されます。
+- **Recently blocked** タブ: auto mode が止めた操作を <kbd>r</kbd> で承認し再試行させます。**Auto mode** タブ: 分類器のルールと environment を編集します（v2.1.246 以降。auto が使えるときのみ）。詳細は [Ch24](/claude-code-deep-dive/ja/settings/auto-mode/#ch24-config-2)。
+- ルール削除とディレクトリ削除の確認は既定で No です（2.1.280）。
+
+* deny・ask ルールのツール名が既知のツールに一致しないと、起動時に警告します。`_` か `*` を含む名前と、`TaskOutput` のような削除済みツールは対象外です。
+* 対話セッションではバナーの下の行と debug log に出ます（`--debug-file <path>`）。
+
+project 設定と `--settings` に deny ルールを置き、`--debug-file` を付けた `-p` の debug log（抜粋。行頭のタイムスタンプは省略）:
+
+```text title="実測 2.1.321" frame="terminal"
+[DEBUG] Applying permission update: Adding 1 deny rule(s)
+  to destination 'projectSettings': ["Bash(ls *)"]
+[DEBUG] Applying permission update: Adding 2 deny rule(s)
+  to destination 'flagSettings': ["Bash(command:rm *)","Stop Task"]
+[WARN] [permissions] Permission deny rule "Bash(command:rm *)"
+  targets command as a raw string and will not match — use
+  Bash(…) for Bash's own matcher.
+[WARN] [permissions] Permission deny rule "Stop Task" matches
+  no known tool — check for typos.
+```
+
+<div class="src">
+  出典: [permissions#manage-permissions](https://code.claude.com/docs/en/permissions#manage-permissions) · [commands](https://code.claude.com/docs/en/commands) · [auto-mode-config#review-denials](https://code.claude.com/docs/en/auto-mode-config#review-denials) · [errors#matches-no-tool](https://code.claude.com/docs/en/errors#matches-no-tool) · changelog 2.1.280, 2.1.305 · 実機確認 2.1.321
+</div>
+
+<span id="ch22-order" />
+
+## 評価順: deny → ask → allow
+
+- ルールは deny、ask、allow の順に評価され、この順で最初に一致したものが結果を決めます。ルールの具体性は順序を変えません。
+- 広い deny `Bash(aws *)` は、狭い allow `Bash(aws s3 ls)` にも一致する呼び出しを止めます。allow で deny に例外は作れません。
+- ask と allow も同じです。一致する ask は、より具体的な allow があっても確認します。
+- **ツール名だけの deny**（`Bash`、`Bash(*)`、glob の `"*"`・`"mcp__*"`）は、ツールをコンテキストから取り除きます。Claude はそのツールを見ません。
+- **範囲を絞った deny**（`Bash(rm *)`）はツールを残し、一致する呼び出しだけを止めます。
+- 例外は `EndConversation` です。他のツールが残る限り deny で外せず、ask でも確認されません。
+- deny は組み込みの読み取り専用判定（`ls` など）より優先します。
+
+project 設定 `"deny": ["Bash(ls *)"]`、user 設定なしの `-p`。`--allowedTools "Bash(ls *)"` を足しても結果は同じでした。
+
+```text title="実測 2.1.321" frame="terminal"
+{"type":"system","subtype":"permission_denied",
+ "tool_name":"Bash","tool_use_id":"…",
+ "decision_reason_type":"subcommandResults", "message": …}
+```
+
+`"message":"Permission to use Bash with command ls -la . has been denied."`
+
+`"message":"Permission to use Bash with command echo start && ls has been denied."`
+
+2 つ目は複合コマンドの `ls` 部分に deny が一致した例です。末尾の `*` は引数なしの `ls` にも一致します。結果イベントの `permission_denials` にも記録されます。
+
+<div class="src">
+  出典: [permissions#manage-permissions](https://code.claude.com/docs/en/permissions#manage-permissions) · [#match-all-uses-of-a-tool](https://code.claude.com/docs/en/permissions#match-all-uses-of-a-tool) · [#tool-name-wildcards](https://code.claude.com/docs/en/permissions#tool-name-wildcards) · 実機確認 2.1.321
+</div>
+
+<span id="ch22-scopes" />
+
+## スコープ間の優先と managed 専用のロック
+
+- 権限ルールは他の設定と同じ優先順位に従い、managed settings が最上位です。コマンドライン引数を含め、どの層も managed のルールを上書きできません（優先順位は [Ch18](/claude-code-deep-dive/ja/settings/settings-files/)）。
+- どこかの層で deny されたツールは、他の層では allow できません。user の allow は project の deny に負け、逆も同じです。deny はどのスコープのものも allow より先に評価されるためです。
+- managed の deny は `--allowedTools` で上書きできません。`--disallowedTools` は managed の上にさらに制限を足せます。
+- `disableBypassPermissionsMode` はどのスコープでも効きます。user 設定に書けば自分自身を bypass から締め出せます。
+- 配布方法と managed 専用キーの全体は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) が扱います。
+
+### `allowManagedPermissionRulesOnly`（managed 専用）
+
+- user・project・local・`--settings` の allow・ask・deny を無視し、`--allowedTools` も無視します。確認の「常に許可」系の選択肢を隠し、新しいルールを保存しません。
+- `--disallowedTools` とセッション中の deny・ask は残ります。制限するだけで広げられないためです。
+- v2.1.282 以降は、リポジトリの `.claude/`、`~/.claude/skills/`・`~/.claude/commands/`、`--add-dir` などにある Skill とコマンドの `allowed-tools` frontmatter も無視します。managed とバンドル Skill のものは残ります。
+- このキーがあると、埋め込みホストが渡す方針（SDK の `managedSettings` など）の `allow` と `additionalDirectories` も捨てられます。
+
+<div class="src">
+  出典: [permissions#settings-precedence](https://code.claude.com/docs/en/permissions#settings-precedence) · [#managed-settings](https://code.claude.com/docs/en/permissions#managed-settings) · [settings-reference#allowmanagedpermissionrulesonly](https://code.claude.com/docs/en/settings-reference#allowmanagedpermissionrulesonly)
+</div>
+
+<span id="ch22-hooks-mods" />
+
+## PreToolUse フック・mod との関係
+
+- PreToolUse フックは確認の前に走ります（`EndConversation` 以外の全ツール）。拒否・確認の強制・確認の省略を返せます。
+- フックの `"allow"`・`"ask"` は deny・ask ルールを越えられません。managed の deny も同じです。
+- exit 2 で止めるフックはルール評価より前に呼び出しを止めるので、allow ルールにも勝ちます。docs は、`"Bash"` を allow し、特定のコマンドだけフックで止める構成を例示しています。
+- plan mode では、フックの `"allow"` は読み取り専用以外の呼び出しに効きません（`ExitPlanMode` を除く）。`updatedInput` は適用されます。
+- `requiresUserInteraction` の MCP ツール、ネットワークパスの読み取り、組織が `ask` にしたコネクタは、フックが `"allow"` を返しても確認します。
+- フックの仕様は [Ch28](/claude-code-deep-dive/ja/extensions/hooks/) が扱います。
+
+mod の `tool.check` は PreToolUse フックの後に答えます。結果はセッションの条件で変わります。
+
+| 条件                                                                              | mod が承認したとき                                                                                                   |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| managed settings、`managed-mcp.json`、Team・Enterprise の `/login` のどれかがある | deny は拒否のまま。ask とフックの確認は残る。フックのブロックも残る。プロンプトツール・`canUseTool` にも問い合わせる |
+| どれもない（API キーや `CLAUDE_CODE_OAUTH_TOKEN` の利用を含む）                   | deny やフックのブロックを越えて承認できる。ask の確認も出ない                                                        |
+
+- どの条件でも: auto mode では分類器を通さず実行、plan mode では読み取り専用以外を承認できない、`dontAsk` ではモードだけが拒否する呼び出しを承認できる。
+- mod 自身のツール呼び出しの扱いは 2.1.321 で変わりました。詳細は [Ch33](/claude-code-deep-dive/ja/extensions/mods/)。
+
+<div class="src">
+  出典: [permissions#extend-permissions-with-hooks](https://code.claude.com/docs/en/permissions#extend-permissions-with-hooks) · [#precedence-among-rules-hooks-and-mods](https://code.claude.com/docs/en/permissions#precedence-among-rules-hooks-and-mods) · [#hook-approvals-in-plan-mode](https://code.claude.com/docs/en/permissions#hook-approvals-in-plan-mode) · changelog 2.1.321
+</div>
+
+<span id="ch22-syntax" />
+
+## 構文: ツール名・指定子・パラメータルール
+
+- 形式は `Tool` か `Tool(specifier)` です。指定子の中の括弧は文字どおりに扱われ、エスケープは要りません。
+- `Bash`・`WebFetch`・`Read` のように名前だけ書くと全使用に一致します。`Bash(*)` は `Bash` と同じです。
+- 表示ラベルではなく正式名で書きます。トランスクリプトの `Stop Task` の正式名は `TaskStop` です。ルールもフックの matcher もラベルには一致しません。旧名 `Task(...)` は `Agent` の別名として残っています。
+- **ツール名の glob**: deny・ask は `"*"`（全ツール）と `"mcp__*"`（全 MCP ツール）を受け付けます。allow の glob は `mcp__<server>__` を文字どおりに書いた後だけ有効です（`mcp__github__get_*`）。`"*"`・`"B*"`・`"mcp__*"` の allow は無視されます。
+
+### パラメータルール `Tool(param:value)`（deny・ask のみ）
+
+| ルール                         | 一致する呼び出し                       |
+| ------------------------------ | -------------------------------------- |
+| `Agent(model:opus)`            | Opus を指定した Agent 呼び出し         |
+| `Agent(isolation:worktree)`    | git worktree を指定した Agent 呼び出し |
+| `Bash(run_in_background:true)` | バックグラウンド実行の Bash            |
+
+- 入力の最上位のスカラー値だけが対象です。1 ルール 1 パラメータで、`*` を使えます。省略された値には一致しません。
+- 値は正規化前に比べます。`Agent(model:opus)` はエイリアス `opus` に一致し、完全なモデル ID には一致しません。
+- 主内容のフィールド（`command`・`file_path`・`path`・`notebook_path`・`url`）は指定できません。`Bash(command:rm *)` は複合コマンドで回避できるため、警告して無視されます。
+- MCP ツールのパラメータルールは `--disallowedTools` で渡します。設定ファイルは括弧つきの `mcp__` ルールを読み飛ばします。
+
+<div class="src">
+  出典: [permissions#permission-rule-syntax](https://code.claude.com/docs/en/permissions#permission-rule-syntax) · [#match-by-input-parameter](https://code.claude.com/docs/en/permissions#match-by-input-parameter) · [#tool-name-wildcards](https://code.claude.com/docs/en/permissions#tool-name-wildcards) · [sub-agents](https://code.claude.com/docs/en/sub-agents)
+</div>
+
+<span id="ch22-bash-wildcards" />
+
+## Bash のワイルドカード照合表
+
+| 書いたルール           | 一致する                                                                             | 一致しない                             |
+| ---------------------- | ------------------------------------------------------------------------------------ | -------------------------------------- |
+| `Bash(npm run build)`  | `npm run build`                                                                      | `npm run build --watch`                |
+| `Bash(npm run *)`      | `npm run build`, `npm run test --watch`, `npm run`                                   | `npm install`                          |
+| `Bash(git log * main)` | `git log --oneline main`, `git log -5 main`, `git log --output=<file> main`          | `git log main`, `git push origin main` |
+| `Bash(git * main)`     | `git merge main`, `git push origin main`, `git -c core.fsmonitor=<script> diff main` | `git log`                              |
+| `Bash(* --version)`    | `node --version`, `bash -c 'echo hi' --version`                                      | `node -v`                              |
+| `Bash(ls *)`           | `ls -la`, `ls`                                                                       | `lsof`                                 |
+| `Bash(ls*)`            | `ls -la`, `lsof`                                                                     |                                        |
+| `Bash(* --help *)`     | `npm --help x`                                                                       | `npm --help`                           |
+
+- `*` は空白を含む任意の文字列に一致し、どの位置にも置けます。最初の `*` より前は文字どおりに照合されます。
+- 空白に続く末尾の `*` は、それが唯一のワイルドカードのとき引数なしのコマンドにも一致します。
+- 末尾 `*` の前の空白はルールの一部です。`Bash(ls *)` は `lsof` に一致しません。
+- `:*` は末尾でだけ同じ意味になります（`Bash(ls:*)`）。`Bash(git:* push)` のコロンは文字として扱われます。
+- `*` はサブコマンドの後に置きます。`Bash(git * main)` の `*` は `-c`（任意のプログラムを実行させる）にも一致します。サブコマンドより前に `*` がある allow ルールは起動時に警告されます。
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(npm run *)", "Bash(git commit *)"],
+    "deny": ["Bash(git push *)"]
+  }
+}
+```
+
+<div class="src">
+  出典: [permissions#wildcard-patterns](https://code.claude.com/docs/en/permissions#wildcard-patterns) · [errors#has-a-wildcard-before-the-rest-of-the-command](https://code.claude.com/docs/en/errors#has-a-wildcard-before-the-rest-of-the-command)
+</div>
+
+<span id="ch22-bash-compound" />
+
+## 複合コマンドとラッパー
+
+### 複合コマンド
+
+- 区切りは `&&`・`||`・`;`・`|`・`|&`・`&`・改行です。確認なしで走るには、すべてのサブコマンドが allow ルールか読み取り専用判定で許可されている必要があります。
+- deny・ask は、サブシェル・コマンド置換・`for` の本体を含むどれか 1 つに一致すれば効きます。auto mode でも同じです。ask `Bash(git clean *)` は `cd /tmp && git clean -f` や `echo "$(git clean -f)"` でも確認します。
+- `npm test &&` のように後ろが空の `&&`・`||` は解析不能として分割されず、`Bash(npm *)` でも承認されません。
+- PowerShell <span class="badge preview">Preview</span> は AST を解析し、`|`・`;`・PowerShell 7 以降の `&&`・`||` で分割します。別名は正規化され（`PowerShell(Get-ChildItem *)` は `gci`・`ls`・`dir` にも一致）、大文字小文字を区別しません。
+
+### ラッパーと環境変数
+
+- 照合前に外すラッパーは固定です: `timeout`・`time`・`nice`・`nohup`・`stdbuf`・`command`・`builtin`・zsh の `noglob`・フラグなしの `xargs`。`command -v`・`nocorrect`・`xargs -n1 …` は外しません。
+- 安全と分かっている環境変数の代入は allow の照合で外します（`NODE_ENV=test npm test`）。deny・ask はどの代入も越えて一致します（`FOO=bar rm -rf tmp/` は deny `Bash(rm *)` に一致）。
+- `direnv exec`・`devbox run`・`mise exec`・`npx`・`docker exec` は外しません。`Bash(devbox run *)` は `devbox run rm -rf .` にも一致するので、`Bash(devbox run npm test)` のように中身まで書きます。
+- `watch`・`setsid`・`ionice`・`flock` と、`-exec`・`-delete`・`-rm`・`-fprint`・`-files0-from` つきの `find` は前方一致ルールで承認されません。`*` を含まない完全一致ルール（`Bash(find build -type f -delete)`）か PreToolUse フックを使います。
+
+<div class="src">
+  出典: [permissions#compound-commands](https://code.claude.com/docs/en/permissions#compound-commands) · [#process-wrappers](https://code.claude.com/docs/en/permissions#process-wrappers) · [#exec-wrappers-and-find-actions](https://code.claude.com/docs/en/permissions#exec-wrappers-and-find-actions) · [#powershell](https://code.claude.com/docs/en/permissions#powershell)
+</div>
+
+<span id="ch22-bash-limits" />
+
+## Bash ルールが一致しないものと読み取り専用コマンド
+
+Bash ルールは Claude が書いたコマンド文字列に一致します。同じプログラムの別の呼び方は止められず、セキュリティ境界にはなりません。
+
+| deny・ask          | 止める                     | 止めない                                                                    |
+| ------------------ | -------------------------- | --------------------------------------------------------------------------- |
+| `Bash(curl *)`     | `curl https://example.com` | `/usr/bin/curl …`, `sh -c 'curl …'`                                         |
+| `Bash(rm *)`       | `rm -rf build/`            | `/bin/rm -rf build/`, `bash -c 'rm -rf build/'`                             |
+| `Bash(git push *)` | `git push origin main`     | `git -C . push origin main`, `git -c push.default=current push origin main` |
+
+文字列によらない強制にはサンドボックス（[Ch25](/claude-code-deep-dive/ja/settings/sandbox/)）、コマンド全体を独自に検査するには PreToolUse フックを使います。
+
+- 組み込みの読み取り専用コマンドは全モードで確認なしに動きます: `ls`・`cat`・`echo`・`pwd`・`head`・`tail`・`grep`・`find`・`wc`・`which`・`diff`・`stat`・`du`・`cd`・読み取り専用の `git` など。一覧は変更できず、確認させたいときは ask か deny を足します。
+
+- Manual mode でも確認になる例外:
+
+  - 書き込み可能なフラグを持つコマンド（`find`・`sort`・`sed`・`git`）と引用符なしの glob
+  - 別デーモンを指す `docker`（`-H`・`--context`）、`file -m`/`-f`、`e` オプションつきの `ps`（`ps auxe`）、`which -i`
+  - Windows の UNC パス、`PATH`・`IFS` の変更、解析できないコマンド、10,000 文字を超えるコマンド
+  - 別ディレクトリへの `cd` と `git` の組み合わせ（フック実行の恐れ）、解決先が曖昧な `cd` とリダイレクトの組み合わせ（`/dev/null` を除く）
+
+<div class="src">
+  出典: [permissions#bash-rule-limits](https://code.claude.com/docs/en/permissions#bash-rule-limits) · [#read-only-commands](https://code.claude.com/docs/en/permissions#read-only-commands)
+</div>
+
+<span id="ch22-bash-redirect" />
+
+## リダイレクト・`tee` と引数を絞るルールの限界
+
+### リダイレクト先の検査
+
+- `>`・`>>`・`2>` の書き込み先は、Edit の allow・deny、保護パス、作業ディレクトリで検査します。`Bash(git commit *)` が許すのはコマンドで、書き込み先ではありません。`~` で始まる先や glob を含む先は承認が必要です。
+- `<` の読み込み元は Read ルールと作業ディレクトリで検査します（v2.1.257 以降）。glob や、同じコマンド内の `cd` の後の相対パスは allow があっても承認が必要です。
+- `/dev/null`、`2>&1`・`<&3`、ヒアドキュメントとヒアストリングは検査しません。
+- `tee` の書き込み先も同じく検査します（`make | tee build.log` を含む。v2.1.269 以降）。
+- Read・Edit の deny は `cat`・`head`・`tail`・`sed`・`tee` と リダイレクト先にも効きます。`grep -r pattern .` やファイルを自分で開くスクリプトには効きません。
+
+### URL を絞るルールは壊れやすい
+
+`Bash(curl http://github.com/ *)` は次の形に一致しません。
+
+- URL の前のオプション: `curl -X GET http://github.com/...`
+- 別のプロトコル: `curl https://github.com/...`
+- リダイレクト: `curl -L http://short.example.com/xyz`
+- 変数: `URL=http://github.com && curl $URL`
+
+docs の推奨は、`curl`・`wget` を deny し、`WebFetch(domain:github.com)` で許可し、サンドボックスのネットワーク許可リストと組み合わせることです。WebFetch のルールだけでは、Bash が許されていれば `curl` で任意の URL に届きます。
+
+<div class="src">
+  出典: [permissions#redirections](https://code.claude.com/docs/en/permissions#redirections) · [#read-only-commands](https://code.claude.com/docs/en/permissions#read-only-commands) · [#read-and-edit](https://code.claude.com/docs/en/permissions#read-and-edit)
+</div>
+
+<span id="ch22-read-edit" />
+
+## Read・Edit ルールのパスアンカー
+
+| パターン         | 意味                                   | 例                               |
+| ---------------- | -------------------------------------- | -------------------------------- |
+| `//path`         | ファイルシステムのルートからの絶対パス | `Read(//Users/alice/secrets/**)` |
+| `~/path`         | ホームディレクトリから                 | `Read(~/Documents/*.pdf)`        |
+| `/path`          | 設定ファイルの出所を基準（下表）       | `Edit(/src/**/*.ts)`             |
+| `path`, `./path` | カレントディレクトリから               | `Read(*.env)`                    |
+
+| ルールを書いた場所                                     | `/path` の解決先                     |
+| ------------------------------------------------------ | ------------------------------------ |
+| `.claude/settings.json`・`.claude/settings.local.json` | \<主作業ディレクトリ>`/path`         |
+| `~/.claude/settings.json`                              | `~/.claude/path`                     |
+| `--settings <file>`                                    | \<そのファイルのディレクトリ>`/path` |
+| CLI フラグ・セッションのルール                         | \<主作業ディレクトリ>`/path`         |
+
+- gitignore の構文です。`/Users/alice/file` は絶対パスではありません。絶対パスは `//` で書きます。user 設定の `Read(/secrets/**)` が止めるのは `~/.claude/secrets/**` です。
+- Windows のパスは `/c/Users/alice` の形に直して照合します。全ドライブは `//**/.env` です。
+- `Edit` ルールはすべての編集ツールに効きます。`Read` の deny は Grep・Glob・`@` メンション・IDE の選択範囲・貼り付けた画像パス・`@` したディレクトリの一覧にも、できる範囲で適用されます。
+- `Read` の deny は同じパスの Edit・Write（新規作成を含む）も止めますが、NotebookEdit は止めません。`Edit` の deny も足します。
+- `Write(path)`・`Glob(path)`・`Grep(path)`・`NotebookEdit(path)`・`MultiEdit(path)` は受け付けられますが、一致しません。`Edit(...)` か `Read(...)` で書きます。
+
+```json
+{ "permissions": { "deny": [
+  "Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)",
+  "Read(./config/credentials.json)", "Bash(curl *)" ] } }
+```
+
+<div class="src">
+  出典: [permissions#how-path-patterns-match](https://code.claude.com/docs/en/permissions#how-path-patterns-match) · [#where-a-pattern-anchors](https://code.claude.com/docs/en/permissions#where-a-pattern-anchors) · [#read-and-edit](https://code.claude.com/docs/en/permissions#read-and-edit) · [settings-reference#permissions-deny](https://code.claude.com/docs/en/settings-reference#permissions-deny)
+</div>
+
+<span id="ch22-path-depth" />
+
+## パスの深さ・`!` 否定・symlink・ネットワークパス
+
+- ファイル名だけのパターンはどの深さにも一致します（`Read(.env)` ≡ `Read(**/.env)`）。
+- ディレクトリ 1 段の相対パターンは種類で深さが変わります。
+
+| ルール                         | `src/app.ts` | `vendor/pkg/src/lib.js` |
+| ------------------------------ | ------------ | ----------------------- |
+| `Edit(src/**)` を allow で     | 一致         | 不一致                  |
+| `Edit(src/**)` を deny・ask で | 一致         | 一致                    |
+| `Edit(/src/**)`                | 一致         | 不一致                  |
+| `Edit(**/src/**)`              | 一致         | 一致                    |
+
+- `!` 否定（deny・ask のみ）は、同じ出所の前にある `path`・`./path` ルールから除外します。`Read(*.env)` の後の `Read(!sample.env)` など。一覧の最初に置いた `!` ルール、`/`・`~/`・`//` アンカーのルール、丸ごと止めたディレクトリの内側には効きません。
+- 確認から保存したパスは `[`・`]`・`*` がエスケープされます。括弧はそのままです（`Edit(./Finance (2024)/**)`）。
+
+### symlink
+
+- allow は要求パスと解決先の両方が一致したときだけ効きます。deny はどちらかが一致すれば効きます。
+- 例: `Read(./project/**)` を allow、`Read(~/.ssh/**)` を deny のとき、`~/.ssh/id_rsa` を指す `./project/key` は拒否されます。
+- symlink のディレクトリ経由で書いた deny・ask は実体の場所にも効きます（v2.1.268 以降）。macOS の `Read(//etc/**)` は `/private/etc/hosts` も止めます。
+- 書き込み先そのものが symlink なら、Edit・Write は拒否してリンク先へ誘導します。
+
+### ネットワークパス
+
+- UNC（`\\server\share\file`）や `/net/...` の読み取りは常に確認します（v2.1.292 以降）。allow ルール、フックの `"allow"`、auto mode では省略されず、`dontAsk` では拒否、`bypassPermissions` では実行されます。
+
+<div class="src">
+  出典: [permissions#how-deep-a-pattern-matches](https://code.claude.com/docs/en/permissions#how-deep-a-pattern-matches) · [#special-characters-and-negation](https://code.claude.com/docs/en/permissions#special-characters-and-negation) · [#symlinks](https://code.claude.com/docs/en/permissions#symlinks) · [#network-paths](https://code.claude.com/docs/en/permissions#network-paths)
+</div>
+
+<span id="ch22-webfetch-mcp" />
+
+## WebFetch と MCP のルール
+
+- `domain:` でホスト名に照合します。大文字小文字を区別せず、末尾の `.` は外します。ワイルドカードは v2.1.172 以降です。
+- `WebFetch(domain:example.com)` はそのホストだけ、`WebFetch(domain:*.example.com)` は任意の深さのサブドメイン（本体は除く）です。
+- 先頭の `*.` と単独の `*` 以外の `*` はラベル 1 つ分だけです。`example.*` は `example.org` に一致し、`example.evil.com` には一致しません。
+
+| ルール               | allow                                            | deny                                                 |
+| -------------------- | ------------------------------------------------ | ---------------------------------------------------- |
+| `WebFetch`           | 確認なしで取得。サンドボックスの到達先は変えない | ツールを外す。サンドボックスは変えない               |
+| `WebFetch(domain:*)` | 確認なしで取得し、サンドボックスも全ホストへ     | ツールを残して毎回拒否。サンドボックスも全ホスト不可 |
+
+artifact の読み取りは、`claude.ai` か `*.claudeusercontent.com` を含む `domain:` ルールが対象です。素の `WebFetch` ルールは効きません（v2.1.268 以降）。
+
+- `mcp__puppeteer` と `mcp__puppeteer__*` はサーバーの全ツール、`mcp__puppeteer__puppeteer_navigate` は 1 ツールに一致します。
+- サーバー名の `.` や空白は `_` になります（`my.server` → `mcp__my_server__*`）。プラグインのサーバーは `mcp__plugin_my-plugin_database-tools__*` の形です。claude.ai のコネクタは `mcp__claude_ai_<server>__<tool>` です。
+- 名前に `__` を含むか `_` で終わるサーバー（`reports__v2`）を allow するには `mcp__reports__v2__*` と全名で書きます。deny・ask では短い `mcp__reports` もそのサーバーを覆います。
+- 組織が `ask` にしたコネクタツールは allow が効かず、auto や bypass でも毎回確認します。`dontAsk` では拒否です。
+- Cowork では、ツール全体を指定した `Bash`・`WebFetch` の deny が `mcp__workspace__bash`・`mcp__workspace__web_fetch` にも効きます。allow は引き継がれません。
+
+<div class="src">
+  出典: [permissions#webfetch](https://code.claude.com/docs/en/permissions#webfetch) · [#allow-or-deny-every-fetch](https://code.claude.com/docs/en/permissions#allow-or-deny-every-fetch) · [#mcp](https://code.claude.com/docs/en/permissions#mcp)
+</div>
+
+<span id="ch22-agent-skill-cd" />
+
+## Agent・Skill・Cd のルール
+
+### Agent
+
+- `Agent(Explore)`・`Agent(Plan)`・`Agent(my-custom-agent)` でサブエージェントを指定します。deny に書くか `--disallowedTools` で無効にします。
+- auto mode に入ると `Agent` の allow ルールは外されます（[Ch24](/claude-code-deep-dive/ja/settings/auto-mode/#ch24-decision-order)）。
+
+```json
+{ "permissions": { "deny": ["Agent(Explore)"] } }
+```
+
+### Skill
+
+- `Skill` で全 Skill、`Skill(commit)` で完全一致、`Skill(review-pr *)` で引数つきの前方一致です。allow は Skill 自身の名前にだけ一致します。
+- deny は別名でも効きます。`Skill(review)` は `/code-review` も止め、`Skill(deploy)` は入れ子の `apps/web:deploy` も止めます（v2.1.260 以降）。`Skill(skill:deploy)` は表示名を含むすべての名前に一致します。
+- claude.ai から同期した Skill の承認は `Skill(anthropic-skills:pdf)` のように予約名前空間で書きます。
+
+### Cd（ユーザーの `/cd` 用）
+
+- Claude は呼べず、自分で `/cd` したときだけ効きます。素の `Cd` の deny で `/cd` を無効にします。
+- deny は symlink の各段を含むすべての表記を検査します。
+- `Cd` の allow を 1 つでも書くと許可リスト方式になり、一致しない移動を拒否します。ルールがなければ見知らぬディレクトリで信頼を確認します。
+- アンカーは Read・Edit と同じ `//`・`~/`・`/` です。照合はパス全体に対してで、`*` は 1 段、`**` は複数段、末尾の `/**` はその根にも一致します。
+
+| ルール                | 一致                        | 不一致                     |
+| --------------------- | --------------------------- | -------------------------- |
+| `Cd(~/code/*)`        | `~/code/app`                | `~/code/app/src`, `~/code` |
+| `Cd(~/code/**)`       | `~/code` とその下すべて     | `~/code` の外              |
+| `Cd(**/node_modules)` | 任意の深さの `node_modules` | `node_modules/pkg`         |
+
+<div class="src">
+  出典: [permissions#agent-subagents](https://code.claude.com/docs/en/permissions#agent-subagents) · [#cd](https://code.claude.com/docs/en/permissions#cd) · [skills#restrict-claude's-skill-access](https://code.claude.com/docs/en/skills#restrict-claude%E2%80%99s-skill-access)
+</div>
+
+<span id="ch22-workdirs" />
+
+## 作業ディレクトリと外部アクセスの遮断
+
+- 起動したディレクトリが主作業ディレクトリです。広げるには `--add-dir <path>`（起動時）、`/add-dir`（セッション中）、`permissions.additionalDirectories`（設定）を使います。追加先にも同じルールが効きます。
+- 追加ディレクトリはファイルへのアクセスを広げるだけです。設定の読み込み元になるのは `--add-dir`・`/add-dir` の場合だけで、`permissions.additionalDirectories` では何も読みません。
+
+| `--add-dir` 先の設定                   | 読み込み                                                    |
+| -------------------------------------- | ----------------------------------------------------------- |
+| `.claude/skills/`                      | する（ライブリロードあり）                                  |
+| `.claude/commands/`・`.claude/agents/` | する（ライブリロードなし）                                  |
+| `.claude/settings*.json`               | `enabledPlugins` と `extraKnownMarketplaces` のみ           |
+| CLAUDE.md・`.claude/rules/`            | `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` のときのみ |
+
+### 外部の読み書きを止めるキー
+
+- `permissions.blockReadsOutsideWorkingDirectories`（v2.1.257 以降）: Read・Grep・Glob・LSP が作業ディレクトリ外を拒否します。`bypassPermissions` を含む全モードで効きます。
+- `permissions.blockWritesOutsideWorkingDirectories`（v2.1.314 以降）: Write・Edit・NotebookEdit が外を拒否します。シェル・MCP・フックは制限しません。`EnterWorktree`・`ExitWorktree` も外します。managed の `permissions` を読めない間は既定で有効です。
+- どちらもどのファイルの `true` でも有効になり、リポジトリは自分には有効にできても、ユーザーの設定を解除できません。通すには作業ディレクトリに追加します。
+
+### `/cd <path>`
+
+- 会話を保ったまま主作業ディレクトリを移し、移動先の project 設定・フック・`.mcp.json`・Skill・サブエージェント・`env` をすぐ適用します（v2.1.246 以降）。信頼の確認には、有効になる allow ルール・ディレクトリ・フックが並びます。
+
+<div class="src">
+  出典: [permissions#working-directories](https://code.claude.com/docs/en/permissions#working-directories) · [#additional-directories-grant-file-access-not-configuration](https://code.claude.com/docs/en/permissions#additional-directories-grant-file-access-not-configuration) · [#move-the-session-to-another-directory](https://code.claude.com/docs/en/permissions#move-the-session-to-another-directory) · [settings-reference](https://code.claude.com/docs/en/settings-reference#permissions-blockreadsoutsideworkingdirectories)
+</div>
+
+<span id="ch22-trust" />
+
+## ワークスペース信頼とリポジトリが持ち込む設定
+
+- project の `permissions.allow` と `additionalDirectories` は、信頼ダイアログを受け入れた後にだけ適用されます。deny と ask は制限だけなので常に効きます。
+- 信頼はリポジトリでは git ルート（worktree ならメインのチェックアウト）、外では起動ディレクトリで記録されます。ホームディレクトリではそのセッション限りです。
+- `-p` と SDK はダイアログを出しません。親フォルダを信頼しても、project の `permissions.allow` と `additionalDirectories` には数えません。
+- `.claude/settings.local.json` が git で追跡されているか `.claude` が symlink なら、リポジトリ由来として信頼まで保留されます。
+- 手動で信頼するには `~/.claude.json` の `projects["<path>"].hasTrustDialogAccepted` を `true` にします。
+
+他人のリポジトリで `-p` を動かす前の docs の対策: `--setting-sources user`、`--bare`、`--settings '{"disableAllHooks": true}'`、`disabledMcpjsonServers`。
+
+| リポジトリが持ち込むもの                                              | 親フォルダだけ信頼         | `-p`・SDK（未信頼）                                       |
+| --------------------------------------------------------------------- | -------------------------- | --------------------------------------------------------- |
+| 設定のフック、`env`、`apiKeyHelper`、project Skill の `allowed-tools` | 使う                       | 使う                                                      |
+| `permissions.allow`・`additionalDirectories`                          | ダイアログ承認まで使わない | 使わない。stderr に `this workspace has not been trusted` |
+| サブエージェント frontmatter のフック、`extraKnownMarketplaces`       | 使わない                   | 使わない                                                  |
+| `.mcp.json` のサーバー                                                | 接続前に確認               | 確認なしで接続                                            |
+| `.mcp.json` の `headersHelper`                                        | 承認まで実行しない         | 実行しない                                                |
+
+<div class="src">
+  出典: [permissions#project-allow-rules-and-workspace-trust](https://code.claude.com/docs/en/permissions#project-allow-rules-and-workspace-trust) · [#when-your-local-settings-file-needs-trust](https://code.claude.com/docs/en/permissions#when-your-local-settings-file-needs-trust) · [#what-runs-before-you-trust-a-folder](https://code.claude.com/docs/en/permissions#what-runs-before-you-trust-a-folder)
+</div>

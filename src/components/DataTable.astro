@@ -1,0 +1,59 @@
+---
+// Render one generated table (appendix, command catalog) from data/*.json.
+// `spec` comes from the converted chapter: { data, filter?, sort?, columns, intro? }.
+import { renderTable } from "../../tools/lib/html.mjs";
+import cliCommands from "../../data/cli-commands.json";
+import cliFlags from "../../data/cli-flags.json";
+import commands from "../../data/commands.json";
+import env from "../../data/env.json";
+import hookEvents from "../../data/hook-events.json";
+import settings from "../../data/settings.json";
+import tools from "../../data/tools.json";
+import overrides from "../../data/status-overrides.json";
+
+type Row = Record<string, unknown> & { name: string; status?: string };
+interface Column {
+  key: string;
+  label: string;
+  code?: boolean;
+  sub?: string;
+  badge?: boolean;
+  map?: Record<string, string>;
+}
+interface Spec {
+  data: string;
+  filter?: Record<string, string | string[]>;
+  sort?: string;
+  columns: Column[];
+  intro?: string;
+}
+interface Props {
+  spec: Spec;
+}
+
+const sources: Record<string, Row[]> = {
+  "cli-commands": cliCommands,
+  "cli-flags": cliFlags,
+  commands,
+  env,
+  "hook-events": hookEvents,
+  settings,
+  tools,
+};
+
+const { spec } = Astro.props;
+const statusOverrides = (overrides as Record<string, Record<string, string>>)[spec.data] ?? {};
+let rows = (sources[spec.data] ?? []).map((r) => (statusOverrides[r.name] ? { ...r, status: statusOverrides[r.name] } : r));
+rows = rows.filter((r) =>
+  Object.entries(spec.filter ?? {}).every(([k, v]) => (Array.isArray(v) ? v.includes(String(r[k])) : r[k] === v)),
+);
+if (spec.sort) {
+  const key = spec.sort;
+  rows = rows.toSorted((a, b) => String(a[key]).localeCompare(String(b[key])));
+}
+if (rows.length === 0) throw new Error(`DataTable ${spec.data}: no rows`);
+const html = renderTable({ columns: spec.columns, rows });
+---
+
+{spec.intro && <p set:html={spec.intro} />}
+<div class="data-table" set:html={html} />

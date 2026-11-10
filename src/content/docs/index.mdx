@@ -1,0 +1,34 @@
+---
+title: Home
+description: A reference on every feature of Claude Code 2.1.321, checked against the official documentation and the installed binary.
+template: splash
+hero:
+  title: Claude Code Deep Dive
+  tagline: Every feature of Claude Code 2.1.321 in one reference. Each fact comes from the official documentation, the changelog, or a run of the installed binary.
+  actions:
+    - text: Read the Japanese edition
+      link: /claude-code-deep-dive/ja/
+      icon: right-arrow
+    - text: Source on GitHub
+      link: https://github.com/seijikohara/claude-code-deep-dive
+      variant: minimal
+---
+
+```console title="claude --version"
+$ claude --version
+2.1.321 (Claude Code)
+```
+
+## Editions
+
+- **Japanese:** complete. 76 chapters, from the agent loop to enterprise operation, plus complete tables of all 249 settings keys, 402 environment variables, CLI flags and subcommands, 33 hook events, and 46 built-in tools.
+- **English:** in preparation.
+
+## How the reference is checked
+
+- Facts come from the official docs (228 pages), the changelog, `--help` output, and headless runs of 2.1.321.
+- Every section names its sources. Features that are not generally available carry a status label: Beta, Preview, Experimental, Undocumented, Deprecated, or Removed.
+- Where the docs, the changelog, and the binary disagree, the page shows both readings.
+- An independent reviewer checked every chapter against the sources before publication.
+
+This is an unofficial reference. It is not affiliated with or endorsed by Anthropic.

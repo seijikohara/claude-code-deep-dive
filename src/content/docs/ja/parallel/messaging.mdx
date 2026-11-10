@@ -1,0 +1,134 @@
+---
+title: "セッション間メッセージング"
+description: "ある Claude Code セッションの Claude が、あなたの別のセッションへテキストを送る仕組みです。この章では、届く範囲と経路、配送のタイミングと受け取り側の扱い、受信の制御、inbox socket とアイドル通知、提供条件を扱います。"
+sidebar:
+  order: 40
+---
+
+ある Claude Code セッションの Claude が、あなたの別のセッションへテキストを送る仕組みです。この章では、届く範囲と経路、配送のタイミングと受け取り側の扱い、受信の制御、inbox socket とアイドル通知、提供条件を扱います。
+
+<span id="ch40-reach" />
+
+## 到達範囲と経路
+
+- 送るのはテキスト 1 通だけです。送り手の会話履歴やファイルは渡りません。
+- 宛先の検索は `ListAgents`、送信は `SendMessage` です。どちらも Claude が呼び、頼まれなくても送ることがあります。
+- 宛先は `@` で名指しできます（v2.1.232 以降）。例: `Let @api-worker know the schema migration finished`
+- 英数字・`-`・`_` 以外を含む名前は `@"release notes"` のように引用符で囲みます。同じ名前の生きたセッションが複数あると、Claude が送る前に確認します。
+
+### `/list-agents`（`/peers`）に出るもの
+
+- 1 行目: このセッション自身の名前。`/rename` か `--name` で付け、無ければ Claude Code が付けます。
+- サブエージェントと、このセッションのチームメイト
+- 同じマシンの他のセッション。背景セッションを含み、inbox socket を張ったものだけです。
+- クラウドセッションと、他マシンの Remote Control セッション。このセッションが Remote Control に接続している間だけ出ます。
+
+| 宛先の場所     | 経路                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| 同じマシン     | セッションごとの socket（ネイティブ Windows は named pipe）。Anthropic のサーバーを通らない            |
+| 自分の別マシン | Anthropic のサーバー経由で、相手の Remote Control 接続に届く。こちらから会話を始めるのは v2.1.225 以降 |
+| クラウド       | Anthropic のサーバー経由で、クラウドセッションへ直接                                                   |
+
+- `offline`: 相手の Remote Control 接続が切れています。送信は通り、相手のマシンの再接続後に届きます。
+- `can't receive cross-session messages (off in that session)`: 相手で機能が無いか `refuse` です。送信前に拒否され、結果は `Not sent` で始まります。
+- コンテナ内とホスト、WSL 2 とネイティブ Windows の間は届きません。同じコンテナ内どうしは届きます。
+- クラウドセッションは、他マシンからのメッセージに `SendMessage` で返信できません。Remote Control に未接続のまま外へ送ると、返信先が付きません。
+
+<div class="src">
+  出典: [cross-session-messaging#message-another-session](https://code.claude.com/docs/en/cross-session-messaging#message-another-session) · [#see-which-sessions-claude-can-reach](https://code.claude.com/docs/en/cross-session-messaging#see-which-sessions-claude-can-reach) · [#message-sessions-on-other-machines](https://code.claude.com/docs/en/cross-session-messaging#message-sessions-on-other-machines)
+</div>
+
+<span id="ch40-delivery" />
+
+## 配送のタイミングと、受け取り側での扱い
+
+- 受け取り側の Claude は、実行中のターンのツール呼び出しの合間に読みます。実行中のツールは中断されません。アイドルなら、新しいターンが始まります。
+- 実行中の背景エージェント宛ては、2.1.317 から早く届きます。実行中のコマンドは止めずに背景へ移します。
+- 受け取り側の判定は 3 通りです。**Delivered**（Claude に渡す）、**Held**（承認か設定変更まで保留）、**Refused**（破棄）。
+- 配送されたメッセージは、入力したプロンプトと同じく使用量に計上されます。
+- 画面には 1 行のプレビューが残ります。例: `› Message from @api-worker: Schema migration finished (ctrl+o to expand)`
+- 全文は <kbd>Ctrl</kbd>+<kbd>O</kbd> のトランスクリプトで読めます。未配送のものは末尾の `Waiting to be delivered` に並びます（v2.1.309 以降）。`--verbose` では最初から全文を表示します。プレビューの有無にかかわらず、Claude は全文を読みます。
+
+|                    |                                                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| 承認にならない     | あなたの同意として扱われず、保留中の権限確認に答えられない                                                 |
+| 設定を変えない     | 権限設定・`CLAUDE.md`・その他の設定を、他セッションの依頼では変えないよう Claude に指示される              |
+| コマンドは動かない | `/compact` などは平文として届く。`@` 付きのファイルや MCP リソースも添付されない                           |
+| 権限確認は出る     | 受け取り側の権限ルールとプロンプトがそのまま効く。送り手も、自分のセッションで拒否された操作を他へ頼まない |
+
+### 拒否と流量制限
+
+- 送信側で拒否: 同じマシン宛てでシリアライズ後に約 100 万文字を超えるもの。相手の受信上限に達した短時間の連打。返信先が symlink などの安全チェックに通らないもの。
+- 受信側: 送り手ごとのレート制限、短時間に届いた同一メッセージの破棄、受理済みキューは最大 50 件です。2 セッション間のループは自然に止まります。
+
+<div class="src">
+  出典: [cross-session-messaging#message-delivery](https://code.claude.com/docs/en/cross-session-messaging#message-delivery) · [#what-a-message-looks-like](https://code.claude.com/docs/en/cross-session-messaging#what-a-message-looks-like) · [#how-a-session-treats-an-incoming-message](https://code.claude.com/docs/en/cross-session-messaging#how-a-session-treats-an-incoming-message) · [#limitations](https://code.claude.com/docs/en/cross-session-messaging#limitations) · changelog 2.1.317
+</div>
+
+<span id="ch40-inbound" />
+
+## 受信の制御: `crossSessionInbound` と送信の停止
+
+| 値         | 動作                                                   |
+| ---------- | ------------------------------------------------------ |
+| `"accept"` | 各メッセージを Claude に渡す                           |
+| `"hold"`   | 通知だけ出して保留する。後で `accept` が効くと放出する |
+| `"refuse"` | 渡さずに破棄する                                       |
+
+- managed、`--settings`、user の順に読み、最初に見つかった値を使います。project・local の値は、それより厳しいときだけ効きます（`refuse` > `hold` > `accept`）。
+- 未設定なら、両セッションの権限モードで決まります。確認を出す側は配送し、送り手が bypass のときだけ保留します。bypass の側は保留し、送り手も bypass のときだけ配送します。
+- 保留はダイアログで Approve / Deny します。`dialogExpiry`（既定 `"5m"`）を過ぎると破棄します。保留は最大 100 件で、超えると古いものから捨てます。
+- `/config` の **Messages from your other sessions** 行は user 設定に書きます（v2.1.232 以降）。`/config crossSessionInbound=value` の短縮形は受け付けません。
+
+* `-p` もソケットを張りますが、ダイアログを出せません。無人で受けるには `--settings '{"crossSessionInbound":"accept"}'` で起動します。`--bare` はソケットを張りません。
+* `"isolatePeerMachines": true` は、マシンの外へ出る送信すべてに承認を求めます（`bypassPermissions` でも）。どのスコープの `true` も効きます。
+* 送信と一覧を止めるには、`SendMessage` と `ListAgents` を指定子なしで deny します。組織全体では managed 設定に次を書きます。
+
+```json
+{
+  "permissions": {
+    "deny": ["SendMessage", "ListAgents"]
+  },
+  "crossSessionInbound": "refuse"
+}
+```
+
+- `SendMessage` の拒否は、サブエージェントとチームメイトへのメッセージも止めます。
+- `refuse` のセッションでもソケットは張られ、`/status` や他セッションの一覧には変化が出ません。確認は設定ファイルで行います。
+
+<div class="src">
+  出典: [cross-session-messaging#control-inbound-messages](https://code.claude.com/docs/en/cross-session-messaging#control-inbound-messages) · [#non-interactive-sessions](https://code.claude.com/docs/en/cross-session-messaging#non-interactive-sessions) · [#restrict-cross-session-messaging](https://code.claude.com/docs/en/cross-session-messaging#restrict-cross-session-messaging) · [settings-reference#crosssessioninbound](https://code.claude.com/docs/en/settings-reference#crosssessioninbound) · [#isolatepeermachines](https://code.claude.com/docs/en/settings-reference#isolatepeermachines)
+</div>
+
+<span id="ch40-socket" />
+
+## inbox socket・アイドル通知・提供条件
+
+### inbox socket
+
+- パスは `/status` の `Peer address` 行（`uds:` 付き）と、フックと Bash に渡る `CLAUDE_CODE_MESSAGING_SOCKET` で分かります。`SessionStart` フックより前に渡ります。
+- スクリプトは最初の行に `{"type":"auth","token":"<token>"}` を送れます。値は `CLAUDE_CODE_MESSAGING_TOKEN` です。ネイティブ Windows では必須です。
+- 30 秒以内に 1 行を送り切らない接続は閉じられます。出力を用意してから接続します。
+- 自分の子プロセス（フックや Bash）からの投稿だと確認できれば、`crossSessionInbound` が未設定でも配送されます。
+- 使えないディレクトリでは `/tmp/cc-socks-<uid>` に作ります。サンドボックス内からの到達は `sandbox.network.allowUnixSockets` と `allowAllUnixSockets` で制御します。
+- 実機では、`-p` の init イベントに `messaging_socket_path` フィールドがありました。
+
+### アイドル通知 `notify_when_idle`
+
+- `Tell me when the migration session finishes what it's working on` と頼むと、相手が次にアイドルか終了になったとき 1 回だけ通知が届きます（両側 v2.1.236 以降）。
+- 購読できるのはメイン会話の Claude だけで、対象は同じマシンのセッションに限られます。それ以外を指定すると呼び出し全体が拒否されます。12 時間届かなければ破棄されます。
+
+### 提供条件
+
+|            |                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 同じマシン | 設定不要で有効。v2.1.224 以降。全プロバイダで使え、サードパーティと flag 取得オフでは v2.1.248 以降                       |
+| マシンの外 | claude.ai サインインと Remote Control が必要。API キー・Bedrock・Claude Platform on AWS・Agent Platform・Foundry では不可 |
+
+:::danger[食い違い]
+ネイティブ Windows の対応版: docs は v2.1.234 以降、changelog 2.1.239 は「Windows: cross-session messaging is now available」。
+:::
+
+<div class="src">
+  出典: [cross-session-messaging#the-sessions-inbox-socket](https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket) · [#get-a-notice-when-another-session-goes-idle](https://code.claude.com/docs/en/cross-session-messaging#get-a-notice-when-another-session-goes-idle) · [#availability](https://code.claude.com/docs/en/cross-session-messaging#availability) · [env-vars](https://code.claude.com/docs/en/env-vars) · changelog 2.1.239 · 実機確認 2.1.321
+</div>

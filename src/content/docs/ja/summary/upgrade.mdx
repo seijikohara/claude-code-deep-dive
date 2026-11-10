@@ -1,0 +1,40 @@
+---
+title: "アップグレードチェックリスト"
+description: "2.1.292 より前の版から 2.1.321 に上げるときに、スクリプト・設定・監視が影響を受けうる変更を changelog から拾った確認リストです。"
+sidebar:
+  order: 68
+---
+
+2.1.292 より前の版から 2.1.321 に上げるときに、スクリプト・設定・監視が影響を受けうる変更を changelog から拾った確認リストです。
+
+<span id="ch68-checklist" />
+
+## 2.1.321 に上げる前の確認項目
+
+### スクリプト・CI
+
+- 2.1.302: 権限モード未設定の `-p`・SDK は `default` で始まる。auto が要るなら `--permission-mode auto`
+- 2.1.302: `-p`・SDK でも fork サブエージェントが既定で有効。止めるなら `CLAUDE_CODE_FORK_SUBAGENT=0`
+- 2.1.317・2.1.321: トランスクリプトを書けないとき、`claude -p` は 1 で終わる（text・json 出力）
+- 2.1.311: JSON 出力の制御文字が `\uXXXX` になる。パース後の値は同じ
+- 2.1.309: `claude ultrareview` はワークスペースの信頼が必要。スクリプトは `--trust-workspace`
+- 2.1.300: `claude remote-control --sandbox` はエラー。`sandbox.enabled` に移す
+- 2.1.319: self-paced `/loop` は再スケジュールしないと終わる。旧動作は `CLAUDE_CODE_LOOP_KEEPALIVE=1`
+- 2.1.292: stdio の MCP サーバーはプロトコル `2026-07-28` を既定で交渉する。戻すなら `MCP_PROTOCOL_NEGOTIATION=legacy`
+
+### 権限・管理設定・Skill
+
+- 2.1.299: MCP の allow ルールとエージェントの `tools:` は、サーバー名全体で書く（`mcp__<server>__*`）
+- 2.1.305: `allowedMcpServers` は、`env` だけで `${VAR}` を使う managed の stdio サーバーを絞らない。止めるなら `deniedMcpServers`
+- 2.1.316: Team・Enterprise のサーバー管理設定は承認なしで適用される
+- 2.1.321: `~/.claude/plugins` 内の作業では、そこの `.claude/skills` を読まない
+
+### モデル・プロバイダ
+
+- 2.1.316: Opus 4.8 の fast mode は 2026-11-30 に削除。Opus 5.5 に移る
+- 2.1.321: 保存済みの Fable 5.1 は `fable`（5.2）に移る。Team・Enterprise は組織の許可後。戻すなら `/model claude-fable-5-1`
+- 2.1.311: Bedrock・Mantle・Vertex・Foundry はモデル設定を署名付きファイルから読む。止めるなら `CLAUDE_CODE_MODEL_CATALOG=off`
+
+<div class="src">
+  出典: [changelog](https://code.claude.com/docs/en/changelog) 2.1.292, 2.1.299, 2.1.300, 2.1.302, 2.1.305, 2.1.309, 2.1.311, 2.1.316, 2.1.317, 2.1.319, 2.1.321
+</div>

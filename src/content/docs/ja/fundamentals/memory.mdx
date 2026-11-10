@@ -1,0 +1,455 @@
+---
+title: "メモリ"
+description: "Claude Code は、自分で書く CLAUDE.md と Claude が書く auto memory の 2 系統で、セッションをまたいで知識を引き継ぎます。この章では、CLAUDE.md のスコープと読み込み順、オンデマンド読み込みとサイズ上限、@path インポート、.claude/rules、AGENTS.md、組織向けの制御、auto memory、/memory を扱います。読み込み順と条件は、2 階層のフィクスチャで -p を実行して確かめました。"
+sidebar:
+  order: 9
+---
+
+Claude Code は、自分で書く CLAUDE.md と Claude が書く auto memory の 2 系統で、セッションをまたいで知識を引き継ぎます。この章では、CLAUDE.md のスコープと読み込み順、オンデマンド読み込みとサイズ上限、`@path` インポート、`.claude/rules`、AGENTS.md、組織向けの制御、auto memory、`/memory` を扱います。読み込み順と条件は、2 階層のフィクスチャで `-p` を実行して確かめました。
+
+<span id="ch09-two-systems" />
+
+## 2 系統のメモリ: CLAUDE.md と auto memory
+
+|          | CLAUDE.md                                                    | auto memory                                                 |
+| -------- | ------------------------------------------------------------ | ----------------------------------------------------------- |
+| 書く人   | 自分                                                         | Claude                                                      |
+| 中身     | 指示と規則                                                   | 学んだことやパターン                                        |
+| スコープ | プロジェクト、ユーザー、組織                                 | リポジトリ単位。worktree 間で共有                           |
+| 読み込み | 毎セッション                                                 | 毎セッション（先頭 200 行または 25KB）                      |
+| 用途     | コーディング規約、ワークフロー、プロジェクトのアーキテクチャ | 好み、Claude への訂正、コードから導けないプロジェクトの文脈 |
+
+- どちらも強制される設定ではなく、文脈として扱われます。Claude の判断に関係なく止めたい操作は、`PreToolUse` フックで止めます（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）。
+- CLAUDE.md の内容はシステムプロンプトには入らず、その後のユーザーメッセージとして届きます。システムプロンプトの水準で渡したい指示は `--append-system-prompt` を使います。
+
+CLAUDE.md に追記する目安（docs）:
+
+- Claude が同じ誤りを 2 回した
+- コードレビューで、Claude が知っておくべきことが見つかった
+- 前のセッションと同じ訂正をチャットで打った
+- 新しいチームメンバーにも同じ説明が要る
+
+複数手順の作業や、コードの一部にだけ効く内容は、Skill か `paths` 付きの rule に移します。
+
+:::danger[食い違い]
+**memory ページ**: この節の表の用途に「project architecture」を、CLAUDE.md に書く事実に「project layout」を挙げています。
+
+**best-practices ページ**: 「アーキテクチャとファイル構成を CLAUDE.md に書く」を不要になった助言としています（[Ch11](/claude-code-deep-dive/ja/fundamentals/best-practices/)）。memory ページ自身も、`/doctor` はディレクトリ構成やアーキテクチャ概要を削ると書いています。
+:::
+
+<div class="src">
+  出典: [memory#claude-md-vs-auto-memory](https://code.claude.com/docs/en/memory#claude-md-vs-auto-memory) · [#when-to-add-to-claude-md](https://code.claude.com/docs/en/memory#when-to-add-to-claude-md) · [#claude-isn’t-following-my-claude-md](https://code.claude.com/docs/en/memory#claude-isn’t-following-my-claude-md) · [#my-claude-md-is-too-large](https://code.claude.com/docs/en/memory#my-claude-md-is-too-large) · [best-practices#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing)
+</div>
+
+<span id="ch09-scopes" />
+
+## CLAUDE.md のスコープと読み込み順（実測）
+
+| スコープ       | 場所                                                                                                                                                | 共有範囲                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Managed policy | macOS `/Library/Application Support/ClaudeCode/CLAUDE.md`、Linux・WSL `/etc/claude-code/CLAUDE.md`、Windows `C:\Program Files\ClaudeCode\CLAUDE.md` | 組織の全ユーザー         |
+| User           | `~/.claude/CLAUDE.md`                                                                                                                               | 自分（全プロジェクト）   |
+| Project        | `./CLAUDE.md` または `./.claude/CLAUDE.md`                                                                                                          | チーム（git）            |
+| Local          | `./CLAUDE.local.md`（`.gitignore` に追加）                                                                                                          | 自分（このプロジェクト） |
+
+- 表の上から順に読み、後に読んだものほど文脈の後ろに来ます。
+- 作業ディレクトリと全祖先の `CLAUDE.md`・`CLAUDE.local.md` を起動時に読み、ファイルシステムのルート側から作業ディレクトリへ並べます。各ディレクトリでは `CLAUDE.local.md` が `CLAUDE.md` の後です。
+- 互いに上書きせず、すべて連結します。矛盾する指示は Claude がどちらかを任意に選ぶことがあります。
+
+```text title="実測 2.1.321" frame="terminal"
+$ cd mono/pkg && claude -p "/context all"
+…
+### Memory Files
+
+| Type | Path | Tokens |
+|------|------|--------|
+| User | ~/.claude/CLAUDE.md | … |
+| Project | …/mono/CLAUDE.md | 22 |
+| Project | …/mono/.claude/rules/root-rule.md | 22 |
+| Local | …/mono/CLAUDE.local.md | 24 |
+| Project | …/mono/pkg/CLAUDE.md | 54 |
+| Project | …/mono/pkg/docs/extra.md | 19 |
+| Project | …/mono/pkg/.claude/rules/always.md | 24 |
+| Local | …/mono/pkg/CLAUDE.local.md | 23 |
+```
+
+- 同じディレクトリでは CLAUDE.md、import、rules、`CLAUDE.local.md` の順でした。祖先の rules も読みます。
+- `--setting-sources project,local` で User の行が、`project` だけでは Local の行も消えました。
+- `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` では節ごと消えました。`--bare`・`--safe-mode` も読みません。
+
+<div class="src">
+  出典: [memory#choose-where-to-put-claude-md-files](https://code.claude.com/docs/en/memory#choose-where-to-put-claude-md-files) · [#how-claude-md-files-load](https://code.claude.com/docs/en/memory#how-claude-md-files-load) · [agent-sdk/claude-code-features](https://code.claude.com/docs/en/agent-sdk/claude-code-features#claude-md-load-locations) · [env-vars](https://code.claude.com/docs/en/env-vars) · [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · 実機確認 2.1.321
+</div>
+
+<span id="ch09-on-demand" />
+
+## サブディレクトリのオンデマンド読み込みとサイズ上限
+
+- 作業ディレクトリより下の `CLAUDE.md`・`CLAUDE.local.md` は起動時に読みません。Claude がそのサブディレクトリのファイルを読む・書く・編集したときに読みます。
+- 単一ファイルへの `cat`・`head` など、読み取りとみなす Bash コマンドも対象です。Bash での読み取りは 2.1.293、Write・Edit は 2.1.288 で修正されました。
+- 読み込むとターミナルに `Loaded` 行とパスが出ます。起動時のファイルではないため、`/context all` の Memory files には出ません。試すときはシェルでファイルを作り、Claude にそのディレクトリのファイルを読ませます。
+- ブロック単位の HTML コメント（`<!-- maintainer notes -->`）は、注入前に取り除かれます。コードブロック内のコメントと、Read ツールで開いたときの表示は残ります（2.1.72）。
+- `/compact` の後、ルートの CLAUDE.md はディスクから読み直して再注入されます。サブディレクトリの分と `paths` 付き rule は、必要時にまた読みます（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/#ch06-survives)）。
+
+| 対象                                                                                    | 上限                                                                                   | 超えたとき                                                                                          |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 起動時に読む CLAUDE.md                                                                  | 推奨 200 行未満。上限 4 MiB                                                            | 推奨の長さを超えると起動時と `/status` で警告（しきい値はウィンドウで変わる）。4 MiB 超えは読まない |
+| 起動時のファイルの合計                                                                  | 合計の上限（値は記載なし）                                                             | 警告。CLAUDE.md・rule・import を各 1 ファイルと数える                                               |
+| サブディレクトリの CLAUDE.md とその import、サブディレクトリの rules、`paths` 付き rule | 200K ウィンドウ: 40,000 文字。1M: Opus 4.6・Sonnet 4.6 は 200,000、以降は 150,000 文字 | 先頭だけ渡し、残りは Read で読むよう注記する（2.1.309 から）                                        |
+
+- 文字数は `wc -m path/to/CLAUDE.md` で確かめます。`/doctor` は、commit 済みの CLAUDE.md からコードで導ける内容を削る案を出します。
+- `/doctor prompt-audit [path]`（v2.1.283 以降）は、古いモデル向けの指示、存在しないファイルへの参照、矛盾を報告し、頼むまで変更しません。`/claude-api` Skill が無効だと使えません。
+
+<div class="src">
+  出典: [memory#how-claude-md-files-load](https://code.claude.com/docs/en/memory#how-claude-md-files-load) · [#my-claude-md-is-too-large](https://code.claude.com/docs/en/memory#my-claude-md-is-too-large) · [#claude-ignores-the-end-of-my-subdirectory-claude-md](https://code.claude.com/docs/en/memory#claude-ignores-the-end-of-my-subdirectory-claude-md) · [#audit-your-instruction-files](https://code.claude.com/docs/en/memory#audit-your-instruction-files) · [changelog 2.1.72, 2.1.169, 2.1.288, 2.1.293, 2.1.309](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch09-imports" />
+
+## `@path` インポート
+
+| CLAUDE.md の書き方                                   | 結果                                                           |
+| ---------------------------------------------------- | -------------------------------------------------------------- |
+| `See @README for project overview`                   | README を取り込む。どこに書いてもよい                          |
+| `- git workflow @docs/git-instructions.md`           | 相対パスは、取り込む側のファイルを基準に解決する               |
+| `- @~/.claude/my-project-instructions.md`            | ホームからも取り込める。絶対パスも可                           |
+| `- API conventions @Design\ Docs/api-conventions.md` | 空白はバックスラッシュで逃がす。無いと最初の空白でパスが終わる |
+| 引用符で囲んだパス                                   | 取り込まない（バックスラッシュの有無を問わない）               |
+| `` `@README` ``（コードスパン）                      | 取り込まない。フェンスのコードブロック内も同じ                 |
+
+- 取り込んだファイルからさらに取り込めます。深さは最大 4 ホップです。
+- 取り込み先は取り込む側と一緒に読まれます。整理には役立ちますが、コンテキストは減りません。
+
+* **外部インポート**: プロジェクトのメモリファイルから作業ディレクトリの外を指す import は、プロジェクトごとに初回だけ承認ダイアログが出ます。拒否すると無効のままで、ダイアログも再表示されません。
+* `~/.claude/CLAUDE.md`・`~/.claude/rules/` などユーザースコープの import は、ダイアログなしで読みます（Cowork セッションでは作業ディレクトリ外を飛ばす）。
+* `CLAUDE.local.md` は作った worktree にしか無いため、worktree 間で共有する個人指示はホームのファイルを import します。
+
+```markdown
+- Import: @docs/extra.md
+- Literal: `@docs/not-imported.md`
+```
+
+実測: 上の 2 行を書いた `pkg/CLAUDE.md` では、`/context all` に `pkg/docs/extra.md` だけが出ました。`InstructionsLoaded` は `"load_reason":"include"` と `"parent_file_path":"pkg/CLAUDE.md"` を報告しました。
+
+<div class="src">
+  出典: [memory#import-additional-files](https://code.claude.com/docs/en/memory#import-additional-files) · [#share-rules-across-projects-with-symlinks](https://code.claude.com/docs/en/memory#share-rules-across-projects-with-symlinks) · 実機確認 2.1.321
+</div>
+
+<span id="ch09-rules" />
+
+## `.claude/rules/` と `paths`（1/2）: 読み込み条件とパターン
+
+```text
+your-project/
+├── .claude/
+│   ├── CLAUDE.md           # Main project instructions
+│   └── rules/
+│       ├── code-style.md   # Code style guidelines
+│       ├── testing.md      # Testing conventions
+│       └── security.md     # Security requirements
+```
+
+- `.claude/rules/` 配下の `.md` を再帰的に探します。`frontend/` などのサブディレクトリに分けられます。
+- `paths` の無い rule は、`.claude/CLAUDE.md` と同じ優先度で起動時に読みます。
+- `paths` 付きの rule は、Claude が一致するファイルに Read・Write・Edit を使ったときと、単一ファイルの `cat`・`head` などで読んだときに読みます。プロジェクトへの symlink 経由のパスでも一致します。
+- パターンの基準は、プロジェクトの rule では `.claude` を含むディレクトリ、`~/.claude/rules/` ではセッションの主作業ディレクトリです。
+
+```markdown
+---
+paths:
+  - "src/**/*.{ts,tsx}"
+  - "lib/**/*.ts"
+  - "tests/**/*.test.ts"
+---
+```
+
+| パターン               | 一致するもの                                     |
+| ---------------------- | ------------------------------------------------ |
+| `**/*.ts`              | 基準ディレクトリ配下のどこかの `.ts`             |
+| `src/**/*`             | 基準の `src/` 配下のすべて                       |
+| `*.md`                 | 基準ディレクトリ配下のどこかの `.md`             |
+| `/*.md`                | 基準ディレクトリ直下の `.md` だけ                |
+| `src/components/*.tsx` | その直下の `.tsx` だけ（サブフォルダは含まない） |
+
+兄弟の git worktree のファイルに rule を効かせるには、その worktree で起動するか、`/cd` でセッションを移します。
+
+<div class="src">
+  出典: [memory#organize-rules-with-claude/rules/](https://code.claude.com/docs/en/memory#organize-rules-with-claude/rules/) · [#path-specific-rules](https://code.claude.com/docs/en/memory#path-specific-rules)
+</div>
+
+<span id="ch09-rules-edge" />
+
+## `.claude/rules/`（2/2）: 境界条件・ユーザー rule・symlink
+
+- **frontmatter**: rule で読むのは `paths` だけです。他のフィールドはエラーなしで無視し、frontmatter は読み込む前に取り除きます。`paths` は YAML のリストでもカンマ区切りの文字列でも書けます。
+- YAML が解析できないと frontmatter を無視し、`paths` の無い rule として起動時に読みます。解析エラーは `claude --debug` で見えます。
+- **ブレース展開**: `src/*.{ts,tsx}` は 2 パターン、`{a,b}/{c,d}/*.{ts,tsx}` は 8 パターンに展開します。1 つの rule の `paths` 全体で 1,000 パターン・4 MiB の予算を共有し、ブレースの無いパターンは数えません。予算を超えるパターンは展開せずに使うため、括弧が文字どおり残って何にも一致しません。
+- **`[`**: 括弧式として読めない `photos [2024/**` は無効で何にも一致しません（同じ rule の他のパターンは有効）。文字の `[` は `photos \[2024/**` と書きます。
+
+* **ユーザー rule**: `~/.claude/rules/` は全プロジェクトに効き、プロジェクトの rule より先に読みます。どちらも上書きはしないため、矛盾すると Claude はどちらにも従いえます。
+* `--setting-sources` から `project` を外すと、プロジェクトの rule は読みません。2.1.211 より前は、オンデマンドの rule だけは読まれていました。
+* **symlink**: 共有の rule を各プロジェクトにリンクできます。循環リンクは検出します。リンク先が作業ディレクトリの外なら外部インポートと同じ扱いで、承認後も `paths` の無い rule だけを読みます。承認なしで共有するなら `~/.claude/rules/` に置きます。
+* UNC 共有 `\\server\share` や `/net`・`/Network` 配下を指す CLAUDE.md・rules の symlink はたどりません。`\\wsl$` はネットワークパスに含めません。
+
+```bash
+ln -s ~/shared-claude-rules .claude/rules/shared
+ln -s ~/company-standards/security.md .claude/rules/security.md
+```
+
+<div class="src">
+  出典: [memory#rules-frontmatter-reference](https://code.claude.com/docs/en/memory#rules-frontmatter-reference) · [#path-specific-rules](https://code.claude.com/docs/en/memory#path-specific-rules) · [#user-level-rules](https://code.claude.com/docs/en/memory#user-level-rules) · [#share-rules-across-projects-with-symlinks](https://code.claude.com/docs/en/memory#share-rules-across-projects-with-symlinks) · [changelog 2.1.211](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch09-instructions-loaded" />
+
+## ロード順の実測: `InstructionsLoaded` フック
+
+```text title="実測 2.1.321" frame="terminal"
+$ cd mono/pkg && claude -p "Use the Read tool on src/a.ts, then reply with only the file's first line." \
+    --model haiku --no-session-persistence --setting-sources project,local --settings …/hooks.json --output-format json
+# フックが受け取った入力から一部のフィールドを記録（パスは mono/ からの相対に変換）
+{"load_reason":"session_start","memory_type":"Project","file_path":"CLAUDE.md"}
+{"load_reason":"session_start","memory_type":"Project","file_path":"pkg/CLAUDE.md"}
+{"load_reason":"session_start","memory_type":"Local","file_path":"CLAUDE.local.md"}
+{"load_reason":"session_start","memory_type":"Project","file_path":".claude/rules/root-rule.md"}
+{"load_reason":"include","memory_type":"Project","file_path":"pkg/docs/extra.md","parent_file_path":"pkg/CLAUDE.md"}
+{"load_reason":"session_start","memory_type":"Local","file_path":"pkg/CLAUDE.local.md"}
+{"load_reason":"session_start","memory_type":"Project","file_path":"pkg/.claude/rules/always.md"}
+{"load_reason":"nested_traversal","memory_type":"Project","file_path":"pkg/src/CLAUDE.md","trigger_file_path":"pkg/src/a.ts"}
+{"load_reason":"path_glob_match",…,"file_path":"pkg/.claude/rules/ts.md","globs":["src/**/*.ts"],"trigger_file_path":"pkg/src/a.ts"}
+```
+
+- 起動時の 7 ファイルは `session_start` か `include`、`src/a.ts` を読んだ後の 2 ファイルは `nested_traversal` と `path_glob_match` でした。
+- 行の順は `/context all` の並び（[スコープの実測](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-scopes)）と一致せず、同じ実行を 2 回すると順番も変わりました。docs はこのフックを非同期で動くと記載しています。順序は `/context all` で確かめます。
+
+* `load_reason` は `session_start`・`nested_traversal`・`path_glob_match`・`include`・`compact` のいずれかで、matcher はこの値に一致させます（例: `"matcher": "path_glob_match|nested_traversal"`）。
+* 読み込みを止める・変える制御はありません。`AGENTS.md` を直接読んだときは発火しません。入力フィールドの一覧は [Ch28](/claude-code-deep-dive/ja/extensions/hooks/)、`compact` の実測は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/#ch06-hook-order) です。
+
+<div class="src">
+  出典: [hooks#instructionsloaded](https://code.claude.com/docs/en/hooks#instructionsloaded) · [memory#claude-isn’t-following-my-claude-md](https://code.claude.com/docs/en/memory#claude-isn’t-following-my-claude-md) · 実機確認 2.1.321
+</div>
+
+<span id="ch09-agents-md" />
+
+## AGENTS.md（1/2）: 読まれる条件と Project instructions
+
+| リポジトリの状態                                                                     | Claude が読むもの                           |
+| ------------------------------------------------------------------------------------ | ------------------------------------------- |
+| `AGENTS.md` があり、作業ディレクトリとその上に `CLAUDE.md`・`CLAUDE.local.md` が無い | `AGENTS.md`                                 |
+| `AGENTS.md` と、`CLAUDE.md` か `CLAUDE.local.md` の両方がある                        | `CLAUDE.md` 系だけ                          |
+| `CLAUDE.md` が `@AGENTS.md` を import している                                       | `CLAUDE.md`（import 経由で `AGENTS.md` も） |
+
+- 判定に数えるのは、作業ディレクトリとその上の `CLAUDE.md`・`.claude/CLAUDE.md`・`CLAUDE.local.md` です。`~/.claude/CLAUDE.md`、managed の CLAUDE.md、`.claude/rules/` は数えず、AGENTS.md と一緒に読みます。
+- 読むときは作業ディレクトリと上位の `AGENTS.md`・`.claude/AGENTS.md` をすべて読みます。対話セッションでは `no CLAUDE.md found; AGENTS.md loaded: …` と表示します。サブディレクトリの分は、そこに CLAUDE.md 系が無ければ Read 時に読みます。
+- `@path` と `claudeMdExcludes` は効きます。`AGENTS.local.md`・`AGENTS.override.md`・`.agents/` は読みません（v2.1.277 以降）。
+
+| Project instructions             | 読むもの                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `claude-md-or-agents-md`（既定） | CLAUDE.md 系。無ければ AGENTS.md                                          |
+| `claude-md-and-agents-md`        | 両方。各ディレクトリで CLAUDE.md 系が先。二重には読まない                 |
+| `claude-md`                      | CLAUDE.md 系だけ                                                          |
+| `managed-only`                   | 起動時は managed の CLAUDE.md と auto memory だけ（オンデマンド分は読む） |
+
+```json
+{
+  "pluginConfigs": {
+    "cc-plugin-agents-md@builtin": {
+      "options": { "instructionFiles": "claude-md-and-agents-md" }
+    }
+  }
+}
+```
+
+`/config` でも変えられます。設定ファイルは `~/.claude/settings.json`・`--settings`・managed だけが有効です。2.1.285 より前の ID は `agents-md@builtin` です（2.1.285 以降は両方読む）。
+
+<div class="src">
+  出典: [memory#agents-md](https://code.claude.com/docs/en/memory#agents-md) · [#when-claude-code-reads-agents-md](https://code.claude.com/docs/en/memory#when-claude-code-reads-agents-md) · [#choose-which-instruction-files-load](https://code.claude.com/docs/en/memory#choose-which-instruction-files-load) · [changelog 2.1.277](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch09-agents-md-2" />
+
+## AGENTS.md（2/2）: CLAUDE.md との違い・共有の方法（実測）
+
+|                                            | `CLAUDE.md`  | 設定経由で読む `AGENTS.md`                 |
+| ------------------------------------------ | ------------ | ------------------------------------------ |
+| `InstructionsLoaded`                       | 発火する     | 発火しない（import・symlink 経由なら発火） |
+| `--add-dir` と追加ディレクトリ用の環境変数 | 読む         | 読まない                                   |
+| 作業ディレクトリ外への `@path`             | 承認を求める | 承認済みのときだけ、確認なしで読む         |
+
+- 直接読めないセッション: v2.1.277 より前、`/plugin` で組み込みプラグインを無効にした場合、v2.1.276 以前から更新した直後の一部。2.1.281 より前は Bedrock やテレメトリ無効の場合も。
+- その場合は隣の CLAUDE.md で import します（右上）。`ln -s AGENTS.md CLAUDE.md` でも読めますが、Edit・Write は symlink 越しに書かず、Windows では symlink がテキストとして checkout されることがあります。
+- `/init` は `.cursor/rules/`・`.github/copilot-instructions.md` などを取り込み、`/import` は AGENTS.md などを CLAUDE.md へ 1 回だけ複写します。
+
+```markdown
+@AGENTS.md
+
+## Claude Code
+
+Use plan mode for changes under `src/billing/`.
+```
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "/context all" --setting-sources project,local
+# 各ディレクトリで実行。Memory Files の行だけ抜粋
+agentsonly/（AGENTS.md だけ）
+  | Project | …/agentsonly/AGENTS.md | 24 |
+both/（CLAUDE.md と AGENTS.md）
+  | Project | …/both/CLAUDE.md | 25 |
+both/ に --settings で claude-md-and-agents-md
+  | Project | …/both/CLAUDE.md | 25 |
+  | Project | …/both/AGENTS.md | 24 |
+localonly/（CLAUDE.local.md と AGENTS.md）
+  | Local | …/localonly/CLAUDE.local.md | 27 |
+```
+
+最後の例のとおり、`CLAUDE.local.md` を足すだけで AGENTS.md は読まれなくなります。両方読むには `claude-md-and-agents-md` を選びます。
+
+<div class="src">
+  出典: [memory#where-agents-md-differs-from-claude-md](https://code.claude.com/docs/en/memory#where-agents-md-differs-from-claude-md) · [#when-agents-md-support-is-unavailable](https://code.claude.com/docs/en/memory#when-agents-md-support-is-unavailable) · [#share-one-file-with-other-coding-tools](https://code.claude.com/docs/en/memory#share-one-file-with-other-coding-tools) · [#migrate-instructions-from-other-tools](https://code.claude.com/docs/en/memory#migrate-instructions-from-other-tools) · 実機確認 2.1.321
+</div>
+
+<span id="ch09-add-dir-excludes" />
+
+## `--add-dir` と `claudeMdExcludes`
+
+| ディレクトリの追加方法              | CLAUDE.md・rules           | Skill    |
+| ----------------------------------- | -------------------------- | -------- |
+| `permissions.additionalDirectories` | 読まない                   | 読まない |
+| `--add-dir`・`/add-dir`             | 下の環境変数があるときだけ | 読む     |
+
+```text title="実測 2.1.321" frame="terminal"
+$ CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1 \
+    claude -p "/context all" --setting-sources project,local \
+    --add-dir ../../shared
+… (mono/ の 7 行に続いて)
+| Project | ../../shared/CLAUDE.md | 18 |
+| Project | …/shared/.claude/rules/s.md | 22 |
+| Local | ../../shared/CLAUDE.local.md | 24 |
+```
+
+- `CLAUDE.md`・`.claude/CLAUDE.md`・`.claude/rules/*.md`・`CLAUDE.local.md` を読みます。環境変数なしでは 1 行も出ず、`project` だけでは Local が消えました。
+- `--add-dir <directories...>` は複数の値を取るため、`claude -p --add-dir ../../shared "/context all"` はプロンプトもディレクトリとみなし、`Error: Input must be provided …` で終了しました（exit 1）。
+
+```json
+{
+  "claudeMdExcludes": [
+    "**/monorepo/CLAUDE.md",
+    "/home/user/monorepo/other-team/.claude/rules/**"
+  ]
+}
+```
+
+- パターンは絶対パスに glob で照合します。相対的に書くなら `**/` で始めます。`"**/packages/*/CLAUDE.md"` は各パッケージの分だけを外し、ルートは残します。
+- user・project・local・managed のどの層にも書け、配列は層をまたいでマージされます。自分だけの除外は `.claude/settings.local.json` に書きます。
+- managed の CLAUDE.md は、どの層のパターンでも除外できません。
+- symlink 経由の rule は、`.claude/rules/` 側のパスとリンク先のどちらに一致しても除外されます（2.1.239 より前はリンク先だけ）。
+- 除外リストは静的です。対象を日ごとに変えるなら、そのパッケージで起動します（[Ch11](/claude-code-deep-dive/ja/fundamentals/best-practices/#ch11-large-codebases)）。
+
+<div class="src">
+  出典: [memory#load-from-additional-directories](https://code.claude.com/docs/en/memory#load-from-additional-directories) · [#exclude-specific-claude-md-files](https://code.claude.com/docs/en/memory#exclude-specific-claude-md-files) · [large-codebases](https://code.claude.com/docs/en/large-codebases#grant-access-across-packages-or-repositories) · [#exclude-irrelevant-claude-md-files](https://code.claude.com/docs/en/large-codebases#exclude-irrelevant-claude-md-files) · 実機確認 2.1.321
+</div>
+
+<span id="ch09-managed" />
+
+## 組織で配る managed CLAUDE.md と `claudeMd`
+
+- マシンの全ユーザーに効く CLAUDE.md を、MDM・Group Policy・Ansible などで次の場所に配ります。
+
+  - macOS: `/Library/Application Support/ClaudeCode/CLAUDE.md`
+  - Linux・WSL: `/etc/claude-code/CLAUDE.md`
+  - Windows: `C:\Program Files\ClaudeCode\CLAUDE.md`
+
+- ファイルの代わりに、managed settings の `claudeMd` キーに本文を書けます。user・project・local 設定に書いても効きません。
+
+- どちらも user・project の CLAUDE.md より先に読みます。`claudeMdExcludes` では外せません。
+
+- CLAUDE.md の読み込み自体を止めたセッションでは、managed の内容も読まれません。強制したい規則は managed settings の `permissions.deny` などに置きます。
+
+- `omitClaudeMd: true` のサブエージェントも managed の CLAUDE.md は読みます（定義が managed settings にある場合を除く）。
+
+- server-managed settings の `claudeMd` は、2.1.260 から承認ダイアログを出しません。
+
+managed settings での例（docs）: ``{ "claudeMd": "Always run `make lint` before committing.\nNever push directly to main." }``
+
+| 目的                                   | 置き場所                                |
+| -------------------------------------- | --------------------------------------- |
+| 特定のツール・コマンド・パスを止める   | managed settings の `permissions.deny`  |
+| sandbox の分離を強制する               | managed settings の `sandbox.enabled`   |
+| 環境変数と API プロバイダの経路        | managed settings の `env`               |
+| ログイン方法と組織の制限               | `forceLoginMethod`、`forceLoginOrgUUID` |
+| コードスタイル・品質の指針             | managed CLAUDE.md                       |
+| データ取り扱い・コンプライアンスの注意 | managed CLAUDE.md                       |
+| Claude への振る舞いの指示              | managed CLAUDE.md                       |
+
+managed settings の配布方法は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
+
+<div class="src">
+  出典: [memory#deploy-organization-wide-claude-md](https://code.claude.com/docs/en/memory#deploy-organization-wide-claude-md) · [settings-reference#claudemd](https://code.claude.com/docs/en/settings-reference#claudemd) · [sub-agents#what-loads-at-startup](https://code.claude.com/docs/en/sub-agents#what-loads-at-startup) · [changelog 2.1.260](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch09-auto-memory" />
+
+## auto memory（1/2）: 保存するもの・場所・読み込み
+
+Claude は作業しながら 4 種類のメモを残し、種類を frontmatter の `type` に記録します。
+
+| `type`      | 中身                                                  |
+| ----------- | ----------------------------------------------------- |
+| `user`      | ユーザーの役割、専門、作業上の好み                    |
+| `feedback`  | 受けた訂正と、確認された進め方                        |
+| `project`   | 進行中の作業、期限、コードや git 履歴から導けない決定 |
+| `reference` | Issue トラッカーやダッシュボードなど、外部情報の場所  |
+
+コードから導けること（構成、ファイルパス、デバッグの修正）と CLAUDE.md に書いてあることは保存しません。毎セッション保存するわけでもありません。
+
+```text
+~/.claude/projects/<project>/memory/
+├── MEMORY.md           # Index, one line per memory, …
+├── user_role.md        # One memory
+├── feedback_testing.md # One memory
+└── ...                 # Any other topic files Claude creates
+```
+
+- `<project>` は git リポジトリから決まり、同じリポジトリの worktree とサブディレクトリで共有します。git の外ではプロジェクトのルートです。マシン間では共有しません。
+- 起動時に読むのは `MEMORY.md` の先頭 200 行または 25KB の早い方だけです。トピックファイルは、Claude が必要なときに通常のファイルツールで読みます。
+- 上限に近づくと短くするよう促し、超えると書き込みは成功させてエラーを返します（2.1.210 から）。frontmatter と HTML コメントは計測しません。
+- エラー例（docs）: `Error: this write left the memory index at MEMORY.md at 214 lines, over its 200-line read limit. … Rewrite it to under 140 lines now: …`
+- 書き込み時に frontmatter の `modified` へ ISO 8601 の時刻を記録します。`Saved 2 memories`・`Recalled 2 memories` の表示は、ここへの読み書きです。
+- メイン会話の auto memory は、fork 以外のサブエージェントに渡りません（自前のメモリは `memory` フィールド、[Ch37](/claude-code-deep-dive/ja/parallel/subagents/)）。
+
+<div class="src">
+  出典: [memory#auto-memory](https://code.claude.com/docs/en/memory#auto-memory) · [#storage-location](https://code.claude.com/docs/en/memory#storage-location) · [#how-it-works](https://code.claude.com/docs/en/memory#how-it-works) · [errors#memory-index-is-over-its-read-limit](https://code.claude.com/docs/en/errors#memory-index-is-over-its-read-limit) · [changelog 2.1.210](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch09-memory-command" />
+
+## auto memory（2/2）: 有効・無効と保存先、`/memory`、廃止された `#`
+
+| 手段                              | 効果                                                                 |
+| --------------------------------- | -------------------------------------------------------------------- |
+| `/memory` のトグル                | `autoMemoryEnabled` を `~/.claude/settings.json` に保存              |
+| `"autoMemoryEnabled": false`      | 読み書きしない。プロジェクト設定に書けばそのプロジェクトだけ         |
+| `CLAUDE_CODE_DISABLE_AUTO_MEMORY` | `1` で無効。`0` なら `--bare` や `autoMemoryEnabled: false` でも有効 |
+| `autoMemoryDirectory`             | 保存先を変える。絶対パスか `~/` 始まり                               |
+| `CLAUDE_CODE_PROJECT_DIR_NAME`    | `CLAUDE_CONFIG_DIR` と併用で `<project>` 名を固定（v2.1.234 以降）   |
+
+- ローカルのセッションでは既定で有効です。self-hosted 環境では Claude Tag を除き既定で無効です。
+- 背景セッションと、Claude が Bash で起動した `claude` では、トグルで有効に戻せません（`off · can't be turned on here; use a session started outside Claude Code`）。
+- プロジェクト・ローカル設定の `autoMemoryDirectory` は、フックと同じ workspace trust の規則に従います。
+
+* `/memory` は、user・project スコープの CLAUDE.md・CLAUDE.local.md などの一覧を出します。未作成のファイルも並び、選ぶと作成して開きます。auto memory のトグルと、フォルダを開く項目もあります。
+* GUI エディタは別ウィンドウで開き、Vim などは終了まで端末を占有します。
+* 「always use pnpm, not npm」のように覚えるよう頼むと auto memory に保存します。CLAUDE.md に入れるなら「add this to CLAUDE.md」と頼むか、`/memory` から自分で編集します。
+* 読んだ AGENTS.md も一覧に出ます（2.1.280 以降）。
+* メモを素早く足す `#` ショートカットは 2.0.70 で削除されました <span class="badge removed">Removed</span>。CLAUDE.md の編集は Claude に頼みます。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "/memory" --setting-sources project,local
+/memory isn't available in this environment.
+```
+
+`-p` の init の `slash_commands` にも `memory` は含まれません。
+
+<div class="src">
+  出典: [memory#enable-or-disable-auto-memory](https://code.claude.com/docs/en/memory#enable-or-disable-auto-memory) · [#storage-location](https://code.claude.com/docs/en/memory#storage-location) · [#view-and-edit-with-/memory](https://code.claude.com/docs/en/memory#view-and-edit-with-%2Fmemory) · [#my-agents-md-isn’t-loading](https://code.claude.com/docs/en/memory#my-agents-md-isn’t-loading) · [env-vars](https://code.claude.com/docs/en/env-vars) · [changelog 2.0.70](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
+</div>

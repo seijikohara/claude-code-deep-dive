@@ -2,19 +2,19 @@
 
 [日本語](README.ja.md)
 
-A reference slide deck on every feature of Claude Code **2.1.321**: commands, settings, extension points, multi-agent features, platforms, enterprise operation, and experimental options.
+A reference site on every feature of Claude Code **2.1.321**: commands, settings, extension points, multi-agent features, platforms, enterprise operation, and experimental options.
 Each fact comes from the official documentation, the changelog, or a run of the installed binary.
 
-The site will be published at <https://seijikohara.github.io/claude-code-deep-dive/> after every chapter passes its fact review.
+The site will be published at <https://seijikohara.github.io/claude-code-deep-dive/>.
 
 ## Editions
 
 | Edition  | Status                                                                                             |
 | -------- | -------------------------------------------------------------------------------------------------- |
-| Japanese | Being written (about 570 slides so far)                                                            |
+| Japanese | Complete: 76 chapters, fact-reviewed                                                               |
 | English  | In preparation. The site already routes English as the primary language and Japanese under `/ja/`. |
 
-## What the deck covers
+## What the reference covers
 
 - Part 0: Introduction
 - Part I: Fundamentals: the agent loop, models and effort, fast mode, Advisor, context management, sessions, checkpoints, memory
@@ -28,15 +28,17 @@ The site will be published at <https://seijikohara.github.io/claude-code-deep-di
 - Part IX: Summary: status board, timeline, recent releases, renames and removals, docs-versus-binary conflicts
 - Part X: Complete appendices: all 249 settings keys, 402 environment variables, CLI flags and subcommands, 33 hook events, and 46 built-in tools
 
-## How the deck is checked
+## How the reference is checked
 
-- Every content slide names its sources: docs pages with anchors, changelog versions, and `実機確認 2.1.321` (verified on 2.1.321) where a fact was observed on the binary.
+- Every section names its sources: docs pages with anchors, changelog versions, and `実機確認 2.1.321` (verified on 2.1.321) where a fact was observed on the binary.
 - Features that are not generally available carry a status label: Beta, Preview, Experimental, Undocumented, Deprecated, or Removed.
-- Where the docs, the changelog, and the binary disagree, the slide shows both readings.
-- `tools/check.mjs` renders every slide in headless Chrome and fails on clipped content, internal scrolling, or a missing source line.
-- `tools/lint.mjs` checks identifiers against the research corpus, private data, coverage of the appendix tables, and source lines.
+- Where the docs, the changelog, and the binary disagree, the page shows both readings.
+- An independent reviewer checked every chapter against the sources.
+- `tools/lint.mjs --site dist` checks the built site: identifiers against the research corpus, private data, coverage of the appendix tables, a source line per section, and internal links.
 
 ## Development
+
+Built with [Astro](https://astro.build/) and [Starlight](https://starlight.astro.build/).
 
 Requirements: Node.js 26 (see `.nvmrc`) and pnpm 12 (see `packageManager` in `package.json`).
 
@@ -47,26 +49,25 @@ pnpm build        # static site in dist/
 pnpm check        # format, lint, type check, and unit tests
 ```
 
-Deck tools:
+Site checks:
 
 ```sh
-pnpm deck:build                                   # standalone index.html and the claude.ai Artifact fragment
-node tools/check.mjs --url=http://localhost:4321/claude-code-deep-dive/ja/deck/
-node tools/lint.mjs --html dist/ja/deck/index.html --only=privacy,coverage,sources
+pnpm build && pnpm lint:site    # privacy, appendix coverage, sources, internal links
+CCDD_RESEARCH=/path/to/research node tools/lint.mjs --site dist   # also checks identifiers
 ```
 
 The identifier check (`--only=ids`) and data extraction (`tools/extract.mjs`) need a local research corpus (`CCDD_RESEARCH`) that mirrors the official docs. The corpus is not committed.
 
 ## Repository layout
 
-| Path                                      | Contents                                                            |
-| ----------------------------------------- | ------------------------------------------------------------------- |
-| `src/chapters/`                           | Slide sources of the Japanese edition, one file per chapter         |
-| `src/deck.css`                            | Deck theme on top of the reveal.js `white` theme                    |
-| `src/pages/`, `src/layouts/`, `src/i18n/` | Astro pages: English home, Japanese home, and the Japanese deck     |
-| `data/`                                   | Appendix tables (names, Japanese summaries, statuses, docs anchors) |
-| `tools/`                                  | Deck renderer, standalone build, lint, layout check, and data tools |
-| `docs/`                                   | Design, plan, authoring guide, and the shared fact ledger           |
+| Path                             | Contents                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/content/docs/`              | Starlight pages: the English home at the root, and the Japanese edition under `ja/`, one MDX file per chapter |
+| `src/components/DataTable.astro` | Renders the generated tables (appendix, command catalog) from `data/`                                         |
+| `src/styles/site.css`            | Site theme on top of Starlight                                                                                |
+| `data/`                          | Appendix tables (names, Japanese summaries, statuses, docs anchors)                                           |
+| `tools/`                         | Site lint, and the data extraction and translation tools                                                      |
+| `docs/`                          | Authoring and review guides, the shared fact ledger, and the original design and plan                         |
 
 ## Deployment
 

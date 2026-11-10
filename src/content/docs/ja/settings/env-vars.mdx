@@ -1,0 +1,266 @@
+---
+title: "環境変数"
+description: "env-vars リファレンスに載る 402 個の環境変数から、上級者がよく使うものを分野別に抜き出します。設定ファイルの env ブロックの規則、値の書き方、changelog にだけ載る変数、廃止された変数とキーも扱います。全件は 付録 B にあります。"
+sidebar:
+  order: 20
+---
+
+env-vars リファレンスに載る 402 個の環境変数から、上級者がよく使うものを分野別に抜き出します。設定ファイルの `env` ブロックの規則、値の書き方、changelog にだけ載る変数、廃止された変数とキーも扱います。全件は [付録 B](/claude-code-deep-dive/ja/appendix/env/) にあります。
+
+<span id="ch20-env-block" />
+
+## `env` ブロックの規則と値の書き方
+
+```json
+{
+  "env": {
+    "DISABLE_AUTO_COMPACT": "1",
+    "ANTHROPIC_BASE_URL": "https://proxy.example.com"
+  }
+}
+```
+
+- 値は文字列で、シェルを通さずにコピーされます。`~` や `$HOME` は展開されないので、パスは絶対パスで書きます。
+- シェルで export した同名の変数を上書きします。例外として、Claude Desktop や self-hosted runner が起動環境を作る場合は起動環境が勝ちます。
+- シェルの export を打ち消すには `""` を設定します。プロバイダ選択では未設定として扱い、サブプロセスには空文字列が渡ります。
+- `NO_COLOR` と `FORCE_COLOR` はサブプロセスにだけ届きます。
+- 適用のタイミング: user・`--settings`・managed は起動時、project・local は trust 後（`-p` では起動時）。どちらも保存のたびに反映し、削除は再起動まで残ります。
+
+### 値の書き方
+
+- on/off の変数は `1`・`true`・`yes`・`on` と `0`・`false`・`no`・`off` を受け付けます。大文字小文字は問いません。
+- 次の 5 つは**設定されているかだけ**を見ます。`0` でも有効になるので、止めるには unset か空文字列にします。`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`、`DISABLE_TELEMETRY`、`DISABLE_ERROR_REPORTING`、`CLAUDE_CODE_TMUX_TRUECOLOR`、`IS_DEMO`
+- 数値は `2e3`（2000）や `64_000`（64000）も読めます（2.1.211 から）。行に「plain digits only」とある変数は例外です。
+
+### 優先順位
+
+- シェルの変数は起動時にだけ読みます。
+- フラグとの関係は変数ごとです。`--model`・`/model` は `ANTHROPIC_MODEL` に勝ち、`CLAUDE_CODE_EFFORT_LEVEL` は `--effort`・`/effort` に勝ちます（[Ch18](/claude-code-deep-dive/ja/settings/settings-files/#ch18-per-key)）。
+
+<div class="src">
+  出典: [settings-reference#env](https://code.claude.com/docs/en/settings-reference#env) · [env-vars#set-variables-in-settings-files](https://code.claude.com/docs/en/env-vars#set-variables-in-settings-files) · [env-vars#precedence](https://code.claude.com/docs/en/env-vars#precedence) · [env-vars#variables](https://code.claude.com/docs/en/env-vars#variables)
+</div>
+
+<span id="ch20-env-ignored" />
+
+## `env` ブロックで無視される変数
+
+### project・local の `env` では無視
+
+- 保存先: `CLAUDE_CONFIG_DIR`、`CLAUDE_CODE_TMPDIR`、`HOME`、`TMPDIR`、`TMP`、`TEMP`、`XDG_*`、Windows の `SystemRoot` など
+- 内容の書き出し: `OTEL_LOG_RAW_API_BODIES`、`ENABLE_BETA_TRACING_DETAILED`、`BETA_TRACING_ENDPOINT`
+- OTel exporter: `CLAUDE_CODE_ENABLE_TELEMETRY`、`OTEL_METRICS_EXPORTER` などの selector、`OTEL_LOG_USER_PROMPTS` などの内容変数、`OTEL_EXPORTER_OTLP_*` の接続設定。off の値（`none`、`0`）だけは効く（2.1.282 以降）
+- 起動と同期: `CLAUDE_CODE_PROCESS_WRAPPER`、`CLAUDE_CODE_SYNC_SKILLS`、`CLAUDE_CODE_SYNC_PLUGINS` ほか
+- サインインほか: `CLAUDE_CODE_OAUTH_TOKEN`、`CLAUDE_AX_*`、`CLAUDE_CODE_DISABLE_ATTACHMENTS`、`CLAUDE_CODE_DISABLE_FILE_MENTIONS` ほか
+
+これらはシェル、user・managed 設定、`--settings` では効きます。
+
+### どのファイルでも無視（起動環境からだけ読む）
+
+- `CLAUDE_CODE_REMOTE`、`CLAUDE_CODE_ACCOUNT_UUID`、`CLAUDE_CODE_PROJECT_DIR_NAME`、`CLAUDE_CODE_RESTRICTED`
+- `CLAUDE_CODE_MESSAGING_SOCKET`、`CLAUDE_CODE_MESSAGING_TOKEN`
+- `CLAUDE_CODE_DISABLE_DANGEROUS_RM_TIMEOUT` などの rm 確認を外す変数、`CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS`
+- `CLAUDE_CODE_WARN_DISK_FREE_GIB`、`CLAUDE_CODE_WARN_MEMORY_FREE_GIB`
+
+### 無視されたことの確かめ方
+
+- project・local の telemetry 変数を無視すると、対話セッションは起動時に通知し、`/status` と `claude doctor` が名前だけを表示します。`-p` と SDK では通知が出ません。
+- その他の変数は、`claude --debug` のログに警告が出ます。
+
+<div class="src">
+  出典: [settings-reference#variables-claude-code-ignores-in-env](https://code.claude.com/docs/en/settings-reference#variables-claude-code-ignores-in-env)
+</div>
+
+<span id="ch20-auth-model" />
+
+## 認証・プロバイダ・モデル
+
+| 変数                                                                                                                                      | 要点                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`                                                                                                                       | `X-Api-Key` として送る。ログイン中のサブスクリプションより優先。`-p` では常に使い、対話では初回に承認を求める |
+| `ANTHROPIC_AUTH_TOKEN`                                                                                                                    | `Authorization` ヘッダーの値。`Bearer `を前置して送る                                                         |
+| `ANTHROPIC_BASE_URL`                                                                                                                      | プロキシ・ゲートウェイへ送る。Anthropic 以外のホストでは Remote Control が無効（2.1.196 から）                |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                                                                                 | claude.ai の OAuth アクセストークン。`claude setup-token` で発行。keychain の認証情報より優先                 |
+| `CLAUDE_CODE_USE_BEDROCK`・`CLAUDE_CODE_USE_VERTEX`・`CLAUDE_CODE_USE_FOUNDRY`・`CLAUDE_CODE_USE_ANTHROPIC_AWS`・`CLAUDE_CODE_USE_MANTLE` | プロバイダの選択（[Ch59](/claude-code-deep-dive/ja/enterprise/providers/)）                                   |
+| `CLAUDE_CODE_API_KEY_HELPER_TTL_MS`                                                                                                       | `apiKeyHelper` を再実行する間隔（ミリ秒）                                                                     |
+| `ANTHROPIC_MODEL`                                                                                                                         | 開始モデル。`model` キーより先、`--model` より後                                                              |
+| `ANTHROPIC_DEFAULT_MODEL`                                                                                                                 | どのファイルも `model` を持たないときの既定（2.1.236 以降）                                                   |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` ほか                                                                                                       | エイリアスの解決先を固定（[Ch2](/claude-code-deep-dive/ja/fundamentals/models/)）                             |
+| `CLAUDE_CODE_SUBAGENT_MODEL`                                                                                                              | サブエージェント・teammate・workflow エージェントの既定モデル                                                 |
+| `CLAUDE_CODE_EFFORT_LEVEL`                                                                                                                | `low`〜`max`。`--effort`・`/effort`・設定より優先。`auto` で effort を送らない                                |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS`                                                                                                           | 出力トークンの上限。未知のモデル ID では既定 32000・上限 128000                                               |
+
+<div class="src">
+  出典: [env-vars#variables](https://code.claude.com/docs/en/env-vars#variables) · 全件は [付録 B](/claude-code-deep-dive/ja/appendix/env/)
+</div>
+
+<span id="ch20-network-context" />
+
+## ネットワーク・キャッシュ・コンテキスト
+
+| 変数                              | 要点                                                                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `API_TIMEOUT_MS`                  | 各試行がレスポンスヘッダーを受け取るまでの時間。既定 600000（10 分）。`0` で解除（2.1.305 以降）              |
+| `CLAUDE_CODE_MAX_RETRIES`         | 失敗したリクエストの再試行回数。既定 10。`529` では早めに止まる                                               |
+| `HTTPS_PROXY`・`NO_PROXY`         | プロキシと、プロキシを通さない宛先（[Ch60](/claude-code-deep-dive/ja/enterprise/network-gateways/)）          |
+| `CLAUDE_CODE_CERT_STORE`          | CA 証明書の取得元。`bundled`・`system` をカンマ区切り                                                         |
+| `DISABLE_PROMPT_CACHING`          | 全モデルでプロンプトキャッシュを無効化。モデル別の指定より優先                                                |
+| `CLAUDE_CODE_PROMPT_CACHE_TTL`    | `5m` か `1h`。`promptCacheTtl` と `ENABLE_PROMPT_CACHING_1H` より優先                                         |
+| `FORCE_PROMPT_CACHING_5M`         | 他の TTL 指定をすべて上書きして 5 分にする                                                                    |
+| `DISABLE_AUTO_COMPACT`            | 自動圧縮とアイドル圧縮を止める。`/compact` は使える（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/)） |
+| `DISABLE_COMPACT`                 | 手動の `/compact` を含め、すべての圧縮を止める                                                                |
+| `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | `100000`〜`1000000`。`200k` のような表記は 2.1.304 以降                                                       |
+| `CLAUDE_CODE_DISABLE_1M_CONTEXT`  | 1M コンテキストを無効化し、既定で 1M のモデルも 200K に抑える                                                 |
+| `CLAUDE_CODE_DISABLE_CLAUDE_MDS`  | user・project・auto memory を含め、CLAUDE.md を読まない                                                       |
+
+<div class="src">
+  出典: [env-vars#variables](https://code.claude.com/docs/en/env-vars#variables) · 全件は [付録 B](/claude-code-deep-dive/ja/appendix/env/)
+</div>
+
+<span id="ch20-tools-agents" />
+
+## ツール・MCP・エージェント
+
+| 変数                                             | 要点                                                                                                     |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `BASH_DEFAULT_TIMEOUT_MS`・`BASH_MAX_TIMEOUT_MS` | Bash の既定 120000（2 分）と上限 600000（10 分）。実効上限は 2 つの大きい方                              |
+| `BASH_MAX_OUTPUT_LENGTH`                         | 出力を読み戻す文字数。既定 30000、最大 150000。`bashOutputMaxChars` があると無視                         |
+| `CLAUDE_ENV_FILE`                                | 各 Bash コマンドの前に同じシェルで実行するスクリプト。virtualenv の有効化などに使う                      |
+| `CLAUDE_CODE_SHELL_PREFIX`                       | Bash、フック、ステータスライン、stdio MCP の起動コマンドの前に付けるプレフィックス                       |
+| `CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS`        | Read 1 回の上限。既定 25,000 トークン                                                                    |
+| `CLAUDE_CODE_ENABLE_TODO_TOOLS`                  | `1` で全モデルに Task 系ツールを出す（[Ch21](/claude-code-deep-dive/ja/settings/tools/#ch21-init-diff)） |
+| `CLAUDE_CODE_DISABLE_WEB_FETCH`                  | `1` で WebFetch を外す。WebSearch は残る（2.1.285 以降）                                                 |
+| `MCP_TIMEOUT`・`MCP_TOOL_TIMEOUT`                | MCP サーバーの起動 30000、ツール実行 100000000（約 28 時間）                                             |
+| `MAX_MCP_OUTPUT_TOKENS`                          | MCP ツール応答の上限。既定 25000。10,000 を超えると警告                                                  |
+| `ENABLE_TOOL_SEARCH`                             | 未設定か `true` で MCP ツールを遅延読み込み。`auto`、`auto:N`、`false`                                   |
+| `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`           | 同時に動くサブエージェントの上限。既定 20                                                                |
+| `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`           | 入れ子の深さ。既定 3。`1` で入れ子なし                                                                   |
+| `CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS`     | 1 回の workflow で同時に動くエージェント数。既定 16、`1`〜`256`                                          |
+
+<div class="src">
+  出典: [env-vars#variables](https://code.claude.com/docs/en/env-vars#variables) · 全件は [付録 B](/claude-code-deep-dive/ja/appendix/env/)
+</div>
+
+<span id="ch20-telemetry-debug" />
+
+## テレメトリ・デバッグ・ヘッドレス
+
+| 変数                                       | 要点                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------- |
+| `CLAUDE_CODE_ENABLE_TELEMETRY`             | OTel を有効化。シェル・user・managed で設定                       |
+| `DISABLE_TELEMETRY`                        | テレメトリ停止。`0` でも停止                                      |
+| `DO_NOT_TRACK`                             | 同じ効果。通常の真偽値で、`0` なら停止しない                      |
+| `DISABLE_ERROR_REPORTING`                  | エラー報告を停止。`0` でも停止                                    |
+| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | 自動更新・テレメトリ・エラー報告・`/feedback` などを一括停止      |
+| `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB`         | サブプロセスの環境から認証情報を除く                              |
+| `DISABLE_AUTOUPDATER`                      | 自動更新だけ止める。`DISABLE_UPDATES` は `claude update` も止める |
+
+| 変数                                                                    | 要点                                                  |
+| ----------------------------------------------------------------------- | ----------------------------------------------------- |
+| `DEBUG`                                                                 | `--debug` と同じ。`1`・`true`・`yes`・`on` のときだけ |
+| `CLAUDE_CODE_DEBUG_LOGS_DIR`                                            | ログの**ファイル**パス。単独では有効にならない        |
+| `CLAUDE_CODE_DEBUG_LOG_LEVEL`                                           | `verbose`・`debug`（既定）・`info`・`warn`・`error`   |
+| `CLAUDE_CODE_SIMPLE`・`CLAUDE_CODE_SAFE_MODE`・`CLAUDE_CODE_RESTRICTED` | `--bare`・`--safe-mode`・`--restricted` と同じ        |
+| `CLAUDE_CONFIG_DIR`                                                     | `~/.claude` の場所。複数アカウントの切り替えに使う    |
+| `CLAUDE_CODE_MAX_TURNS`                                                 | `--max-turns` と同じ。フラグが優先                    |
+| `CLAUDE_CODE_SKIP_PROMPT_HISTORY`                                       | 入力履歴とトランスクリプトを書かない                  |
+
+Claude Code は自分が起動するサブプロセス（Bash、フック、stdio MCP など）に `CLAUDECODE=1` と `CLAUDE_CODE_SESSION_ID` を設定します。スクリプトは、これで Claude Code の中かどうかを判定できます。
+
+<div class="src">
+  出典: [env-vars#variables](https://code.claude.com/docs/en/env-vars#variables) · 全件は [付録 B](/claude-code-deep-dive/ja/appendix/env/)
+</div>
+
+<span id="ch20-experimental" />
+
+## 実験的な変数と、changelog にだけ載る変数
+
+| 変数                                                    | 状態と要点                                                                                                                         |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`                  | <span class="badge experimental">Experimental</span> `1` で agent teams（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)） |
+| `CLAUDE_CODE_DISABLE_ADVISOR_TOOL`                      | <span class="badge experimental">Experimental</span> advisor を無効化（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/)）    |
+| `CLAUDE_CODE_NO_FLICKER`                                | <span class="badge preview">Preview</span> `1` でフルスクリーン描画。`tui` より優先                                                |
+| `CLAUDE_CODE_PROPAGATE_TRACEPARENT`                     | <span class="badge beta">Beta</span> カスタムプロキシ経由でも W3C trace context を伝播                                             |
+| `ENABLE_BETA_TRACING_DETAILED`・`BETA_TRACING_ENDPOINT` | <span class="badge beta">Beta</span> 内容を含む詳細トレース。対話 CLI は組織の allowlist が必要                                    |
+
+`CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` は、プレリリースの `anthropic-beta` ヘッダーとベータのスキーマ項目を送らない変数です。これを拒否するゲートウェイ向けで、MCP ツール検索も外れます。
+
+次の 5 つは env-vars リファレンスに無く、changelog だけが説明しています。
+
+| 変数                                  | 追加版と要点                                                                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `CLAUDE_CODE_SUBAGENT_EFFORT`         | 2.1.316。指定の無いサブエージェントの effort                                                                                    |
+| `CLAUDE_CODE_DISABLE_ULTRATHINK`      | 2.1.316。`ultrathink` キーワードを無効化                                                                                        |
+| `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` | 2.1.296。workflow エージェントを 1 つのモデルで動かす                                                                           |
+| `CLAUDE_CODE_LOOP_KEEPALIVE`          | 2.1.319。self-paced `/loop` の旧挙動（フォールバックの wakeup）を残す（[Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)） |
+| `CLAUDE_CODE_DISABLE_MCP_TASKS`       | 2.1.319。MCP タスク <span class="badge beta">Beta</span> を無効化（[Ch30](/claude-code-deep-dive/ja/extensions/mcp/)）          |
+
+<div class="src">
+  出典: [env-vars#variables](https://code.claude.com/docs/en/env-vars#variables) · [changelog 2.1.296, 2.1.316, 2.1.319（リファレンス未掲載）](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch20-feature-flags" />
+
+## feature flag の取得を止める変数と、その影響
+
+### 取得しないセッション
+
+- `DISABLE_GROWTHBOOK`、`DISABLE_TELEMETRY`、`DO_NOT_TRACK`、`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` のどれかを設定したセッション。どの値で止まるかは変数ごとに違います（`DISABLE_GROWTHBOOK` は `0` なら取得を続ける）。
+- サードパーティのプロバイダ（Bedrock、Claude Platform on AWS、Agent Platform、Foundry）。埋め込みホストが `CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST` を設定した場合を除きます。
+- Claude apps gateway のセッション。
+
+### 最初のセッションの注意
+
+- インストールや更新の直後のセッションでは、flag に依存する機能が欠けることがあります。取得した flag はマシンに保存され、次のセッションから効きます。
+- 毎回クリーンな CI コンテナでは、毎回が最初のセッションです。
+
+### 取得を止めると使えなくなるもの
+
+- Remote Control（`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` か `DISABLE_GROWTHBOOK` の場合）
+- 他のマシンのセッションへのメッセージ
+- `claude import` と `/import`、`/skill-doctor`
+- `/restart`（Pro・Max・Ultra）
+- claude.ai の Skill とプラグインの同期
+- advisor、Artifact のコメント
+- Claude が下書きするフィードバック
+- 大きな貼り付けを貼り付けとして扱う処理
+- API が拒否する入力スキーマを持つ MCP ツールの除外
+
+docs は MCP タスクもこの一覧に挙げていますが、2.1.319 からターミナルでは flag の取得なしで動きます（changelog、[Ch30](/claude-code-deep-dive/ja/extensions/mcp/)）。
+
+<div class="src">
+  出典: [env-vars#features-that-need-feature-flag-fetching](https://code.claude.com/docs/en/env-vars#features-that-need-feature-flag-fetching) · [#first-session-after-an-install-or-upgrade](https://code.claude.com/docs/en/env-vars#first-session-after-an-install-or-upgrade) · [changelog 2.1.319](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch20-removed" />
+
+## 廃止された変数とキー
+
+| 環境変数                                             | 状態                                                                           |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `ANTHROPIC_SMALL_FAST_MODEL`                         | <span class="badge deprecated">Deprecated</span>                               |
+| `ENABLE_PROMPT_CACHING_1H_BEDROCK`                   | <span class="badge deprecated">Deprecated</span> `ENABLE_PROMPT_CACHING_1H` へ |
+| `CLAUDE_CODE_ENABLE_OPUS_4_7_FAST_MODE`              | <span class="badge removed">Removed</span> 2.1.142                             |
+| `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE`            | <span class="badge removed">Removed</span> 2.1.160                             |
+| `CLAUDE_CODE_CONNECT_TIMEOUT_MS`                     | <span class="badge removed">Removed</span> 2.1.186。`API_TIMEOUT_MS` へ        |
+| `CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION`              | <span class="badge removed">Removed</span> 2.1.224                             |
+| `CLAUDE_SUBAGENT_BG_SHELL_MAX_MS`                    | <span class="badge removed">Removed</span> 2.1.260                             |
+| `TASK_MAX_OUTPUT_LENGTH`                             | <span class="badge removed">Removed</span> 2.1.277                             |
+| `CLAUDE_CODE_AUTO_BACKGROUND_WORKER_CHECKIN_SECONDS` | <span class="badge removed">Removed</span> 2.1.283                             |
+
+| 設定キー                     | 状態                                                                        |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| `includeCoAuthoredBy`        | <span class="badge deprecated">Deprecated</span> 2.0.62。`attribution` へ   |
+| `voiceEnabled`               | <span class="badge deprecated">Deprecated</span> 2.1.92。`voice.enabled` へ |
+| `keybindingFlavor`           | <span class="badge deprecated">Deprecated</span> 2.1.261。効果なし          |
+| `disableArtifact`            | <span class="badge deprecated">Deprecated</span> `enableArtifact` へ        |
+| `teammateDefaultModel`       | <span class="badge removed">Removed</span> 2.1.234                          |
+| `permissionExplainerEnabled` | <span class="badge removed">Removed</span> 2.1.257                          |
+| `taskOutputMaxChars`         | <span class="badge removed">Removed</span> 2.1.277                          |
+
+- Removed の変数とキーは、書いても効果がありません。Deprecated のキーは今も読まれますが、新しい設定では置き換え先を使います。
+- `CLAUDE_CODE_ENABLE_AUTO_MODE` も互換のために受け付けるだけで、効果はありません。
+
+<div class="src">
+  出典: [env-vars#variables](https://code.claude.com/docs/en/env-vars#variables) · [settings-reference](https://code.claude.com/docs/en/settings-reference)（各キーの項）
+</div>

@@ -4,7 +4,7 @@ Every chapter passes a fact review before the site is published. The reviewer di
 
 ## Inputs
 
-- The chapter files under `src/chapters/` named in your assignment.
+- The chapter pages under `src/content/docs/ja/` named in your assignment.
 - `docs/ledger.md` (canonical facts, status labels, conflict rulings) and `docs/authoring-guide.md` (markup and style rules).
 - The research root `$CCDD_RESEARCH`:
   - `docs/*.md`: the docs mirror. The public URL is `https://code.claude.com/docs/en/<page>`.
@@ -12,7 +12,7 @@ Every chapter passes a fact review before the site is published. The reviewer di
   - `raw/**`, `lab/**`, `machine.md`: observed output from 2.1.321.
 - The research notes (`notes/*.md`) are model-written. Never accept a fact because a note says it.
 
-## What to check on every content slide
+## What to check in every section
 
 1. **Identifiers:** every flag, env var, settings key, command, hook event, field name and file path exists with this exact spelling in the docs mirror, the changelog, or an observed capture.
 2. **Values:** defaults, limits, counts, version numbers, model IDs and prices match the source.
@@ -34,17 +34,17 @@ Every chapter passes a fact review before the site is published. The reviewer di
 ## Checks after editing
 
 ```bash
-node tools/build.mjs --only=<file prefixes> --out=build/review-<group>.html
-node tools/lint.mjs --html=build/review-<group>.html --only=ids,privacy,sources
-node tools/check.mjs --html=build/review-<group>.html
+pnpm build
+CCDD_RESEARCH=/path/to/research node tools/lint.mjs --site dist
 ```
 
-All three must pass.
+The lint must report no findings.
 
 ## Report
 
 At most 250 words:
+
 - the number of claims checked;
-- the errors you fixed, each as slide id, before, after, and evidence;
+- the errors you fixed, each as section id, before, after, and evidence;
 - judgment calls;
 - claims you could not verify.

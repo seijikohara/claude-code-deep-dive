@@ -1,0 +1,143 @@
+---
+title: "Projects・Slack・Claude Tag"
+description: "複数のクラウドセッションをまとめて動かす Projects と、Slack から Claude Code を使う 2 つの形（旧来の Claude Code in Slack と、組織向けの Claude Tag）を扱います。3 つとも状態が異なるため、各節のバッジで区別します。"
+sidebar:
+  order: 55
+---
+
+複数のクラウドセッションをまとめて動かす Projects と、Slack から Claude Code を使う 2 つの形（旧来の Claude Code in Slack と、組織向けの Claude Tag）を扱います。3 つとも状態が異なるため、各節のバッジで区別します。
+
+<span id="ch55-projects" />
+
+## Projects: 構成と既定値 <span class="badge beta">Beta</span>
+
+- プロジェクトは、Claude がコーディネーターとして関連作業を進める 1 本の長い会話です。タスクごとに**スレッド**（通常はクラウドセッション）を起動し、スレッドは並列に動いて結果を会話に返します。
+- **Overview** ペインで全スレッドの状態を見ます。他に **Library**（ファイル）、**Pull requests**、**Scheduled tasks** のタブがあります。
+- Pro・Max・Ultra の public beta で、段階的に提供中です。Team・Enterprise にはまだありません。
+- claude.ai/code、Desktop の Code タブ、モバイルアプリで使えます。CLI・VS Code・JetBrains、Bedrock・Agent Platform・Foundry では使えません。
+- 新しいプロジェクトはすべて Opus で、スレッドの effort は high、コーディネーターは low です。
+- 強制される上限は、全プロジェクト合計で 1 日 500 スレッドです。プロジェクト指示は 16,000 文字までです。活動のないスレッドは 1 週間で Resolved になります。
+- 使用量はプランの上限に計上されます。プロジェクトは 1 ユーザー専用で共有できず、ベータ中は組織レベルの管理もありません。
+
+| 各リポジトリにあるもの                                      | クラウドスレッドでの扱い                                            |
+| ----------------------------------------------------------- | ------------------------------------------------------------------- |
+| ルートの `CLAUDE.md`・`.claude/CLAUDE.md`・`.claude/rules/` | 読み込む。サブディレクトリの `CLAUDE.md` とパス指定ルールは読まない |
+| `.claude/skills/`                                           | 読まない。claude.ai アカウントで Skill を有効にする                 |
+| `.claude/` の agents・commands                              | 読まない                                                            |
+| `.mcp.json`                                                 | 読まない。claude.ai のコネクタを使う                                |
+| `.claude/settings.json` のプラグイン                        | 読まない。**Project settings > Plugins** で追加                     |
+| 同じく権限ルール・フック・`env`                             | 適用しない。`env` はクラウド環境で設定                              |
+
+GitHub は github.com のみで、push 権限と Claude GitHub App が必要です。`/web-setup` のトークンだけでは足りません。
+
+<div class="src">
+  出典: [claude-projects](https://code.claude.com/docs/en/claude-projects)（How a project is organized / Check the prerequisites / Choose models / What threads pick up / Usage and cost / Limitations）
+</div>
+
+<span id="ch55-projects-local" />
+
+## Projects: 自分のマシンでスレッドを動かす <span class="badge beta">Beta</span>
+
+- ローカルのデータベースや VPN の内側の API が必要なタスクは、スレッドを自分のマシンで動かせます。スレッドは Remote Control でつないだフォルダの Claude Code セッションになります（[Ch49](/claude-code-deep-dive/ja/platforms/remote-control/)）。
+
+- マシン側には Claude Code v2.1.280 以降が必要です。フォルダをつなぐ方法は 2 つです。
+
+  - Desktop: **Use this computer from your phone and claude.ai** をオンにしてフォルダを追加
+  - ターミナル: フォルダで `claude remote-control` を動かし続ける。git リポジトリなら `--spawn worktree` でスレッドごとに worktree
+
+- 会話の **+** メニューで **Work locally** を選んで依頼し、**Allow Claude to work in a folder on your device** カードで **Allow once** を押します。
+
+```bash
+cd ~/work/payments
+claude remote-control --spawn worktree
+```
+
+- ローカルスレッドは、そのマシンのファイル・ツール・MCP サーバー・Claude Code 設定（フック・権限ルールを含む）で動きます。プロジェクト指示は受け取り、メモリファイルは読み込みません。
+- auto mode で動きます。auto mode が使えない場合、権限の確認はスレッドで回答を待ちます。
+- マシンのスリープ中はスレッドが一時停止し、Desktop か `claude remote-control` が終了すると停止します。
+- アカウントで **Require trusted devices** がオンだと、ローカルスレッドは動きません。
+- クラウドスレッドのサンドボックスはターン間で一時停止します。再開できなければ新しい clone から続くため、未コミット変更を失うことがあります。
+- Claude Tag との違い: Projects は個人用で、自分の GitHub アクセスとコネクタを使います。チャンネルの複数人で作業を渡すなら Claude Tag です。
+
+<div class="src">
+  出典: [claude-projects#run-a-thread-on-your-own-computer](https://code.claude.com/docs/en/claude-projects#run-a-thread-on-your-own-computer) · [#how-projects-relate-to-other-claude-code-features](https://code.claude.com/docs/en/claude-projects#how-projects-relate-to-other-claude-code-features) · [#limitations](https://code.claude.com/docs/en/claude-projects#limitations)
+</div>
+
+<span id="ch55-slack" />
+
+## Claude Code in Slack（旧版） <span class="badge deprecated">Deprecated</span>
+
+- チャンネルで `@Claude` にコーディングの依頼をすると、自分の Claude アカウントでクラウドセッションを作ります。リポジトリとプラン上限も自分のものです。
+- 応答するのは Pro・Max・Ultra のアカウントからのメンションだけで、Claude Tag に接続されていない Slack ワークスペースに限られます。
+- 接続済みのワークスペースでは、2026-10-05 から旧版はチャンネルで応答せず、`The legacy Claude in Slack bot is retired effective October 5, 2026 and no longer responds in channels.` を返します（プランに関係なく）。Team・Enterprise は Claude Tag に移行します。
+- 制限: GitHub のみ、1 セッション 1 PR、チャンネルのみ（DM 不可）、クラウドセッションの利用権が必要。
+- スレッドやチャンネルの会話を文脈にするため、他のメッセージの指示に従う可能性があります。信頼できる会話でだけ使います。Team・Enterprise のアカウントでは、作ったセッションが組織に自動公開されます。
+
+### セットアップ
+
+1. ワークスペース管理者が Slack App Marketplace から Claude アプリを入れる
+2. 各ユーザーが App Home の **Connect Claude account** でアカウントをつなぐ
+3. claude.ai/code で GitHub を接続し、リポジトリを 1 つ以上認証する
+4. App Home の **Routing Mode** を選ぶ: **Code only**（すべて Claude Code へ）か **Code + Chat**（コーディングだけ Claude Code へ）
+5. 各チャンネルで `/invite @Claude` を実行する（自動では追加されない）
+
+- 完了時はスレッドのメッセージにボタンが付き、DM でリンクが届きます。**Create PR** は GitHub の compare ページを開きます。
+- CLI の `/install-slack-app` は「Opens a browser to complete the OAuth flow」と docs にあります。
+
+<div class="src">
+  出典: [slack](https://code.claude.com/docs/en/slack)（Prerequisites / Setting up / How it works / Current limitations / Troubleshooting） · [commands](https://code.claude.com/docs/en/commands) · [platforms](https://code.claude.com/docs/en/platforms#connect-your-tools)
+</div>
+
+<span id="ch55-tag" />
+
+## Claude Tag: 仕組みと Claude Code との対応 <span class="badge beta">Beta</span>
+
+- Slack のチャンネルで誰でも `@Claude` に作業を渡せる、組織向けの Slack アプリです。Team・Enterprise の Anthropic ファーストパーティ提供だけで、個人プランとサードパーティ経由では使えません。
+- セットアップは Owner が `claude.ai/admin-settings/claude-tag` で 1 回だけ行います。Slack で `@Claude connect` を送ってペアリングコードを受け取り、設定ページに入力し、月の支出上限を決めてチャンネルに追加します。
+- チャンネル・スレッド・グループ DM の作業は組織の使用残高から従量課金され、席ごとの料金はありません。アカウントをつないだメンバーとの 1 対 1 DM は、その人の claude.ai アカウントで動きます。
+- スレッドごとに 1 セッションと専用のサンドボックスが割り当てられます。返信がセッションを続けるため、`--continue` や `/resume` はありません。チャンネル内の PR は Claude GitHub App が作成します。
+- 付与されたリポジトリを名指しすると clone し、`CLAUDE.md`・`.claude/CLAUDE.md`・`.claude/rules/*.md`・`.claude/skills/` を読み込みます。リポジトリのフックは動きません。
+
+| 手元の Claude Code               | Claude Tag での相当                                        |
+| -------------------------------- | ---------------------------------------------------------- |
+| `/model`                         | 管理者がチャンネルごとの既定を設定。スレッド内で切り替え可 |
+| `/fast`                          | Owner が許可すると `@Claude !fast` でスレッド単位          |
+| Effort                           | 設定不可。モデルの既定 effort                              |
+| `.mcp.json`                      | 読まない。管理者がチャンネルに設定した接続だけ             |
+| シークレット                     | チャンネルの接続として管理者が登録。ネットワーク層で付与   |
+| 環境変数・セットアップスクリプト | チャンネルが使う環境に管理者が設定（組織レベルの環境のみ） |
+| 個人の `settings.json`           | 読まない                                                   |
+| 権限の確認                       | auto mode で動作。管理者が allow ルールで事前承認          |
+
+<div class="src">
+  出典: [claude-tag/overview](https://claude.com/docs/claude-tag/overview) · [claude-tag/concepts/for-claude-code-users](https://claude.com/docs/claude-tag/concepts/for-claude-code-users) · [cloud-environments](https://code.claude.com/docs/en/cloud-environments#set-the-environment-a-claude-tag-channel-uses)
+</div>
+
+<span id="ch55-tag-commands" />
+
+## Claude Tag: `@Claude !` コマンドと旧版からの移行 <span class="badge beta">Beta</span>
+
+| コマンド                    | 動作                                                               |
+| --------------------------- | ------------------------------------------------------------------ |
+| `!help`                     | このワークスペースで使えるコマンドの一覧                           |
+| `!configure`                | チャンネルの Configure ページへのリンク（DM では管理設定）         |
+| `!restart`                  | セッションをアーカイブして新しく始める。スレッドでは再読込         |
+| `!status`                   | 作業中かを自分だけに表示。中断しない                               |
+| `!mute` / `!unmute`         | スレッド単位のミュート（チャンネル単位はない）                     |
+| `!fast [on\|off]`           | fast mode。Opus 以外なら最新の Opus に切り替え、`off` 後も戻らない |
+| `!feedback [text]`          | フィードバックフォーム                                             |
+| `!scheduled [#channel]`     | チャンネルのルーティン一覧（旧名 `!routines`）                     |
+| `!fork [#channel] <prompt>` | 会話を新しいスレッドで続ける。公開チャンネルのみ                   |
+
+- コマンドは `@Claude` の直後に置きます。`!help`・`!configure`・`!restart`・`!status`・`!mute`・`!unmute` に語を足すと、通常のプロンプトになります。
+- Slack Connect のチャンネルでは `!help`・`!mute`・`!unmute`・`!restart`・`!fast` だけが使え、相手企業の人は `!help` だけです。
+- 返信のサムズダウン**ボタン**でもスレッドがミュートされます。絵文字のリアクションでは変わりません。
+
+### 旧版からの移行
+
+- Team・Enterprise では、既存の Slack アプリと `@Claude` のハンドルがそのまま残ります。チャンネル・ワークスペース・組織既定で Claude Tag をオンにします。
+- Claude Tag のセッションは server-managed settings を受け取らず、使う環境は組織共有かセルフホストの環境だけです（[Ch51](/claude-code-deep-dive/ja/platforms/self-hosted/)）。
+
+<div class="src">
+  出典: [claude-tag/users/commands](https://claude.com/docs/claude-tag/users/commands) · [slack](https://code.claude.com/docs/en/slack) · [cloud-environments#what-carries-over-from-your-setup](https://code.claude.com/docs/en/cloud-environments#what-carries-over-from-your-setup)
+</div>

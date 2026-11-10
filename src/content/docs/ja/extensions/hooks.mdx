@@ -1,0 +1,1079 @@
+---
+title: "Hooks"
+description: "33 イベントの設定・入出力・決定制御・非同期実行・安全性を扱います（全件表は 付録 D）。"
+sidebar:
+  order: 28
+---
+
+33 イベントの設定・入出力・決定制御・非同期実行・安全性を扱います（全件表は [付録 D](/claude-code-deep-dive/ja/appendix/hooks/)）。
+
+<span id="ch28-overview" />
+
+## 全体像: イベント・matcher グループ・ハンドラの 3 階層
+
+- フックは、ライフサイクルの決まった時点で自動実行される処理です。ターミナル・IDE 拡張・Desktop・クラウドセッションで、同じイベントが発火します。
+- 設定は 3 階層です。**hook event**（発火点）の下に **matcher group**（絞り込み）を置き、その下に **hook handler**（実行内容）を並べます。
+- ハンドラの型は 5 種類です: `command`・`http`・`mcp_tool`・`prompt`・`agent`。`agent` だけが Experimental です。
+- 解決の順序は、イベント発火、`matcher` の照合、ハンドラごとの `if` の照合、ハンドラの起動、結果の適用です。
+- exit 0 で何も出力しないフックは「判断なし」で、通常の権限フローに進みます。黙っていても承認にはなりません。
+- プラグインの JavaScript 関数フック（mod）は別の仕組みで、本章のフックと併用できます（[Ch33](/claude-code-deep-dive/ja/extensions/mods/)）。
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(rm *)",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/block-rm.sh",
+            "args": []
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+matcher で Bash に絞り、`if` で `rm` のサブコマンドにさらに絞る例です。`block-rm.sh` は `rm -rf` を含むときだけ deny の JSON を返し、それ以外は `exit 0` で判断を返しません。
+
+<div class="src">
+  出典: [hooks](https://code.claude.com/docs/en/hooks) · [hooks#how-a-hook-resolves](https://code.claude.com/docs/en/hooks#how-a-hook-resolves) · [#configuration](https://code.claude.com/docs/en/hooks#configuration)
+</div>
+
+<span id="ch28-lifecycle" />
+
+## ライフサイクル: 発火の順序と 3 つの周期
+
+### セッション内の順序
+
+1. `Setup`（`--init-only`、または `-p` で `--init`・`--maintenance` のときだけ）
+2. `SessionStart`
+3. ターン開始: `UserPromptSubmit`、コマンド入力なら `UserPromptExpansion`
+4. ツール呼び出しごと: `PreToolUse`、`PermissionRequest`、`PostToolUse` または `PostToolUseFailure`。並列バッチの後に `PostToolBatch`
+5. ループの中: `SubagentStart`/`SubagentStop`、`TaskCreated`/`TaskCompleted`、MCP ツール実行中の `Elicitation`/`ElicitationResult`、auto mode の拒否で `PermissionDenied`
+6. ターン終了: `Stop`（API エラーなら `StopFailure`）、`TeammateIdle`
+7. `PreCompact`、`PostCompact`、最後に `SessionEnd`
+
+### 流れの外で発火するもの
+
+| 種類         | イベント                                                                                                                         |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| 単独・非同期 | `Notification` `ConfigChange` `InstructionsLoaded` `CwdChanged` `FileChanged` `DirectoryAdded` `WorktreeCreate` `WorktreeRemove` |
+| 単独・逐次   | `PreModelSwitch`（要求されたモデル切替の適用前）                                                                                 |
+| 単独・非同期 | `PostModelSwitch`（モデルが変わった後）                                                                                          |
+| 表示専用     | `MessageDisplay`（アシスタント本文の表示中）                                                                                     |
+
+### 3 つの周期
+
+- セッションごと: `SessionStart`、`SessionEnd`
+- ターンごと: `UserPromptSubmit`、`Stop`、`StopFailure`
+- ツール呼び出しごと: `PreToolUse`、`PostToolUse`。`EndConversation` の呼び出しはどちらも発火しません。
+
+<div class="src">
+  出典: [hooks#hook-lifecycle](https://code.claude.com/docs/en/hooks#hook-lifecycle)（ライフサイクル図の説明文）
+</div>
+
+<span id="ch28-events-session" />
+
+## イベント一覧 (1/3): セッション・環境
+
+| イベント             | 発火のタイミング                                         | matcher の対象       | 型  | exit 2 の効果                                |
+| -------------------- | -------------------------------------------------------- | -------------------- | --- | -------------------------------------------- |
+| `Setup`              | `--init-only`、`-p --init`・`--maintenance` の起動時のみ | 起動フラグ           | 2   | 無視される                                   |
+| `SessionStart`       | セッションの開始・再開                                   | 開始の経路           | 2   | stderr をユーザーにだけ表示                  |
+| `InstructionsLoaded` | CLAUDE.md・`.claude/rules/*.md` の読み込み               | 読み込みの理由       | 3   | 無視される                                   |
+| `ConfigChange`       | セッション中に設定ファイル・skill ファイルが変わった     | 設定の出どころ       | 3   | 変更を適用しない（`policy_settings` を除く） |
+| `CwdChanged`         | `cd` などで作業ディレクトリが変わった                    | なし                 | 3   | stderr をユーザーにだけ表示                  |
+| `DirectoryAdded`     | `/add-dir`・SDK の `register_repo_root` の後             | 追加の経路           | 3   | stderr はデバッグログへ                      |
+| `FileChanged`        | 監視中のファイルがディスク上で変わった                   | 監視するファイル名   | 3   | stderr をユーザーにだけ表示                  |
+| `WorktreeCreate`     | worktree の作成。git の既定処理を置き換える              | なし                 | 3   | 非 0 なら作成が失敗                          |
+| `WorktreeRemove`     | フックが作った worktree の削除                           | なし                 | 3   | 非 0 かつディレクトリが残れば失敗            |
+| `PreModelSwitch`     | 要求されたモデル切替の適用前                             | 切替先モデルの正規名 | 3   | 切替を止め、stderr をユーザーに表示          |
+| `PostModelSwitch`    | セッションのモデルが変わった後                           | 同上                 | 3   | stderr をユーザーにだけ表示                  |
+| `SessionEnd`         | セッションの終了                                         | 終了の理由           | 3   | stderr をユーザーにだけ表示                  |
+
+型 = 使えるハンドラの型。5 は全種、4 は `agent` 以外、3 は `command`・`http`・`mcp_tool`、2 は `command`・`mcp_tool`。
+
+<div class="src">
+  出典: [hooks#hook-lifecycle](https://code.claude.com/docs/en/hooks#hook-lifecycle) · [#matcher-patterns](https://code.claude.com/docs/en/hooks#matcher-patterns) · [#exit-code-2-behavior-per-event](https://code.claude.com/docs/en/hooks#exit-code-2-behavior-per-event) · [#prompt-based-hooks](https://code.claude.com/docs/en/hooks#prompt-based-hooks)
+</div>
+
+<span id="ch28-events-turn" />
+
+## イベント一覧 (2/3): プロンプト・応答・圧縮・MCP
+
+| イベント              | 発火のタイミング                                                              | matcher の対象   | 型  | exit 2 の効果                             |
+| --------------------- | ----------------------------------------------------------------------------- | ---------------- | --- | ----------------------------------------- |
+| `UserPromptSubmit`    | プロンプトの送信後、Claude の処理前。Claude Code が自分で始めるターンでも発火 | なし             | 5   | プロンプトを止める（Claude に届かない）   |
+| `UserPromptExpansion` | 入力したコマンドがプロンプトに展開される前                                    | コマンド名       | 5   | 展開を止める                              |
+| `MessageDisplay`      | アシスタント本文の表示中                                                      | なし             | 3   | 元の本文を表示                            |
+| `Notification`        | Claude Code が通知を出す                                                      | 通知の種類       | 3   | 無視される                                |
+| `Stop`                | メインエージェントの応答完了。ユーザーの割り込みでは発火しない                | なし             | 5   | 停止させず、会話を続ける                  |
+| `StopFailure`         | API エラーでターンが終わった（`Stop` の代わり）                               | エラーの種別     | 3   | 無視される（`terminalSequence` だけ有効） |
+| `PreCompact`          | コンテキスト圧縮の前                                                          | `manual`・`auto` | 3   | 圧縮を止める                              |
+| `PostCompact`         | コンテキスト圧縮の後                                                          | `manual`・`auto` | 3   | stderr をユーザーにだけ表示               |
+| `Elicitation`         | MCP サーバーがツール呼び出し中に入力を求めた                                  | MCP サーバー名   | 3   | 要求を辞退し、ダイアログを出さない        |
+| `ElicitationResult`   | ユーザーの応答をサーバーに返す前                                              | MCP サーバー名   | 3   | 応答を止める（decline になる）            |
+
+型 = 使えるハンドラの型。5 は全種、4 は `agent` 以外、3 は `command`・`http`・`mcp_tool`、2 は `command`・`mcp_tool`。
+
+<div class="src">
+  出典: [hooks#hook-lifecycle](https://code.claude.com/docs/en/hooks#hook-lifecycle) · [#matcher-patterns](https://code.claude.com/docs/en/hooks#matcher-patterns) · [#exit-code-2-behavior-per-event](https://code.claude.com/docs/en/hooks#exit-code-2-behavior-per-event) · [#prompt-based-hooks](https://code.claude.com/docs/en/hooks#prompt-based-hooks)
+</div>
+
+<span id="ch28-events-tool" />
+
+## イベント一覧 (3/3): ツールループ・サブエージェント・タスク
+
+| イベント             | 発火のタイミング                                               | matcher の対象   | 型  | exit 2 の効果                         |
+| -------------------- | -------------------------------------------------------------- | ---------------- | --- | ------------------------------------- |
+| `PreToolUse`         | ツールの実行前（`EndConversation` を除く）                     | ツール名         | 5   | ツール呼び出しを止める                |
+| `PermissionRequest`  | 権限の確認を出す直前                                           | ツール名         | 4   | 効かない。`decision` で deny する     |
+| `PermissionDenied`   | auto mode がツール呼び出しを拒否した                           | ツール名         | 5   | 無視される。`retry` を使う            |
+| `PostToolUse`        | ツール呼び出しの成功後                                         | ツール名         | 5   | stderr を Claude に見せる（実行済み） |
+| `PostToolUseFailure` | 実行を始めたツールの失敗後                                     | ツール名         | 5   | stderr を Claude に見せる（失敗済み） |
+| `PostToolBatch`      | 並列バッチの全呼び出しの解決後、次のモデル呼び出しの前         | なし             | 5   | エージェントループを止める            |
+| `SubagentStart`      | サブエージェントの起動・再開、チームメイトの新規メッセージ処理 | エージェント種別 | 3   | stderr をユーザーにだけ表示           |
+| `SubagentStop`       | サブエージェントの応答完了                                     | エージェント種別 | 5   | 停止させない                          |
+| `TaskCreated`        | `TaskCreate` でタスクを作るとき                                | なし             | 5   | 作成を取り消す                        |
+| `TaskCompleted`      | タスクを完了にするとき                                         | なし             | 5   | 完了にしない                          |
+| `TeammateIdle`       | Agent Teams のチームメイトがアイドルになる直前                 | なし             | 5   | アイドルにせず、作業を続けさせる      |
+
+型 = 使えるハンドラの型（5 は全種、4 は `agent` 以外、3 は `command`・`http`・`mcp_tool`）。`TeammateIdle` とチームメイト経路の `TaskCompleted` は Agent Teams <span class="badge experimental">Experimental</span>（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）の機能です。
+
+<div class="src">
+  出典: [hooks#hook-lifecycle](https://code.claude.com/docs/en/hooks#hook-lifecycle) · [#matcher-patterns](https://code.claude.com/docs/en/hooks#matcher-patterns) · [#exit-code-2-behavior-per-event](https://code.claude.com/docs/en/hooks#exit-code-2-behavior-per-event) · [#prompt-based-hooks](https://code.claude.com/docs/en/hooks#prompt-based-hooks)
+</div>
+
+<span id="ch28-locations" />
+
+## 定義場所・マージ・重複排除
+
+| 場所                            | 有効範囲                               | 共有                       |
+| ------------------------------- | -------------------------------------- | -------------------------- |
+| `~/.claude/settings.json`       | 自分の全プロジェクト                   | 不可（ローカル）           |
+| `.claude/settings.json`         | 単一プロジェクト                       | 可（コミットできる）       |
+| `.claude/settings.local.json`   | 単一プロジェクト                       | 不可（保存時に gitignore） |
+| managed policy settings         | 組織全体                               | 可（管理者が配布）         |
+| プラグインの `hooks/hooks.json` | プラグインが有効な間                   | 可（同梱）                 |
+| skill の frontmatter            | skill の起動後、セッションの終わりまで | 可（skill ファイル内）     |
+| サブエージェントの frontmatter  | そのサブエージェントの実行中           | 可（定義ファイル内）       |
+
+- 各階層のフックは置き換えではなく**マージ**されます。user・project・local は、managed のフックを消さずに自分のフックを追加します。
+- 同じハンドラを複数の settings ファイルに書いても、実行は 1 回です。プラグインや skill が持つ同じハンドラは別扱いで、それぞれ実行されます。
+- settings・managed・プラグインのフックは、サブエージェントの中でも動きます。ツールイベントの入力には `agent_id` と `agent_type` が付きます。
+- クラウドセッションは、ローカルの `~/.claude/settings.json` を読みません。
+- プラグインの `hooks/hooks.json` は、最上位に任意の `description` を書けます。有効化するとユーザーとプロジェクトのフックにマージされます。
+- settings ファイルを直接編集した変更は、通常はファイル監視で自動的に反映されます。
+
+設定ファイルの優先順位とマージ全般は [Ch18](/claude-code-deep-dive/ja/settings/settings-files/)、管理者向けの制限キーは本章の「セキュリティ・管理・デバッグ」と [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
+
+<div class="src">
+  出典: [hooks#hook-locations](https://code.claude.com/docs/en/hooks#hook-locations) · [#hook-handler-fields](https://code.claude.com/docs/en/hooks#hook-handler-fields) · [#reference-scripts-by-path](https://code.claude.com/docs/en/hooks#reference-scripts-by-path) · [#disable-or-remove-hooks](https://code.claude.com/docs/en/hooks#disable-or-remove-hooks)
+</div>
+
+<span id="ch28-matcher" />
+
+## matcher の評価規則と、MCP・Monitor の照合
+
+| matcher の値                           | 評価のしかた                                       | 例                                                               |
+| -------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------- |
+| `"*"`、`""`、省略                      | すべてに一致                                       | そのイベントの発生ごとに発火                                     |
+| 英数字・`_`・`-`・空白・`,`・`\|` だけ | 完全一致。`\|` か `,` で複数指定（前後の空白は可） | `Edit\|Write` と `Edit, Write` はどちらも 2 つのツールに完全一致 |
+| それ以外の文字を含む                   | JavaScript の正規表現（アンカーなし）              | `^Notebook`、`mcp__memory__.*`                                   |
+
+- 正規表現は `RegExp.prototype.test` で評価し、値のどこかに一致すれば成立します。`Edit.*` は `NotebookEdit` にも一致するので、完全一致には `^Edit$` と書きます。
+- `FileChanged` と `StopFailure` は、完全一致とみなす文字が英数字・`_`・`|` だけです。`-`・空白・`,` を含むと正規表現扱いになります。
+- matcher に対応しないイベントに書いた `matcher` は、黙って無視されます。照合は大文字と小文字を区別します。
+- 照合対象はイベント一覧に、値は各イベントの節にあります。
+
+* MCP ツール名は `mcp__<server>__<tool>` です。サーバー単位で拾うには `.*` が必須です。`mcp__memory` は完全一致扱いになり、どのツールにも一致しません。
+* プラグイン同梱サーバーのツールは `mcp__plugin_<plugin-name>_<server-name>__<tool>` です。素のサーバーキーで書いた matcher は発火しません。
+* v2.1.314 以降、`PreToolUse`・`PermissionRequest` の `Bash` matcher（`Bash|PowerShell`、`^Bash$`、`Bash.*` を含む）は Monitor のシェルコマンドにも動きます。ただし `allow` と `updatedInput` は効きません。
+* Monitor を許可・書き換えするには、matcher を `Bash|Monitor`・`.*`・省略にし、`if` に `Monitor(tail *)` のように書きます。
+
+<div class="src">
+  出典: [hooks#matcher-patterns](https://code.claude.com/docs/en/hooks#matcher-patterns) · [#match-mcp-tools](https://code.claude.com/docs/en/hooks#match-mcp-tools) · [#match-monitor-commands](https://code.claude.com/docs/en/hooks#match-monitor-commands) · [hooks-guide#hook-not-firing](https://code.claude.com/docs/en/hooks-guide#hook-not-firing)
+</div>
+
+<span id="ch28-if" />
+
+## `if` フィールド: ハンドラ単位の権限ルール照合
+
+- `if` は権限ルール構文で、ツール名と引数をまとめて照合します（例: `"Bash(git *)"`、`"Edit(*.ts)"`）。一致しなければハンドラのプロセスを起動しません。
+- 評価するのはツールイベント（`PreToolUse` `PostToolUse` `PostToolUseFailure` `PermissionRequest` `PermissionDenied`）だけです。他のイベントで `if` を書いたハンドラは**一度も実行されません**。
+- 書けるルールは 1 つです。`&&`・`||`・リストはないので、条件ごとにハンドラを分けます。Bash と PowerShell も、`Bash(rm *)` と `PowerShell(Remove-Item *)` の 2 ハンドラに分けます。
+- `"Edit(src/**)"` は作業ディレクトリ直下の `src` だけに一致します。どの深さにも一致させるなら `"Edit(**/src/**)"` です。
+
+| `if` のパターン    | Bash コマンド          | 実行   | 理由                                                                           |
+| ------------------ | ---------------------- | ------ | ------------------------------------------------------------------------------ |
+| `Bash(git *)`      | `FOO=bar git push`     | する   | 先頭の代入は除いて照合する                                                     |
+| `Bash(git *)`      | `npm test && git push` | する   | サブコマンドごとに照合し、`git push` が一致                                    |
+| `Bash(rm *)`       | `echo $(rm -rf /)`     | する   | `$()` とバッククォートの中も照合する                                           |
+| `Bash(rm *)`       | `echo $(date)`         | しない | `rm *` に一致するサブコマンドがない                                            |
+| `Bash(git push *)` | `echo $(date)`         | する   | コマンド名より詳しいパターンは、`$()`・バッククォート・`$VAR` があれば実行する |
+
+:::caution[注意]
+Bash の入力が何を実行するか判定できないときは、パターンに関係なくフックを実行します。`if` はベストエフォートなので、確実な許可・拒否には[権限ルール](/claude-code-deep-dive/ja/settings/permission-rules/)を使います。
+:::
+
+<div class="src">
+  出典: [hooks#common-fields](https://code.claude.com/docs/en/hooks#common-fields) · [#bash-if-matching](https://code.claude.com/docs/en/hooks#bash-if-matching) · [#how-a-hook-resolves](https://code.claude.com/docs/en/hooks#how-a-hook-resolves)
+</div>
+
+<span id="ch28-common" />
+
+## 共通フィールドとタイムアウト
+
+| フィールド      | 必須 | 内容                                                                                                                                            |
+| --------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`          | 必須 | `"command"` `"http"` `"mcp_tool"` `"prompt"` `"agent"`                                                                                          |
+| `if`            | 任意 | 権限ルール 1 つ。ツールイベントだけで評価                                                                                                       |
+| `timeout`       | 任意 | 秒。`async: true` の command には適用しない                                                                                                     |
+| `statusMessage` | 任意 | 実行中に出すスピナーの文言                                                                                                                      |
+| `once`          | 任意 | `true` なら最初の成功後に削除。失敗・exit 2・タイムアウトでは残る。skill の frontmatter でだけ有効で、settings と agent の frontmatter では無視 |
+
+| 対象                                                          | 既定のタイムアウト                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `command`・`http`・`mcp_tool`                                 | 600 秒                                                              |
+| 同上、`UserPromptSubmit`・`PreModelSwitch`・`PostModelSwitch` | 30 秒                                                               |
+| 同上、`MessageDisplay`                                        | 10 秒                                                               |
+| `prompt`                                                      | 30 秒                                                               |
+| `agent`                                                       | 60 秒                                                               |
+| `SessionEnd`（全フック共有）                                  | 1.5 秒。settings の per-hook `timeout` に合わせて最大 60 秒まで延長 |
+
+- タイムアウトした `command`・`http`・`mcp_tool` は取り消され、出力は捨てられます。多くのイベントでは「判断なし」になります。
+- `PreToolUse` では、タイムアウトしてもツール呼び出しは止まりません（`onFailure: "block"` を除く）。`PreModelSwitch` では逆に、タイムアウトが切替を止めます。
+- Agent SDK のコールバックフックは、タイムアウトすると `PreToolUse` ではツール呼び出しを、`UserPromptSubmit` ではプロンプトを止めます。
+
+<div class="src">
+  出典: [hooks#common-fields](https://code.claude.com/docs/en/hooks#common-fields) · [#timeouts](https://code.claude.com/docs/en/hooks#timeouts) · [#userpromptsubmit](https://code.claude.com/docs/en/hooks#userpromptsubmit) · [hooks-guide#limitations](https://code.claude.com/docs/en/hooks-guide#limitations)
+</div>
+
+<span id="ch28-command" />
+
+## `command` フック: フィールドと exec form・shell form
+
+| フィールド    | 内容                                                                                                  |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| `command`     | 必須。シェルに渡す文字列。`args` があるときは起動する実行ファイル                                     |
+| `args`        | 引数の配列。あればシェルを介さずに直接起動する（exec form）                                           |
+| `async`       | `true` でバックグラウンド実行                                                                         |
+| `asyncRewake` | バックグラウンド実行し、exit 2 で Claude を起こす。stderr（空なら stdout）を system reminder で渡す   |
+| `shell`       | `"bash"` か `"powershell"`。既定は bash（Git Bash のない Windows は powershell）。`args` があると無視 |
+| `onFailure`   | `"continue"` か `"block"`。v2.1.295 以降                                                              |
+
+```json
+{
+  "type": "command",
+  "command": "node",
+  "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/format.js", "--fix"]
+}
+```
+
+- **exec form**（`args` あり）: `command` を `PATH` から解決して直接起動します。`args` の各要素がそのまま 1 引数になり、`$`・バッククォート・アポストロフィも解釈されません。
+- **shell form**（`args` なし）: macOS と Linux は `sh -c`、Windows は Git Bash（なければ PowerShell）で実行します。パイプ・`&&`・リダイレクト・glob が使えます。
+- パスのプレースホルダを使うなら exec form を推奨します。shell form では二重引用符で囲みます。
+- どちらの形式も `CLAUDE_PROJECT_DIR`・`CLAUDE_PLUGIN_ROOT`・`CLAUDE_PLUGIN_DATA` を環境変数として渡します。
+- プラグインの `${user_config.*}` は exec form でだけ置換されます。shell form で参照するとエラーになり、実行されません（v2.1.207 より前は置換）。shell form では `$CLAUDE_PLUGIN_OPTION_<KEY>` を読みます。
+- Windows の exec form には実際の実行ファイルが必要です。`node_modules/.bin` の `.cmd`・`.bat` は起動できないので、`node` とスクリプトのパスで呼びます。
+
+<div class="src">
+  出典: [hooks#command-hook-fields](https://code.claude.com/docs/en/hooks#command-hook-fields) · [#exec-form-and-shell-form](https://code.claude.com/docs/en/hooks#exec-form-and-shell-form) · [#reference-scripts-by-path](https://code.claude.com/docs/en/hooks#reference-scripts-by-path)
+</div>
+
+<span id="ch28-http" />
+
+## `http` フック: POST とレスポンスの扱い
+
+| フィールド       | 内容                                                             |
+| ---------------- | ---------------------------------------------------------------- |
+| `url`            | 必須。POST 先の URL                                              |
+| `headers`        | 追加ヘッダー。値に `$VAR_NAME`・`${VAR_NAME}` を展開できる       |
+| `allowedEnvVars` | ヘッダーに展開してよい環境変数名。載っていない変数は空文字になる |
+| `onFailure`      | `"continue"`（既定）か `"block"`。v2.1.295 以降                  |
+
+| レスポンス             | 結果                                                         |
+| ---------------------- | ------------------------------------------------------------ |
+| 2xx・本文なし          | 成功（exit 0・出力なしと同じ）                               |
+| 2xx・JSON オブジェクト | command と同じスキーマで解析。検証失敗は非ブロッキングエラー |
+| 2xx・その他の本文      | 非ブロッキングエラー。本文は Claude に渡らない               |
+| 非 2xx・接続失敗       | 非ブロッキングエラー                                         |
+| タイムアウト           | 取り消し                                                     |
+
+ブロックするには、2xx で決定の JSON を返すか `onFailure: "block"` を設定します。
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:8080/hooks/pre-tool-use",
+            "timeout": 30,
+            "headers": {
+              "Authorization": "Bearer $MY_TOKEN"
+            },
+            "allowedEnvVars": ["MY_TOKEN"]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+本文は入力 JSON（`Content-Type: application/json`）です。settings の `allowedHttpHookUrls`・`httpHookAllowedEnvVars` でさらに制限できます。
+
+<div class="src">
+  出典: [hooks#http-hook-fields](https://code.claude.com/docs/en/hooks#http-hook-fields) · [#http-response-handling](https://code.claude.com/docs/en/hooks#http-response-handling) · [settings-reference#httphookallowedenvvars](https://code.claude.com/docs/en/settings-reference#httphookallowedenvvars)
+</div>
+
+<span id="ch28-mcp-tool" />
+
+## `mcp_tool` フック: 設定済み MCP サーバーのツールを呼ぶ
+
+| フィールド | 内容                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------- |
+| `server`   | 必須。設定済み MCP サーバー名。プラグイン同梱なら `plugin:<plugin-name>:<server-name>` |
+| `tool`     | 必須。呼び出すツール名                                                                 |
+| `input`    | ツールの引数。文字列値でフック入力 JSON の `${path}` を置換できる                      |
+
+- ツールのテキスト出力は、command の stdout と同じ規則で読みます。`isError: true` は非ブロッキングエラーです。
+- 止める・変えるイベント（`PreToolUse`、`Stop` など）では、接続中のサーバーを `MCP_TIMEOUT` と `timeout` の範囲で待ちます。観測用のイベント（`Notification` など）では待ちません。
+- フックは OAuth フローを始めません。認証は `/mcp` で済ませます。
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "my_server",
+            "tool": "security_scan",
+            "input": { "file_path": "${tool_input.file_path}" }
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+- 起動時の `SessionStart`（`--continue`・`--resume` を含む）とすべての `Setup` は MCP の接続前に発火するので、`mcp_tool` フックはスキップされます。`/clear` や圧縮の後の `SessionStart` では動きます。
+- v2.1.321 から、stdio・HTTP サーバーで 16 MiB 超の応答を返す `PreToolUse` の `mcp_tool` フックはツール呼び出しを拒否します。
+
+<div class="src">
+  出典: [hooks#mcp-tool-hook-fields](https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields) · changelog 2.1.321
+</div>
+
+<span id="ch28-prompt" />
+
+## `prompt` フック: 1 回の LLM 判定
+
+| フィールド        | 内容                                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
+| `prompt`          | 必須。`$ARGUMENTS` が入力 JSON に置き換わる。なければ末尾に追加。`\$1.00` で `$` をそのまま書く |
+| `model`           | 既定はバックグラウンド処理用のモデル                                                            |
+| `timeout`         | 既定 30 秒                                                                                      |
+| `continueOnBlock` | 既定 `false`。`true` なら `ok: false` の理由を Claude に返してターンを続ける                    |
+
+LLM は次の JSON を返します。`reason` は `ok: false` のとき必須です。`impossible` は `Stop`・`SubagentStop` でだけ有効で、条件が満たせないと判断したときにターンを終えさせます。
+
+```json
+{
+  "ok": true | false,
+  "reason": "Explanation for the decision",
+  "impossible": true | false
+}
+```
+
+### `ok: false` の効果
+
+- `Stop`・`SubagentStop`: 理由を次の指示として渡し、続行（`impossible: true` なら停止を許可）
+- `PreToolUse`: 呼び出しを拒否し、既定ではターンを終えて警告行を出す。`continueOnBlock: true` なら理由をツールエラーとして返す
+- `PostToolUse`: 既定ではターンを終える。`continueOnBlock: true` なら理由を返して続行
+- `PostToolBatch`・`UserPromptSubmit`・`UserPromptExpansion`: ターンを終える
+- `PostToolUseFailure`・`TaskCreated`: 理由をツールエラーとして返し、続行
+- `TaskCompleted`: タスク完了の経路はツールエラーで続行。チームメイト停止の経路は `TeammateIdle` と同じ
+- `TeammateIdle`: 既定でチームメイトを止める。`continueOnBlock: true` なら作業を続けさせる
+- `PermissionRequest`・`PermissionDenied`: 効果なし
+
+<div class="src">
+  出典: [hooks#prompt-based-hooks](https://code.claude.com/docs/en/hooks#prompt-based-hooks) · [#response-schema](https://code.claude.com/docs/en/hooks#response-schema) · [#prompt-and-agent-hook-fields](https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields)
+</div>
+
+<span id="ch28-agent" />
+
+## `agent` フック: ツールで確かめる検証エージェント <span class="badge experimental">Experimental</span>
+
+- ドキュメントは「experimental で、挙動と設定は今後変わりうる。本番では command フックを推奨」と明記しています。
+- Read・Grep・Glob などのツールを使えるサブエージェントを起動し、最大 50 ターンで `{ "ok": true/false }` を返させます。
+- 設定は prompt フックと同じです。既定のタイムアウトは 60 秒で、`continueOnBlock` と `impossible` はありません。
+
+* `ok: false` は、同じイベントで `continueOnBlock: true` を付けた prompt フックと同じに扱われます。
+* `PermissionRequest` では使えず、置いてもスキップされます。使える型はイベント一覧の「型」列のとおりです。
+* v2.1.300 で、`model` の指定が効くようになりました。使えないモデルのときは、動作を許可せず呼び出し元のモデルで動きます。
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "Verify that all unit tests pass. Run the test suite and check the results. $ARGUMENTS",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+<div class="src">
+  出典: [hooks#agent-based-hooks](https://code.claude.com/docs/en/hooks#agent-based-hooks) · [#prompt-based-hooks](https://code.claude.com/docs/en/hooks#prompt-based-hooks) · changelog 2.1.300
+</div>
+
+<span id="ch28-input" />
+
+## 入力 JSON: 全イベント共通のフィールド
+
+| フィールド               | 内容                                                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `session_id`             | 現在のセッション ID                                                                                                                   |
+| `prompt_id`              | 処理中のユーザープロンプトの UUID。OTel の `prompt.id` と一致。最初の入力までは無い                                                   |
+| `transcript_path`        | 会話 JSON のパス。非同期に書かれるので最新ターンが無いことがある                                                                      |
+| `cwd`                    | フック起動時の作業ディレクトリ                                                                                                        |
+| `scratchpad_dir`         | scratchpad のパス。無いセッションでは欠ける。v2.1.257 以降                                                                            |
+| `permission_mode`        | `"default"` `"plan"` `"acceptEdits"` `"auto"` `"dontAsk"` `"bypassPermissions"`。Manual は `"default"` で届く。届かないイベントもある |
+| `effort`                 | `{"level": …}`。ツール文脈のイベントで、effort 対応モデルのときだけ                                                                   |
+| `hook_event_name`        | 発火したイベント名                                                                                                                    |
+| `agent_id`・`agent_type` | サブエージェント・in-process チームメイト内、または `--agent` 使用時。サブエージェントの種別が `--agent` より優先                     |
+
+```json
+{
+  "session_id": "abc123",
+  "prompt_id": "…",
+  "transcript_path": "/home/user/.claude/projects/.../transcript.jsonl",
+  "cwd": "/home/user/my-project",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "npm test",
+    "description": "Run test suite",
+    "timeout": 120000,
+    "run_in_background": false
+  },
+  "tool_use_id": "toolu_01ABC123..."
+}
+```
+
+docs の例から `prompt_id` の UUID と `scratchpad_dir` の行を省略。
+
+- `model` を受け取れるのは `SessionStart` だけです。モデルの変化は `from_model`・`to_model` で追います。`$CLAUDE_MODEL` はありません。
+
+<div class="src">
+  出典: [hooks#common-input-fields](https://code.claude.com/docs/en/hooks#common-input-fields)
+</div>
+
+<span id="ch28-exit" />
+
+## 終了コード判定表と exit 2 の扱い
+
+| stdout                            | exit 0                 | exit 2                                         | その他の終了コード                                                                       |
+| --------------------------------- | ---------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| スキーマ検証を通る JSON           | 成功。フィールドを適用 | ブロック。フィールドは読むがブロックは覆らない | 成功。終了コードは無視し、フィールドだけで決まる（失敗でブロックするフックでは失敗扱い） |
+| 解析できない・検証に失敗した JSON | 非ブロッキングエラー   | ブロック。理由は stderr                        | 非ブロッキングエラー                                                                     |
+| プレーンテキスト・出力なし        | 成功                   | ブロック。理由は stderr                        | 非ブロッキングエラー。通知に stderr の 1 行目                                            |
+
+- exit 2 の理由は stderr です。ブロックを決める JSON も出していれば、その理由が優先します。exit 2 の効果はイベントごとに違い、前出のイベント一覧の右列にまとめています。
+- exit 1 は慣例の失敗コードですが、有効な JSON がなければ**ブロックしません**。ポリシーを強制するなら exit 2 を使います。
+- exit 0 のプレーン stdout が Claude に届くのは `UserPromptSubmit`・`UserPromptExpansion`・`SessionStart`・`PostModelSwitch` だけです。`PreCompact` では要約への指示になり、他はデバッグログへ行きます。exit 0 の stderr を Claude は見ません。
+
+* `WorktreeCreate` は非 0 なら JSON に関係なく作成失敗、`WorktreeRemove` は非 0 でディレクトリが残れば削除失敗です。
+* `Stop`・`SubagentStop`・`TaskCompleted`・プラグインの `UserPromptSubmit` は、stdout が空で stderr が `No such file or directory` のような exit 2 を非ブロッキングエラーとみなします。
+* `Elicitation`・`ElicitationResult` は exit 0 のときだけ `hookSpecificOutput` を適用します。
+* 出力を捨てるイベント（`StopFailure` など）は、どの終了コードでも JSON を無視します。`terminalSequence` だけは効きます。
+
+```text
+PreToolUse:Bash hook error: [${CLAUDE_PROJECT_DIR}/.claude/hooks/no-rm.sh]: Blocked: rm commands are not allowed
+Failed with non-blocking status code: something broke
+```
+
+<div class="src">
+  出典: [hooks#exit-code-output](https://code.claude.com/docs/en/hooks#exit-code-output) · [#exit-code-0](https://code.claude.com/docs/en/hooks#exit-code-0) · [#exit-code-2](https://code.claude.com/docs/en/hooks#exit-code-2) · [#exit-code-2-behavior-per-event](https://code.claude.com/docs/en/hooks#exit-code-2-behavior-per-event)
+</div>
+
+<span id="ch28-json" />
+
+## JSON 出力: 共通フィールド・サイズ上限・解析規則
+
+| フィールド         | 既定    | 内容                                                                         |
+| ------------------ | ------- | ---------------------------------------------------------------------------- |
+| `continue`         | `true`  | `false` でフック実行後に処理全体を止める。イベント固有の決定より優先         |
+| `stopReason`       | なし    | `continue: false` のときユーザーに表示。会話に残るので続行時は Claude も読む |
+| `suppressOutput`   | `false` | 受け付けるが**効果なし**。成功したフックの stdout はもともと表示されない     |
+| `systemMessage`    | なし    | ユーザーへの警告。SDK・stream-json では `SDKInformationalMessage` になりうる |
+| `terminalSequence` | なし    | Claude Code が代わりに出す端末エスケープ。OSC 0/1/2/9/99/777 と BEL だけ     |
+
+- フィールドは 3 種類です。上の共通フィールド、一部イベントの最上位 `decision`・`reason`、そして `hookEventName` 必須の `hookSpecificOutput` です。
+- `additionalContext`・`systemMessage`・`initialUserMessage` とプレーン stdout は、それぞれ 10,000 文字が上限です。超えるとセッションディレクトリのファイルに保存し、パスと先頭 2,000 文字のプレビューに置き換えます。上限を変える設定はありません。
+- 非 async フックの stdout が JSON とみなされるのは、JSON オブジェクト 1 つだけで、前後が空白のときです。配列や文字列はプレーンテキスト扱いです。
+- JSON として読める行が複数あると、プレーンテキスト扱いです。ただし 1 行でもフィールドを設定していれば解析失敗になります。
+- exit 2 と JSON を混ぜると、exit 2 のブロックが効いたまま JSON も読まれます。
+
+```json
+{ "continue": false, "stopReason": "Build failed, fix errors before continuing" }
+```
+
+<div class="src">
+  出典: [hooks#json-output](https://code.claude.com/docs/en/hooks#json-output) · [#exit-code-0](https://code.claude.com/docs/en/hooks#exit-code-0)
+</div>
+
+<span id="ch28-decision" />
+
+## decision control 早見表
+
+| 方式                               | イベント                                                                                                                                      | 主なフィールド                                                      |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 最上位 `decision`                  | `UserPromptSubmit` `UserPromptExpansion` `PostToolUse` `PostToolUseFailure` `PostToolBatch` `Stop` `SubagentStop` `ConfigChange` `PreCompact` | `decision: "block"` と `reason`。Stop 系は `additionalContext` も可 |
+| 終了コードか `continue`            | `TeammateIdle` `TaskCompleted`                                                                                                                | exit 2 と stderr。`continue: false` でチームメイトを止める          |
+| 終了コードか `decision`            | `TaskCreated`                                                                                                                                 | exit 2 か `decision: "block"` で取り消し                            |
+| `hookSpecificOutput`               | `PreToolUse`                                                                                                                                  | `permissionDecision`（allow/deny/ask/defer）と理由                  |
+|                                    | `PermissionRequest`                                                                                                                           | `decision.behavior`（allow/deny）                                   |
+|                                    | `PermissionDenied` / `MessageDisplay`                                                                                                         | `retry: true` / `displayContent`                                    |
+| `hookSpecificOutput` か `decision` | `PreModelSwitch` / `Elicitation` `ElicitationResult`                                                                                          | `permissionDecision`（allow/deny/ask） / `action` と `content`      |
+| パス・終了コード                   | `WorktreeCreate` / `WorktreeRemove`                                                                                                           | stdout か `worktreePath` / 非 0 でディレクトリが残れば失敗          |
+| 文脈の追加のみ                     | `SessionStart` `SubagentStart` `PostModelSwitch`                                                                                              | `additionalContext`                                                 |
+| なし                               | `Setup` `Notification` `SessionEnd` `PostCompact` `InstructionsLoaded` `StopFailure` `CwdChanged` `DirectoryAdded` `FileChanged`              | ログや後片付けなどの副作用だけ                                      |
+
+- 最上位 `decision` の値は `"block"` だけです。許可するときは `decision` を書かないか、何も出力せずに exit 0 で終えます。
+- 書き換えは `PreToolUse` の `updatedInput`、`PermissionRequest` の `decision.updatedInput`、`PostToolUse` の `updatedToolOutput` でできます。`UserPromptSubmit` はプロンプトを置き換えられません。
+
+<div class="src">
+  出典: [hooks#decision-control](https://code.claude.com/docs/en/hooks#decision-control)
+</div>
+
+<span id="ch28-context" />
+
+## `additionalContext`: Claude の文脈に事実を足す
+
+文字列は system reminder に包まれ、フックが発火した位置に挿入されます。Claude は次のリクエストで読みますが、チャットには表示されません。
+
+| イベント                                                           | 挿入される位置                     |
+| ------------------------------------------------------------------ | ---------------------------------- |
+| `SessionStart`・`SubagentStart`                                    | 会話の先頭（最初のプロンプトの前） |
+| `UserPromptSubmit`・`UserPromptExpansion`                          | 送信されたプロンプトの横           |
+| `PreToolUse`・`PostToolUse`・`PostToolUseFailure`・`PostToolBatch` | ツール結果の横                     |
+| `Stop`・`SubagentStop`                                             | ターンの末尾。会話は続く           |
+| `PostModelSwitch`                                                  | 切替後の次のリクエスト             |
+
+- 同じイベントで複数のフックが返した値は、すべて届きます。
+- 文字列中の `<system-reminder>`・`</system-reminder>` は、`<` が `&lt;` に置き換わって届きます。
+- 「本番環境が対象」のような事実の文で書きます。システム命令を装った文は、プロンプトインジェクション対策に引っかかり、Claude がユーザーに提示してしまいます。
+- 不変の規約は CLAUDE.md に書きます（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/)）。
+- 挿入した文はトランスクリプトに保存されます。`--continue`・`--resume` では途中のイベントの値をそのまま再生するので、時刻やコミット SHA は古くなります。`SessionStart` は `source: "resume"`（または `"fork"`）で再実行されます。
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "This file is generated. Edit src/schema.ts and run `bun generate` instead."
+  }
+}
+```
+
+<div class="src">
+  出典: [hooks#add-context-for-claude](https://code.claude.com/docs/en/hooks#add-context-for-claude)
+</div>
+
+<span id="ch28-pretooluse" />
+
+## PreToolUse (1/2): 入力と決定フィールド
+
+- `EndConversation` 以外の全ツールで、パラメータ生成後・実行前に発火します。入力は `tool_name`・`tool_input`・`tool_use_id` です。
+- MCP ツールでは `mcp_server`（`name` と `source`）も届きます（v2.1.274 以降）。信頼の判断には名前でなく `source` を使います。
+- `Write`・`Edit`・`Read` の `file_path` は常に絶対パスです。`~` や相対パスでのすり抜けはできません。Windows ではバックスラッシュで届きます。
+- `@` で参照したファイルはツール呼び出しなしで挿入されるので、`Read` の matcher でも発火しません。止めるには `Read` の deny ルールか `CLAUDE_CODE_DISABLE_FILE_MENTIONS=1`（v2.1.299 以降）を使います。
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "Database writes are not allowed"
+  }
+}
+```
+
+| フィールド                 | 内容                                                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `permissionDecision`       | `"allow"` 確認を省く / `"deny"` 止める / `"ask"` 確認を出す / `"defer"` ターンを終えて後で再開（`-p` のみ）。deny・ask ルールは結果に関係なく評価される |
+| `permissionDecisionReason` | ask はプロンプトに表示、deny は Claude に渡す。allow・defer はデバッグログのみ                                                                          |
+| `updatedInput`             | 入力オブジェクト全体を置き換える。権限ルールは置換後の入力で評価。defer では無視                                                                        |
+| `additionalContext`        | ツール結果の横に追加。defer では無視                                                                                                                    |
+
+- 複数フックの決定は `deny` > `defer` > `ask` > `allow` の順で優先します。exit 2 は deny と同じ扱いです。
+- ask のプロンプトには出どころが付きます: `[settings]`、`[plugin:<name>]`、`[skill]`。
+- 最上位の `decision`（`"approve"`/`"block"`）は非推奨で、allow/deny に読み替えます。
+
+<div class="src">
+  出典: [hooks#pretooluse](https://code.claude.com/docs/en/hooks#pretooluse) · [#pretooluse-input](https://code.claude.com/docs/en/hooks#pretooluse-input) · [#pretooluse-decision-control](https://code.claude.com/docs/en/hooks#pretooluse-decision-control)
+</div>
+
+<span id="ch28-pretooluse-limits" />
+
+## PreToolUse (2/2): allow の限界と defer
+
+### allow で省けない確認
+
+- どのモードでも自動承認されない操作、ネットワークパスからの読み取り、SDK が `always_ask` を付けたツール、`requiresUserInteraction` 付きの MCP ツール
+- `AskUserQuestion`・`ExitPlanMode` は allow だけでは足りません。`updatedInput` に回答を入れて返します。
+- plan mode でのファイル編集の allow は、フックがないときと同じ扱いです。
+- 逆に `deny` は、`bypassPermissions` を含むすべてのモードで効きます。`PreToolUse` は `dontAsk` を含むモード判定より先に発火します。詳しい優先関係は [Ch22](/claude-code-deep-dive/ja/settings/permission-rules/)。
+- auto mode で `permissionDecision` なしの `updatedInput` を返すと、`a hook changed this call's input after auto mode reviewed it` で拒否されることがあります（[Ch24](/claude-code-deep-dive/ja/settings/auto-mode/)）。
+
+### `"defer"`: 呼び出しを保留して後で再開
+
+- `-p` で、そのターンのツール呼び出しが 1 つのときだけ有効です。対話セッションや複数呼び出しでは警告を出して無視します。
+- 結果は `stop_reason: "tool_deferred"` と `deferred_tool_use`（`id`・`name`・`input`）です。
+- 呼び出し側は同じ permission host で `claude -p --resume <session-id>` を実行し、再発火したフックが `allow` と `updatedInput` を返します。
+- タイムアウトや再試行の上限はありません。セッションは `cleanupPeriodDays`（既定 30 日）まで残ります。
+- 再開時にツールが無いと `tool_deferred_unavailable` になります。`CLAUDE_CODE_DROP_UNAVAILABLE_DEFERRED_TOOL=1` で破棄できます（v2.1.319 で挙動変更）。
+
+<div class="src">
+  出典: [hooks#pretooluse-decision-control](https://code.claude.com/docs/en/hooks#pretooluse-decision-control) · [#tools-that-require-user-interaction](https://code.claude.com/docs/en/hooks#tools-that-require-user-interaction) · [#defer-a-tool-call-for-later](https://code.claude.com/docs/en/hooks#defer-a-tool-call-for-later) · [hooks-guide#hooks-and-permission-modes](https://code.claude.com/docs/en/hooks-guide#hooks-and-permission-modes)
+</div>
+
+<span id="ch28-permissionrequest" />
+
+## PermissionRequest: 確認ダイアログの代わりに答える
+
+- 権限の確認を出す直前に発火します。確認を出せないセッション（`-p` のバックグラウンドサブエージェントなど）でも実行し、どのフックも決めなければ拒否します。
+- `--permission-prompt-tool`・SDK の `canUseTool` と並行して動き、先に決めた方が適用されます。サンドボックスのネットワーク要求では発火しません。
+- 入力は `tool_name`・`tool_input`（`tool_use_id` なし）、MCP なら `mcp_server`、任意で `permission_suggestions` です。
+- exit 2 は効かず、stderr も捨てられます。`agent` フックはスキップされます。
+
+| `decision` の中        | 内容                                                   |
+| ---------------------- | ------------------------------------------------------ |
+| `behavior`             | `"allow"` か `"deny"`。deny・ask ルールは引き続き評価  |
+| `updatedInput`         | allow のみ。入力全体を置換し、deny・ask ルールで再評価 |
+| `updatedPermissions`   | allow のみ。次の表の更新エントリの配列                 |
+| `message`・`interrupt` | deny のみ。理由と、`true` で Claude を止める           |
+
+| `type`              | フィールド         | 効果                                                |
+| ------------------- | ------------------ | --------------------------------------------------- |
+| `addRules`          | `rules` `behavior` | ルールを追加。`rules` は `{toolName, ruleContent?}` |
+| `replaceRules`      | `rules` `behavior` | その behavior のルールを全置換                      |
+| `removeRules`       | `rules` `behavior` | 一致するルールを削除                                |
+| `setMode`           | `mode`             | 権限モードを変更。`manual` は `default` の別名      |
+| `addDirectories`    | `directories`      | 作業ディレクトリを追加                              |
+| `removeDirectories` | `directories`      | 作業ディレクトリを削除                              |
+
+- 全エントリに `destination` を付けます: `session`（メモリのみ）、`localSettings`、`projectSettings`、`userSettings`。
+- `setMode` の `bypassPermissions` は、起動時に bypass が使える状態のときだけ効き、`defaultMode` には保存されません。
+- 受け取った `permission_suggestions` の 1 つを、そのまま `updatedPermissions` として返せます。
+
+<div class="src">
+  出典: [hooks#permissionrequest](https://code.claude.com/docs/en/hooks#permissionrequest) · [#permissionrequest-decision-control](https://code.claude.com/docs/en/hooks#permissionrequest-decision-control) · [#permission-update-entries](https://code.claude.com/docs/en/hooks#permission-update-entries)
+</div>
+
+<span id="ch28-posttooluse" />
+
+## PostToolUse: 結果への注記と出力の置き換え
+
+- 入力は `tool_input`・`tool_response`（ツール固有の構造化出力）・`tool_use_id`・`duration_ms` です。
+- Bash の `tool_response.bashEditDiff` に変更ファイルが入ることがあります（v2.1.269 以降、public beta）。
+- `Edit|Write` の matcher は、Bash や外部プロセスの書き換えでは発火しません。その用途には `FileChanged` を使います。
+- <kbd>Ctrl</kbd>+<kbd>Enter</kbd> でターンを終えた後も、10 秒の猶予で動きます（v2.1.319 以降）。
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Additional information for Claude",
+    "updatedToolOutput": {
+      "stdout": "[redacted]",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false
+    }
+  }
+}
+```
+
+| フィールド             | 内容                                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `decision`・`reason`   | `"block"` で `reason` を結果の横に追加（元の出力も残る）                                                                       |
+| `additionalContext`    | ツール結果の横に追加                                                                                                           |
+| `classifierContext`    | auto mode の classifier 向けの注記（v2.1.236 以降）。1 呼び出しで合計 2,000 文字まで。信頼できない文を入れない。async では無視 |
+| `updatedToolOutput`    | Claude に渡す出力を置換。ツールの出力形状と一致が必要                                                                          |
+| `updatedMCPToolOutput` | MCP ツール専用。`updatedToolOutput` を推奨                                                                                     |
+
+:::caution[注意]
+
+- `updatedToolOutput` が変えるのは Claude が見る内容だけです。ツールは実行済みで、OTel にも元の出力が残ります。
+- 組み込みツールで形が合わない値は無視されます。MCP ツールの出力は検証しません。
+  :::
+
+<div class="src">
+  出典: [hooks#posttooluse](https://code.claude.com/docs/en/hooks#posttooluse) · [#posttooluse-decision-control](https://code.claude.com/docs/en/hooks#posttooluse-decision-control) · [#annotate-a-result-for-the-auto-mode-classifier](https://code.claude.com/docs/en/hooks#annotate-a-result-for-the-auto-mode-classifier) · [#bash](https://code.claude.com/docs/en/hooks#bash)
+</div>
+
+<span id="ch28-tool-others" />
+
+## PostToolUseFailure・PostToolBatch・PermissionDenied
+
+### `PostToolUseFailure`
+
+- 実行を始めたツールが失敗したとき（例外、MCP のエラー結果）に発火します。
+- 検証エラー・未知のツール・権限拒否では発火しません。
+- 入力: `error`、`is_interrupt`、`duration_ms`。Bash の `error` は先頭行が `Exit code N` で、長いと中間が省略されます。
+- 出力: `additionalContext`
+
+### `PostToolBatch`
+
+- 並列バッチの全呼び出しが解決した後、次のモデル呼び出しの前に 1 回だけ発火します。matcher はありません。
+- `tool_calls[]` の `tool_response` は、モデルが見る `tool_result` の内容（直列化文字列かコンテンツブロック配列）です。PostToolUse の構造化出力とは形が違います。
+- `additionalContext` は 1 回だけ注入されます。`decision: "block"`・`continue: false`・exit 2 で、次のモデル呼び出しの前にループを止めます。
+
+### `PermissionDenied`
+
+- auto mode の拒否（判定なしの拒否を含む）でだけ発火します。手動の拒否、PreToolUse のブロック、deny ルールでは発火しません。
+- `reason` の例: `[Data Exfiltration]`、`Classifier unavailable`
+- `retry: true` で「再試行してよい」とモデルに伝えます。拒否は覆りません。判定なしの拒否では無視されます。
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PermissionDenied",
+    "retry": true
+  }
+}
+```
+
+<div class="src">
+  出典: [hooks#posttoolusefailure](https://code.claude.com/docs/en/hooks#posttoolusefailure) · [#posttoolbatch](https://code.claude.com/docs/en/hooks#posttoolbatch) · [#permissiondenied](https://code.claude.com/docs/en/hooks#permissiondenied)
+</div>
+
+<span id="ch28-stop" />
+
+## Stop・SubagentStop: 停止を止めて作業を続けさせる
+
+- `Stop` の入力: `stop_hook_active`（Stop フックで継続中なら `true`）、`last_assistant_message`、`background_tasks[]`、`session_crons[]`。最終応答はトランスクリプトでなく `last_assistant_message` から読みます。
+- `decision: "block"` には `reason` が必須で、Claude は続行します。`hookSpecificOutput.additionalContext` はエラー扱いでない `Stop hook feedback` として続行させます。
+- 連続 8 回ブロックすると、次のブロックは無視されてターンが終わります。Claude がツールを呼ぶとカウントは戻ります。上限は `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` で変えられ、`0` で無制限です。
+- `/goal` は session スコープの prompt 型 Stop フックの組み込み版です（[Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/)）。
+
+```bash
+#!/bin/bash
+INPUT=$(cat)
+if [ "$(echo "$INPUT" | jq -r '.stop_hook_active')" = "true" ]; then
+  exit 0  # Allow Claude to stop
+fi
+# ... rest of your hook logic
+```
+
+- `SubagentStart`・`SubagentStop` の matcher はエージェント種別です（`Explore`、カスタムは frontmatter の `name`、プラグインは `^my-plugin:reviewer$` のようにアンカー）。`agent_transcript_path` は `subagents/` 配下の自分のトランスクリプトです。
+- `SubagentStop` は prompt suggestions や `/btw` などの内部エージェントでも発火し、`agent_type` はセッションのエージェント名か空文字です。名前を書いた matcher は空文字に一致しません。
+- `reason` はサブエージェントへの次の指示になります。親に文脈を入れるなら、`Agent` ツールの `PostToolUse` を使います。
+- v2.1.271 以降、`SubagentHandback` で報告するサブエージェントでは、`last_assistant_message` は報告本文ではありません。本文は `tool_input.message` です。
+
+<div class="src">
+  出典: [hooks#stop](https://code.claude.com/docs/en/hooks#stop) · [#stop-decision-control](https://code.claude.com/docs/en/hooks#stop-decision-control) · [#subagentstop](https://code.claude.com/docs/en/hooks#subagentstop) · [hooks-guide#stop-hook-hits-the-block-cap](https://code.claude.com/docs/en/hooks-guide#stop-hook-hits-the-block-cap) · [env-vars](https://code.claude.com/docs/en/env-vars)
+</div>
+
+<span id="ch28-prompt-tasks" />
+
+## UserPromptSubmit・UserPromptExpansion・タスク系イベント
+
+- `UserPromptSubmit` の入力は `prompt` と `session_title` です。`/deploy staging` のようなコマンドは展開前の文字列で届きます。貼り付けは展開済みで、`<pasted_content id="…">` 行で囲まれることがあります。
+- 出力は `decision: "block"` と `reason`（ユーザーにだけ表示）、`additionalContext`、`sessionTitle`、`suppressOriginalPrompt` です。プレーン stdout も文脈になります。
+- ブロック時のメッセージは既定で `Original prompt:` と本文を含み、トランスクリプトに残ります。`suppressOriginalPrompt: true` で外せますが、プロンプト履歴などには残ります。
+- 既定のタイムアウトは 30 秒です。タイムアウトすると出力は捨てられ、プロンプトは文脈なしで届きます。
+- `UserPromptExpansion` は `/skillname` の直接入力も捕まえます（`Skill` ツールの `PreToolUse` を通らない経路）。入力は `expansion_type`・`command_name`・`command_args`・`command_source`・`prompt` です。
+
+* `TaskCreated`: exit 2（stderr）か `decision: "block"`（`reason`）でタスクを削除し、理由をツールエラーとして返します。`continue: false` は無視します。
+* `TaskCompleted`: `TaskUpdate` での完了時と、チームメイトが進行中のタスクを残して終えたときに発火します。exit 2 で完了にせず、stderr をモデルに返します。`continue: false` はチームメイト経路でだけ停止です。
+* `TeammateIdle`: exit 2 で作業を続けさせ、`continue: false` で止めます。
+* `TaskCreated`・`TaskCompleted` の入力は `task_id`・`task_subject` と任意の `task_description`・`teammate_name`・`team_name`（非推奨）、v2.1.290 以降は `agent_id` です。matcher はなく、チームメイトの経路は Agent Teams <span class="badge experimental">Experimental</span>（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）の機能です。
+
+<div class="src">
+  出典: [hooks#userpromptsubmit](https://code.claude.com/docs/en/hooks#userpromptsubmit) · [#what-a-blocked-prompt-leaves-behind](https://code.claude.com/docs/en/hooks#what-a-blocked-prompt-leaves-behind) · [#userpromptexpansion](https://code.claude.com/docs/en/hooks#userpromptexpansion) · [#taskcreated](https://code.claude.com/docs/en/hooks#taskcreated) · [#taskcompleted](https://code.claude.com/docs/en/hooks#taskcompleted) · [#teammateidle](https://code.claude.com/docs/en/hooks#teammateidle)
+</div>
+
+<span id="ch28-session" />
+
+## SessionStart・Setup・SessionEnd
+
+### `SessionStart`
+
+- matcher: `startup`、`resume`（`--resume`・`--continue`・`/resume`）、`clear`、`compact`、`fork`（`--fork-session`・`/fork`・`/branch`・バックグラウンドへの移動）
+- 対話セッションの起動と `/clear` ではバックグラウンドで動きます。すぐ入力できますが、最初の応答はフックの完了を待ちます。
+- 入力: `source`、`model`（省略あり）、`agent_type`、`session_title`。resume・fork で応答が 1 つ以上あれば `seconds_since_last_response`・`context_tokens`・`prompt_cache_likely_expired`・`estimated_cache_write_usd` も届きます（v2.1.251 以降）。
+- 出力: `additionalContext`（プレーン stdout も可）、`initialUserMessage`（`-p` のみ。プロンプトなしでも最初のターンになる）、`sessionTitle`、`watchPaths`、`reloadSkills`（フック後に skill を再走査）
+- `CLAUDE_ENV_FILE` に `export` 文を追記すると、以後の Bash コマンドに反映されます。
+
+### `Setup`
+
+- `--init-only`（matcher `init`）、`-p --init`（`init`）、`-p --maintenance`（`maintenance`）でだけ発火します。入力は `trigger` です。
+- `--init-only` は Setup と `startup` の SessionStart を実行して終了し、何も表示しません。
+- JSON は終了コードに関係なく捨てられます。`-p` では stream-json の `hook_response` でだけ見えます。実行されるのは `command` だけです。
+
+### `SessionEnd`
+
+- `reason`: `clear`、`resume`、`logout`、`prompt_input_exit`、`other`。`bypass_permissions_disabled` は v2.1.234 で廃止。
+- 予算は合計 1.5 秒です。settings の per-hook `timeout` の最大値まで（上限 60 秒）延び、プラグインのフックの値は数えません。`CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS` で明示でき、v2.1.268 以降は各フックの既定にもなります。
+
+<div class="src">
+  出典: [hooks#sessionstart](https://code.claude.com/docs/en/hooks#sessionstart) · [#setup](https://code.claude.com/docs/en/hooks#setup) · [#sessionend](https://code.claude.com/docs/en/hooks#sessionend) · [#persist-environment-variables](https://code.claude.com/docs/en/hooks#persist-environment-variables)
+</div>
+
+<span id="ch28-model-compact" />
+
+## PreModelSwitch・PostModelSwitch・PreCompact・PostCompact
+
+- `PreModelSwitch`（v2.1.251 以降）は、`/model`、<kbd>Option</kbd>+<kbd>P</kbd>/<kbd>Alt</kbd>+<kbd>P</kbd> のピッカー、`/config` の Model、モデルが変わる fast mode の有効化、SDK の `set_model`・`apply_flag_settings` で発火します。自動フォールバックと再開時の復元では発火しません。
+- matcher は切替先の正規名で、`[1m]` は無視します。正規名を決められないモデルでは全フックが動くので、ブロックするフックは入力の `to_model` も確かめます。
+- 入力: `from_model`、`to_model`、`requested_model`、`source`（`command`・`picker`・`sdk`）、`context_tokens`、`prompt_cache_warm`、`cache_ttl`、`estimated_cache_write_usd`、`pricing`
+- exit 2 か `decision: "block"` で取り消します。`permissionDecision` の allow はキャッシュが温かいときの確認を省きます。ask を出せるのは対話の `/model` だけで、他では拒否扱いです。優先は deny > ask > allow、タイムアウト（既定 30 秒）も取り消しです。
+
+* `PostModelSwitch` は、要求された切替、自動フォールバック、`opusplan` の plan mode 出入り、再開時の復元の後に発火します。1 ターンだけのフォールバックチェーンでは発火しません。`source` に `auto`・`resume` が加わります。
+* exit 0 の stdout か `additionalContext` は次のリクエストで届きます。次のプロンプトから 5 秒以内に終わらなければ、その次のリクエストに回ります。
+* `PreCompact` の matcher は `manual`（`/compact`）と `auto`（auto-compact とアイドル圧縮）です。入力は `trigger` と `custom_instructions`（auto では `null`）です。
+* exit 2 か `decision: "block"` で圧縮を止めます。事前の自動圧縮なら圧縮せずに続行し、上限エラーからの回復なら元のエラーでリクエストが失敗します。
+* exit 0 の stdout は要約への指示になり、10,000 文字で切られます。`PostCompact` は `compact_summary` を受け取るだけです。実測の発火順は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/)。
+
+<div class="src">
+  出典: [hooks#premodelswitch](https://code.claude.com/docs/en/hooks#premodelswitch) · [#postmodelswitch](https://code.claude.com/docs/en/hooks#postmodelswitch) · [#precompact](https://code.claude.com/docs/en/hooks#precompact) · [#postcompact](https://code.claude.com/docs/en/hooks#postcompact)
+</div>
+
+<span id="ch28-env-events" />
+
+## ConfigChange・InstructionsLoaded・CwdChanged・DirectoryAdded・FileChanged
+
+| イベント             | 発火と入力                                                                                                                                                                                                                                              | 出力と制御                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ConfigChange`       | settings、`managed-settings.json`・`managed-settings.d/`、skill ファイルの変更。matcher は `user_settings` `project_settings` `local_settings` `policy_settings` `skills`。入力 `source`・`file_path`                                                   | exit 2 か `decision: "block"` で新設定を適用しない。何も表示されず、デバッグログにだけ残る。`policy_settings` は止められない。サーバー管理設定では発火しない |
+| `InstructionsLoaded` | CLAUDE.md・`.claude/rules/*.md` の読み込み（起動時と遅延読み込み）。matcher は `load_reason`（`session_start` `nested_traversal` `path_glob_match` `include` `compact`）。入力 `file_path` `memory_type` `globs` `trigger_file_path` `parent_file_path` | 制御なし。観測用に非同期で動く。Project instructions 設定で直接読む `AGENTS.md` では発火しない                                                               |
+| `CwdChanged`         | メイン会話のシェルコマンドが作業ディレクトリを変えた。入力 `old_cwd`・`new_cwd`                                                                                                                                                                         | `watchPaths` で動的監視リストを置換（`[]` で消去）。`systemMessage` は短い端末通知                                                                           |
+| `DirectoryAdded`     | `/add-dir`（`slash_command`）・SDK の `register_repo_root` の後。`--add-dir` では発火しない。入力 `directory`・`source`                                                                                                                                 | 制御なし。バックグラウンドで実行。`slash_command` では `systemMessage` が次のターンで Claude に届く。サンドボックス外で実行                                  |
+| `FileChanged`        | 監視中のファイルの変化。書き手は問わない（Edit・Bash・外部プロセス）。入力 `file_path`・`event`（`change` `add` `unlink`）                                                                                                                              | `watchPaths`、`systemMessage`。ブロックはできない                                                                                                            |
+
+- `FileChanged` の matcher は `|` で分割され、作業ディレクトリ内のリテラルのファイル名として監視リストに登録されます。正規表現は監視には使えず、`"*"` も `*` という名前のファイルとして登録されます。監視は何かがファイルを指名したときにだけ始まります。
+- `CLAUDE_ENV_FILE` は `CwdChanged`・`FileChanged` でも使え、次の `CwdChanged` で消去されます。direnv のような用途に向きます。
+
+<div class="src">
+  出典: [hooks#configchange](https://code.claude.com/docs/en/hooks#configchange) · [#instructionsloaded](https://code.claude.com/docs/en/hooks#instructionsloaded) · [#cwdchanged](https://code.claude.com/docs/en/hooks#cwdchanged) · [#directoryadded](https://code.claude.com/docs/en/hooks#directoryadded) · [#filechanged](https://code.claude.com/docs/en/hooks#filechanged)
+</div>
+
+<span id="ch28-worktree-elicitation" />
+
+## WorktreeCreate・WorktreeRemove・Elicitation・ElicitationResult
+
+- `WorktreeCreate` は `--worktree`、`EnterWorktree`、サブエージェントの `isolation: "worktree"`、ワークフロー、バックグラウンドセッション、`claude remote-control` の worktree モードで発火します。Bash の `git worktree add` では発火しません。
+- フックを置くと git の既定処理を**置き換え**、`.worktreeinclude` も処理されません。入力は `name` です。
+- command フックは stdout の最後の空でない行でパスを返します（ANSI は除去）。HTTP は `hookSpecificOutput.worktreePath` です。失敗かパスなしなら作成失敗です。`.`・`..` を含む絶対パスと、リポジトリ内の symlink を通るパスは拒否されます。
+- `WorktreeRemove` は入力 `worktree_path` を受け、exit 0 で削除済みとみなします。ブランチは削除しません。サブエージェントとワークフローの worktree では発火しません。
+
+* `Elicitation` は exit 0 で `action` を返すと、ダイアログを出さずに答えます: `accept`（`content` に値）、`decline`、`cancel`。出力なしなら通常のダイアログです。
+* exit 2 か最上位 `decision: "block"` は decline です。複数のフックでは、どれか 1 つの decline が accept・cancel より優先します。
+* URL モードで accept を返すと、URL は開かれません。
+* `ElicitationResult` は、`Elicitation` フックが答えた場合は動きません。返した `content` は元の `content` 全体を置き換えます。
+* ユーザーが decline・cancel した応答でも動くので、入力の `action` が `accept` か確かめてから accept を返します。
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "Elicitation",
+    "action": "accept",
+    "content": {
+      "username": "alice"
+    }
+  }
+}
+```
+
+<div class="src">
+  出典: [hooks#worktreecreate](https://code.claude.com/docs/en/hooks#worktreecreate) · [#worktreeremove](https://code.claude.com/docs/en/hooks#worktreeremove) · [#elicitation](https://code.claude.com/docs/en/hooks#elicitation) · [#elicitationresult](https://code.claude.com/docs/en/hooks#elicitationresult)
+</div>
+
+<span id="ch28-display" />
+
+## 表示系イベント: Notification・MessageDisplay・StopFailure
+
+- `Notification` の種類（matcher）: `permission_prompt` `idle_prompt` `auth_success` `auth_storage_failure` `elicitation_dialog` `elicitation_url_dialog` `elicitation_complete` `elicitation_response` `agent_needs_input` `agent_completed` `quota_auto_resume_fired` `quota_auto_resume_stale` `quota_auto_resume_disabled` `plugin_notification`
+- `permission_prompt` は無入力で約 6 秒後、`idle_prompt` は応答から約 60 秒後です。デスクトップ通知が無効でも発火します。
+- `systemMessage`・`continue` は捨てられます。`terminalSequence` は対話セッションでだけ出力され、`-p`・SDK・async では無視されます。
+
+```bash
+#!/bin/bash
+# Notification hook: ping the desktop when Claude Code needs attention.
+input=$(cat)
+title="Claude Code"
+body=$(jq -r '.message // "Needs your attention"' <<<"$input")
+seq=$(printf '\033]777;notify;%s;%s\007' "$title" "$body")
+jq -nc --arg seq "$seq" '{terminalSequence: $seq}'
+```
+
+- `MessageDisplay` は完成した行のまとまりごとに呼ばれ、`displayContent` で画面の表示だけを置き換えます。Claude が見る内容は元のままです。
+- 入力は `turn_id`・`message_id`・`index`・`final`・`delta` です。`-p` と SDK ではメッセージごとに 1 回で、`delta` が全文です。
+- `StopFailure` の matcher は `error`: `rate_limit` `overloaded` `authentication_failed` `oauth_org_not_allowed` `account_on_hold` `billing_error` `invalid_request` `model_not_found` `server_error` `max_output_tokens` `cloud_credential_error`（v2.1.267 以降） `unknown`
+- `StopFailure` の `last_assistant_message` は API エラー文字列です。出力は `terminalSequence` 以外無視されます。
+
+<div class="src">
+  出典: [hooks#notification](https://code.claude.com/docs/en/hooks#notification) · [#emit-terminal-notifications](https://code.claude.com/docs/en/hooks#emit-terminal-notifications) · [#messagedisplay](https://code.claude.com/docs/en/hooks#messagedisplay) · [#stopfailure](https://code.claude.com/docs/en/hooks#stopfailure)
+</div>
+
+<span id="ch28-async" />
+
+## async・onFailure・並列実行
+
+### `async` と `asyncRewake`
+
+- `command` 専用です。`decision`・`permissionDecision`・`continue` は効きません。
+- 終了後、`additionalContext` と `systemMessage` を次のターンで Claude に渡します。ユーザーには表示しません。
+- JSON は stdout に単独で出すか（複数行は v2.1.295 以降）、1 行に収めます。型の違うフィールドは捨てられます。
+- `timeout` は効きません（`asyncRewake` には効く）。`-p` の終了時に動いていれば `cancelled` で止められます。
+- `asyncRewake` の exit 2 は、待機中でも Claude をすぐ起こします。
+
+### `onFailure: "block"`
+
+- `command` と `http` で使えます（v2.1.295 以降）。失敗時に、そのイベントの exit 2 と同じ効果を出します。`PermissionRequest` では拒否です。
+- 失敗とみなすもの: 起動できない、0・2 以外の終了コード（allow の JSON 付きでも）、HTTP エラー・非 2xx、タイムアウト、不正な出力
+- `Stop`・`SubagentStop`・`TaskCompleted`・`TeammateIdle` と、async のフックには効きません。
+- Git Bash のない Windows では、shell form の `PreToolUse`・`PermissionRequest` は未設定でも失敗でブロックすることがあります。
+
+### 並列と結果の合成
+
+- 一致したフックは並列に動き、すべて完了してから結果を合成します。1 つの deny で他のフックは止まりません。
+- 同じイベントの prompt・agent フックは 12 個ずつ動きます。待機中のフックの `timeout` は開始時から数えます。
+- v2.1.312 で、prompt・agent フックに、セッション全体（サブエージェント含む）で同時 24 個、加えてイベントの timeout より長く待った 12 個まで、という上限が入りました。同じ項目で「1 秒未満の `timeout` は 1 秒とみなす」ようになりました。
+- 複数フックの `updatedInput` はマージされず、どれが使われるかも保証されません。
+
+<div class="src">
+  出典: [hooks#run-hooks-in-the-background](https://code.claude.com/docs/en/hooks#run-hooks-in-the-background) · [#block-the-action-when-a-hook-fails](https://code.claude.com/docs/en/hooks#block-the-action-when-a-hook-fails) · [#hook-handler-fields](https://code.claude.com/docs/en/hooks#hook-handler-fields) · [hooks-guide#combine-results-from-multiple-hooks](https://code.claude.com/docs/en/hooks-guide#combine-results-from-multiple-hooks) · changelog 2.1.312
+</div>
+
+<span id="ch28-frontmatter-env" />
+
+## frontmatter のフックと、フックが受け取る環境変数
+
+- skill のフックは起動後**セッションの終わりまで**残ります（`once: true` なら初回成功後に削除）。サブエージェントのフックは実行中だけ動き、`Stop` は `SubagentStop` になります。
+- プロジェクトの skill のフックは、未信頼フォルダの `-p` でも登録されます。プロジェクトのサブエージェントのフックは信頼ダイアログの承認が必要で、`-p` は承認とみなしません。
+- v2.1.304 以降、skill の出どころ（プロジェクト・個人フォルダ・各プラグイン）ごとに、フック 1,024 個と matcher 合計 16,384 文字が上限です。
+
+```yaml
+---
+name: secure-operations
+description: Perform operations with security checks
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: "./scripts/security-check.sh"
+---
+```
+
+| 環境変数                                   | 内容                                                                                       |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `CLAUDE_PROJECT_DIR`                       | 開始時のプロジェクトルート。worktree に入っても変わらない（入力の `cwd` は追従）           |
+| `CLAUDE_PLUGIN_ROOT`・`CLAUDE_PLUGIN_DATA` | プラグインの導入先と永続データ                                                             |
+| `CLAUDE_ENV_FILE`                          | `SessionStart`・`Setup`・`CwdChanged`・`FileChanged` のみ。PowerShell で動くフックには無い |
+| `CLAUDE_EFFORT`                            | 入力の `effort.level` と同じ値                                                             |
+| `CLAUDE_CODE_SESSION_ID`                   | 入力の `session_id` と同じ。`/clear` で更新                                                |
+| `CLAUDECODE`・`CLAUDE_CODE_CHILD_SESSION`  | `1`。Claude Code が起動したプロセスの目印                                                  |
+| `CLAUDE_PID`                               | Claude Code のプロセス ID（v2.1.214 以降）                                                 |
+
+- 他に `CLAUDE_CODE_REMOTE`・`CLAUDE_CODE_BRIDGE_SESSION_ID` などがあり、`OTEL_*` は除かれます（[Ch20](/claude-code-deep-dive/ja/settings/env-vars/)）。
+- 実機では <span class="undocumented">`CLAUDE_CODE_ENTRYPOINT`</span>・<span class="undocumented">`CLAUDE_CODE_SESSION_ATTENDED`</span> も見えました <span class="badge undocumented">Undocumented</span>。
+
+<div class="src">
+  出典: [hooks#hooks-in-skills-and-agents](https://code.claude.com/docs/en/hooks#hooks-in-skills-and-agents) · [#limits-on-skill-hooks](https://code.claude.com/docs/en/hooks#limits-on-skill-hooks) · [#reference-scripts-by-path](https://code.claude.com/docs/en/hooks#reference-scripts-by-path) · [env-vars](https://code.claude.com/docs/en/env-vars) · 実機確認 2.1.321
+</div>
+
+<span id="ch28-security" />
+
+## セキュリティ・管理・デバッグ
+
+### セキュリティ
+
+- command フックは自分のユーザー権限のすべてで動きます。
+- 対話セッションは、信頼ダイアログを承認するまで全 settings ファイル（`~/.claude/settings.json` も含む）のフックを止めておきます。
+- `-p` と SDK はダイアログを出さずに信頼済みとみなすので、リポジトリにコミットされたフックが動きます。他人のリポジトリでは `.claude/` を確認するか、`--bare` か `--settings '{"disableAllHooks": true}'` を使います。
+- 入力の検証、`"$VAR"` の引用、`..` の拒否、絶対パス、`.env`・`.git/`・鍵の回避を推奨しています。
+
+### 管理
+
+- `disableAllHooks` は優先順位を適用した後の値で効きます。プロジェクトの `false` はユーザーの `true` に勝ちます。managed のフックを止められるのは managed の設定だけです。
+- 個別のフックを無効にする方法はありません。
+- `allowManagedHooksOnly`（managed）は managed・SDK・強制有効化プラグインのフックだけを動かします。`strictPluginOnlyCustomization` の `"hooks"` でも絞れます（[Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/)）。
+- `allowedHttpHookUrls`・`httpHookAllowedEnvVars` は managed を含む全ソースの HTTP フックに効きます。
+
+### 確認とデバッグ
+
+- `/hooks` は読み取り専用の一覧で、各フックの出どころを表示します。末尾の `All events` で全イベントを見られます。
+- `claude --debug-file <path>` か `--debug`（`~/.claude/debug/<session-id>.txt`）でログを取ります。v2.1.296 以降、`Hooks:` で始まる行に結果と所要時間が出ます。
+- JSON が効かないときは、ログで `Hook output does not start with {`（シェルプロファイルの出力が先に出ている）と `Hook JSON output had unrecognized keys`（階層の誤り）を探します。
+
+<div class="src">
+  出典: [hooks#security-considerations](https://code.claude.com/docs/en/hooks#security-considerations) · [#disable-or-remove-hooks](https://code.claude.com/docs/en/hooks#disable-or-remove-hooks) · [#debug-hooks](https://code.claude.com/docs/en/hooks#debug-hooks) · [settings-reference#allowmanagedhooksonly](https://code.claude.com/docs/en/settings-reference#allowmanagedhooksonly) · [hooks-guide#hook-json-has-no-effect](https://code.claude.com/docs/en/hooks-guide#hook-json-has-no-effect)
+</div>
+
+<span id="ch28-lab" />
+
+## 実機検証: フックが受け取った stdin JSON と終了コード
+
+```json title="実測 2.1.321" frame="terminal"
+{
+  "session_id": "<UUID>",
+  "transcript_path": "~/.claude/projects/<PROJECT-SLUG>/<UUID>.jsonl",
+  "cwd": "<PROJECT>",
+  "prompt_id": "<UUID>",
+  "permission_mode": "default",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "rm -f lab-nonexistent.txt",
+    "description": "Remove lab-nonexistent.txt if present"
+  },
+  "tool_use_id": "toolu_<ID>"
+}
+```
+
+プロジェクト設定の記録用フックで取得（`-p --setting-sources project --output-format stream-json --verbose --include-hook-events`、haiku）。jq で整形し、ID とパスは伏せ字
+
+| 確認したこと          | 結果                                                                                                                  |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 発火順（ツールなし）  | `SessionStart`、`UserPromptSubmit`、`MessageDisplay`、`Stop`、`SessionEnd`                                            |
+| 入力の有無            | `SessionStart` に `prompt_id`・`permission_mode` なし。`effort` はツール文脈だけ。`scratchpad_dir` は全イベントでなし |
+| exit 2（`if` 付き）   | `--allowedTools "Bash(rm *)"` があっても `rm` をブロック                                                              |
+| exit 1・stderr のみ   | ブロックされず実行                                                                                                    |
+| exit 1・deny の JSON  | 拒否された。stream の `outcome` は `"error"`（exit 0 なら `"success"`）                                               |
+| `UserPromptExpansion` | `command_source` は `"projectSettings"`                                                                               |
+
+:::danger[食い違い]
+`UserPromptSubmit`・`UserPromptExpansion` のフックイベントも `system/init` の前に出ました。headless ページの記載は `SessionStart`・`Setup` だけです（[Ch44](/claude-code-deep-dive/ja/automation/headless/)）。
+:::
+
+<div class="src">
+  出典: [hooks#common-input-fields](https://code.claude.com/docs/en/hooks#common-input-fields) · [#exit-code-output](https://code.claude.com/docs/en/hooks#exit-code-output) · [headless#read-session-metadata](https://code.claude.com/docs/en/headless#read-session-metadata) · 実機確認 2.1.321
+</div>

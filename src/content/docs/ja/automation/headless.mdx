@@ -1,0 +1,465 @@
+---
+title: "ヘッドレス実行"
+description: "claude -p でスクリプトや CI から Claude Code を動かす方法です。この章では、print モードで使うフラグ、実測した終了コードと result JSON、--bare などの分離モード、stream-json のイベント、無人実行の権限、システムプロンプトとセッションの扱いを扱います。"
+sidebar:
+  order: 44
+---
+
+`claude -p` でスクリプトや CI から Claude Code を動かす方法です。この章では、print モードで使うフラグ、実測した終了コードと result JSON、`--bare` などの分離モード、stream-json のイベント、無人実行の権限、システムプロンプトとセッションの扱いを扱います。
+
+<span id="ch44-overview" />
+
+## 全体像: `-p` が何をして、何をしないか
+
+- `-p`（`--print`）は、非対話で 1 ターンを実行し、結果を出力して終了します。docs は「CLI から使う Agent SDK」と位置づけています。
+- stdout が TTY でない場合も、`-p` なしで非対話モードになります（`--help`）。
+- 標準入力はプロンプトの文脈として読み込まれます。パイプ入力の上限は 10MB で、超えると非ゼロで終了します。
+- ワークスペースの信頼ダイアログは出ません。検証に失敗した設定ファイルは、エラーを出さずに無視されます（`--help`）。
+- `--bare` がない場合、未信頼のフォルダでも、プロジェクトの `.claude/settings.json` のフックと `.mcp.json` のサーバーが動きます。サーバーごとの承認もありません。
+- `--bg` と、タスク文付きの `--cloud` はエラーで拒否されます。セッション ID 付きの `--cloud` は、そのクラウドセッションにメッセージを積んで終了します（[Ch50](/claude-code-deep-dive/ja/platforms/cloud/)）。
+
+### `-p` でのスラッシュコマンド
+
+- ユーザーが呼び出す skill とカスタムコマンドは使えます。プロンプトに `/skill-name` を含めます。
+- `/login` など、端末 UI 専用の組み込みコマンドは使えません。
+- `/model`・`/effort`・`/fast`・`/color`・`/rename` は、`/model sonnet` のように値を引数で受け取ります。
+- 設定の変更は `/config thinking=false` の形です。`/output-style` は v2.1.269 以降です。実測の一覧は [Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/) と [Ch12](/claude-code-deep-dive/ja/operation/commands/) です。
+
+```text title="実測 2.1.321" frame="terminal"
+Warning: no stdin data received in 3s, proceeding
+without it. If piping from a slow command, redirect
+stdin explicitly: < /dev/null to skip, or wait longer.
+```
+
+stdin にデータが 3 秒届かないと、この警告を出して先に進みます。CI では `< /dev/null` を付けます。
+
+<div class="src">
+  出典: [headless#basic-usage](https://code.claude.com/docs/en/headless#basic-usage) · [#pipe-data-through-claude](https://code.claude.com/docs/en/headless#pipe-data-through-claude) · [#create-a-commit](https://code.claude.com/docs/en/headless#create-a-commit) · 実機確認 2.1.321
+</div>
+
+<span id="ch44-flags-1" />
+
+## `-p` で使うフラグ (1/2): 出力・入力・上限
+
+| フラグ                       | 内容                                                                       | 要件                            | `--help` |
+| ---------------------------- | -------------------------------------------------------------------------- | ------------------------------- | -------- |
+| `--output-format`            | `text`（既定）・`json`・`stream-json`                                      | print モード                    | あり     |
+| `--input-format`             | `text`・`stream-json`                                                      | print モード                    | あり     |
+| `--json-schema`              | 作業完了後、JSON Schema で検証した出力を返す。不正なスキーマは起動時に終了 | print モード                    | あり     |
+| `--max-turns`                | エージェントのターン数の上限。既定は無制限                                 | print モード                    | なし     |
+| `--max-budget-usd`           | 推定支出が達したら停止。サブエージェント分も計上し、上限を超えることがある | print モード                    | あり     |
+| `--include-partial-messages` | 部分ストリーミングイベントを含める                                         | stream-json 出力                | あり     |
+| `--include-hook-events`      | フックのイベントを含める。`SessionStart`・`Setup` は指定なしでも出る       | stream-json 出力                | あり     |
+| `--replay-user-messages`     | stdin のユーザーメッセージを stdout に再送                                 | stream-json 入出力              | あり     |
+| `--forward-subagent-text`    | サブエージェントの text・thinking ブロックも出す                           | stream-json 出力、v2.1.211 以降 | あり     |
+| `--prompt-suggestions`       | ターンごとに `prompt_suggestion` メッセージを出す                          | stream-json 出力と `--verbose`  | あり     |
+
+cli-reference は「`--help` は全フラグを載せない。載っていないことは使えないことを意味しない」と明記しています。`--max-turns` は `--help` にありませんが、実機で動作します。
+
+<div class="src">
+  出典: [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · `claude --help` · 実機確認 2.1.321
+</div>
+
+<span id="ch44-flags-2" />
+
+## `-p` で使うフラグ (2/2): 権限・保存・起動
+
+| フラグ                                                | 内容                                                                                                                                                                 | 要件                   | `--help`                   |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------------- |
+| `--permission-prompts`                                | `host`（既定。SDK ホストか `--permission-prompt-tool` へ回す）か `none`（拒否）                                                                                      | v2.1.259 以降          | あり                       |
+| `--permission-prompt-tool`                            | 確認に答える MCP ツールを `mcp__<server>__<tool>` で指定。そのサーバーの接続を `MCP_TIMEOUT`（既定 30 秒）まで待つ。`requiresUserInteraction` のツールは承認できない | 非対話モード           | なし（別項目の説明内のみ） |
+| `--no-session-persistence`                            | ディスクに保存せず、再開できない。`CLAUDE_CODE_SKIP_PROMPT_HISTORY` は全モードで同じ効果                                                                             | print モード           | あり                       |
+| `--fallback-model`                                    | 過負荷・利用不可のとき順に試すモデル（カンマ区切り）。`fallbackModel` 設定より優先                                                                                   | なし                   | あり                       |
+| `--exclude-dynamic-system-prompt-sections`            | ユーザー・マシン固有の文脈を最初のユーザーメッセージへ移し、キャッシュを共有しやすくする                                                                             | 既定のプロンプト使用時 | あり                       |
+| `--init` / `--maintenance`                            | `init` / `maintenance` matcher の Setup フックをセッション前に実行                                                                                                   | print モード           | なし                       |
+| `--mcp-config`                                        | `-p` では保留中のサーバーを `MCP_TIMEOUT` まで待ってから最初のターンを始める                                                                                         | v2.1.221 以降          | あり                       |
+| <span class="undocumented">`--file <specs...>`</span> | 起動時にファイルリソースを取得。書式は `file_id:relative_path`                                                                                                       | docs 未掲載            | あり                       |
+
+`--file` は `--help` にだけ載り、どの docs ページにもありません。`--bare` は次の 2 つの節で扱います。
+
+<div class="src">
+  出典: [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · `claude --help` · 実機確認 2.1.321
+</div>
+
+<span id="ch44-exit" />
+
+## 終了コードと失敗の伝わり方（実測）
+
+| ケース                             | 終了 | 出力                                                                                                                                        |
+| ---------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 成功（`--output-format json`）     | 0    | `"subtype":"success"`・`"is_error":false`                                                                                                   |
+| 未知のフラグ                       | 1    | stderr: `error: unknown option '--no-such-flag'`                                                                                            |
+| 不正な `--json-schema`             | 1    | stderr: `Error: --json-schema is not a valid JSON Schema: data/type must be equal to one of the allowed values, …`                          |
+| stream-json で `--verbose` なし    | 1    | stderr: `Error: When using --print, --output-format=stream-json requires --verbose`                                                         |
+| 認証なし（`--bare`、API キーなし） | 1    | stdout の result: `"subtype":"success"`・`"is_error":true`・`"terminal_reason":"api_error"`・`"result":"Not logged in · Please run /login"` |
+| `--max-budget-usd 0.0001`          | 1    | `error_max_budget_usd`・`budget_exhausted`・`"errors":["Reached maximum budget ($0.0001)"]`                                                 |
+| `--max-turns 1` と `--json-schema` | 1    | `error_max_turns`・`max_turns`・`"num_turns":2`                                                                                             |
+| `--permission-prompts none` で拒否 | 0    | `success`。拒否は `permission_denials` に残る                                                                                               |
+| SIGTERM（docs）                    | 143  | 実行中のターンは未完のまま、結果を記録しない                                                                                                |
+
+- docs が定める終了コードは「成功 0・失敗は非ゼロ」と SIGTERM の 143 だけです。不正なフラグは実行前に stderr へ、実行中の失敗（認証なしなど）は stdout の result に出ます。
+- **`subtype` だけでは成否を判定できません。**&#x8A8D;証失敗でも `success` でした。`is_error` と終了コードで判定します。
+
+<div class="src">
+  出典: [headless#basic-usage](https://code.claude.com/docs/en/headless#basic-usage) · [#stop-a-run-with-sigterm](https://code.claude.com/docs/en/headless#stop-a-run-with-sigterm) · 実機確認 2.1.321（haiku）
+</div>
+
+<span id="ch44-bare" />
+
+## `--bare`: 自動検出をすべて省く
+
+- フック・skill・カスタムコマンド・サブエージェント・インストール済みプラグイン・MCP サーバー・auto memory・CLAUDE.md の自動検出を省きます。`CLAUDE_CODE_SIMPLE` を設定します。
+- OAuth とキーチェーンを読みません。Anthropic API には `ANTHROPIC_API_KEY` か、`--settings` の JSON に書いた `apiKeyHelper` を使います。Bedrock・Agent Platform・Foundry は各自の認証情報を読みます。
+- 使えるツールは Bash・ファイル読み取り・ファイル編集です。実測の init は `["Bash","Edit","Read"]` でした。
+- フックは、`--settings` に書いても、フラグで読み込んだプラグインに入れても動きません。
+- `--add-dir` のディレクトリからは `.claude/skills/` だけを読み込みます。`.claude/commands/` と `.claude/agents/` は読みません。
+- v2.1.286 以降の制限: コマンドラインで渡した MCP サーバーだけが接続します。system reminder（変更ファイルの通知、skill 一覧）は送られません。バックグラウンドのコマンドとサブエージェントは使えず、タイムアウトしたコマンドは停止します。
+
+| 読み込むもの             | フラグ                                                  |
+| ------------------------ | ------------------------------------------------------- |
+| システムプロンプトの追記 | `--append-system-prompt`、`--append-system-prompt-file` |
+| 設定                     | `--settings <file-or-json>`                             |
+| MCP サーバー             | `--mcp-config <file-or-json>`                           |
+| カスタムエージェント     | `--agents <file-or-json>`                               |
+| プラグイン               | `--plugin-dir <path>`、`--plugin-url <url>`             |
+
+```bash
+claude --bare -p "Summarize README.md" --allowedTools "Read"
+```
+
+:::note[補足]
+docs は `--bare` を「スクリプトと SDK 呼び出しの推奨モード」とし、将来 `-p` の既定になると予告しています。`--help` は「Skills still resolve via /skill-name」と補足しています。
+:::
+
+<div class="src">
+  出典: [headless#start-faster-with-bare-mode](https://code.claude.com/docs/en/headless#start-faster-with-bare-mode) · [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · changelog 2.1.81・2.1.286 · 実機確認 2.1.321
+</div>
+
+<span id="ch44-isolation" />
+
+## `--bare`・`--safe-mode`・`--restricted` の比較
+
+|                              | `--bare`                                                                                  | `--safe-mode`                                                                                      | `--restricted`                                                                               |
+| ---------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 用途                         | スクリプト・CI の再現性と起動速度                                                         | 壊れた設定の切り分け                                                                               | 共有マシンで評価ハーネスが動かす                                                             |
+| 設定                         | 自動検出なし。フラグで明示                                                                | カスタマイズをすべて無効。managed は適用                                                           | managed と `--settings` だけ                                                                 |
+| 認証                         | API キーか `apiKeyHelper`。OAuth 不可                                                     | 通常どおり                                                                                         | docs に記載なし                                                                              |
+| ツール（実測 init）          | `Bash`・`Edit`・`Read` だけ                                                               | 組み込みツールは通常どおり                                                                         | `Bash`・`Monitor`・`CronCreate`・`RemoteTrigger`・`Workflow` が消え、`Glob`・`Grep` が現れる |
+| skill・コマンド（実測 init） | skill 18・コマンド 51。`schedule`・`ultrareview`・`usage-credits`・`extra-usage` が消える | user・project の skill とカスタムコマンドを読まない。同梱分は残る（init は skill 19・コマンド 55） | 既定の `-p` と同じ                                                                           |
+| その他                       | フックは動かない                                                                          | managed のフック・ステータスラインは動く。managed のプラグイン・skill・CLAUDE.md・MCP は読まない   | ファイルツールを作業ディレクトリに限定。`bypassPermissions` とクラウドセッション作成を拒否   |
+| 環境変数・版                 | `CLAUDE_CODE_SIMPLE`                                                                      | `CLAUDE_CODE_SAFE_MODE`                                                                            | v2.1.248 以降                                                                                |
+
+`--restricted` の docs は「コマンドやコードを実行する組み込みツールと WebFetch を外す」という一般的な表現だけです。外れるツール名は実測です。`--tools` で個別に名前を挙げれば残せます（`default` プリセットでは戻りません）。詳細は [Ch26](/claude-code-deep-dive/ja/settings/security/) と [Ch27](/claude-code-deep-dive/ja/settings/diagnostics/) です。
+
+<div class="src">
+  出典: [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags)（`--bare`・`--safe-mode`・`--restricted`） · [headless#start-faster-with-bare-mode](https://code.claude.com/docs/en/headless#start-faster-with-bare-mode) · 実機確認 2.1.321
+</div>
+
+<span id="ch44-result" />
+
+## 出力形式と result JSON（実測）
+
+```json title="実測 2.1.321" frame="terminal"
+$ claude -p --model haiku --output-format json "Reply with OK"
+{
+  "duration_api_ms": …, "stop_reason": "end_turn",
+  "session_id": "<redacted>", "total_cost_usd": …,
+  "usage": { "input_tokens": …, … },
+  "modelUsage": { "claude-haiku-5-5": { …, "costUSD": …,
+      "contextWindow": 1000000, "maxOutputTokens": 128000,
+      "provider": "firstParty", "costBasis": "list" } },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": { "spawned": 0, … },
+  "safety_stops": 0,
+  "is_error": false, "num_turns": 1, "subtype": "success",
+  "api_error_status": null, "result": "OK", …,
+  "queued_turn_count": 0, "result_index": 0,
+  "credential_expires_at": "<redacted>"
+}
+```
+
+通常の実行（safe-mode なし）の捕捉から抜粋。数値と ID は伏せています。
+
+- `text` は本文だけ、`json` は result オブジェクト 1 個、`stream-json` は改行区切りのイベント列です。
+
+- stream-json には `--verbose` が必須です。docs は例で併用しているだけですが、実機は付けないと終了コード 1 で止まります。
+
+- フィールドの出どころ:
+
+  - docs（`SDKResultMessage`）: `terminal_reason`・`result_index`・`queued_turn_count`・`ttft_ms` など
+  - changelog のみ: `credential_expires_at`（2.1.318）
+  - <span class="undocumented">docs 未掲載: `subagent_stats`・`safety_stops`・`model_usage_since_last_result`（stream-json のみ）</span>
+
+- `usage` はメインループだけです。`modelUsage` はサブエージェントと圧縮も含みます。費用はどちらもクライアント側の推定で、`--resume` では過去分を含みます。
+
+- バックグラウンド処理で次のターンが走った場合、`text` は各ターンの結果を（v2.1.295 以降）、`json` は最後のターンだけを出します。
+
+- 2.1.311 以降、DEL・C1 制御文字・Unicode 書式文字は `\uXXXX` でエスケープされます。
+
+<div class="src">
+  出典: [headless#get-structured-output](https://code.claude.com/docs/en/headless#get-structured-output) · [agent-sdk/typescript#sdkresultmessage](https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage) · changelog 2.1.311・2.1.318（リファレンス未掲載） · 実機確認 2.1.321
+</div>
+
+<span id="ch44-errors" />
+
+## エラー `subtype` と `terminal_reason`
+
+| `subtype`                             | 意味                                         | `result` |
+| ------------------------------------- | -------------------------------------------- | -------- |
+| `success`                             | 正常終了（`is_error` が true のこともある）  | あり     |
+| `error_max_turns`                     | ターン数の上限に到達                         | なし     |
+| `error_max_budget_usd`                | 予算の上限に到達                             | なし     |
+| `error_during_execution`              | 実行中のエラー（リクエストの取り消しなど）   | なし     |
+| `error_max_structured_output_retries` | 再試行の上限内に有効な構造化出力が得られない | なし     |
+
+- エラー側は `errors: string[]` を持ち、`result` と `structured_output` を持ちません。実測では `api_error_status`・`ttft_ms` などのタイミング系もありませんでした。
+- 既知の理由で起動を拒否した場合は、`error_during_execution` に `startup_failure_reason` が付きます（Agent SDK v0.3.274 以降）。
+- `UserPromptSubmit` フックが止めたメッセージにも result が返ります。`success`・`"num_turns": 0` で、`terminal_reason` はありません。
+
+### `terminal_reason` の値（19 種）
+
+`completed` · `max_turns` · `tool_deferred` · `aborted_streaming` · `aborted_tools` · `hook_stopped` · `stop_hook_prevented` · `background_requested` · `blocking_limit` · `rapid_refill_breaker` · `prompt_too_long` · `image_error` · `model_error` · `api_error` · `malformed_tool_use_exhausted` · `budget_exhausted` · `structured_output_retry_exhausted` · `tool_deferred_unavailable` · `turn_setup_failed`
+
+| 実測の組み合わせ                            | `stop_reason`   |
+| ------------------------------------------- | --------------- |
+| `success` / `completed`                     | `end_turn`      |
+| `success` / `api_error`（認証なし）         | `stop_sequence` |
+| `error_max_budget_usd` / `budget_exhausted` | `end_turn`      |
+| `error_max_turns` / `max_turns`             | `end_turn`      |
+| `success` / `completed`（`--json-schema`）  | `tool_use`      |
+
+<div class="src">
+  出典: [agent-sdk/typescript#sdkresultmessage](https://code.claude.com/docs/en/agent-sdk/typescript#sdkresultmessage) · [agent-sdk/agent-loop#handle-the-result](https://code.claude.com/docs/en/agent-sdk/agent-loop#handle-the-result) · 実機確認 2.1.321
+</div>
+
+<span id="ch44-json-schema" />
+
+## `--json-schema` の内部動作（実測）
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --output-format stream-json --verbose \
+    --json-schema '{"type":"object",…}' "What is 2+2?"
+{"type":"system","subtype":"init",…,"tools":[…,
+ "StructuredOutput",…],…}
+{"type":"assistant","message":{…,"content":[{"type":
+ "text","text":"4"}],…},…}
+{"type":"user","message":{"role":"user","content":[{
+ "type":"text","text":"[structured-output-enforce] You
+ MUST call the StructuredOutput tool to complete this
+ request. Call this tool now."}]},…,"isSynthetic":true}
+{"type":"assistant","message":{…,"content":[{"type":
+ "tool_use","id":"…","name":"StructuredOutput","input":
+ {"answer":"4","confidence":1},…}],…},…}
+{"type":"user","message":{"role":"user","content":[{…,
+ "type":"tool_result","content":"Structured output
+ provided successfully"}]},…}
+{"duration_api_ms":…,"stop_reason":"tool_use",…,
+ "num_turns":3,"subtype":"success",…,"structured_output":
+ {"answer":"4","confidence":1},…,"type":"result",…}
+```
+
+共通のフラグ（`--model haiku`・`--no-session-persistence` など）と、途中の一部のイベントは省略しています。
+
+- docs の例: `claude -p "Extract the main function names from auth.py" --output-format json --json-schema '{"type":"object","properties":{"functions":{"type":"array","items":{"type":"string"}}},"required":["functions"]}'`
+- 結果は `structured_output` に入り、`result` には同じ JSON が文字列で入ります。拒否などで有効な出力がないと、`structured_output` キー自体がありません。
+- `"format": "email"` などの `format` は注記扱いで検証しません。SDK ページは検証器を draft-07 としています。
+- Claude Code は `StructuredOutput` ツールを足します（呼び出しと結果の文言は docs どおり）。
+- <span class="undocumented">モデルが文章で答えると、合成ユーザーメッセージで呼び出しを強制しました。この文言は docs にありません。</span>
+- 強制の分もターンに数えます。`--max-turns 1` では `error_max_turns` で終わりました。
+
+<div class="src">
+  出典: [headless#get-structured-output](https://code.claude.com/docs/en/headless#get-structured-output) · [agent-sdk/structured-outputs](https://code.claude.com/docs/en/agent-sdk/structured-outputs#recognize-the-structuredoutput-tool-call) · 実機確認 2.1.321
+</div>
+
+<span id="ch44-stream" />
+
+## stream-json のイベント (1/2): 種類
+
+| type / subtype                                                                           | 内容                                                                                                                     | 出る条件                                                     |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `system/init`                                                                            | モデル・ツール・MCP サーバー・プラグインなどのメタデータ                                                                 | 常に。原則として最初                                         |
+| `system/hook_started`・`hook_progress`・`hook_response`                                  | フックの進行。フックが出力するたびに流れる                                                                               | `SessionStart`・`Setup` は常に。他は `--include-hook-events` |
+| `system/plugin_install`                                                                  | 初回ターン前のマーケットプレイスのプラグインのインストール。`status` は `started`・`installed`・`failed`・`completed`    | `CLAUDE_CODE_SYNC_PLUGIN_INSTALL`                            |
+| `system/api_retry`                                                                       | 再試行の前。`attempt`・`max_retries`・`retry_delay_ms`・`error_status`・`error`（`rate_limit`・`overloaded` など 12 種） | 再試行可能なエラー                                           |
+| `system/permission_denied`                                                               | 確認の代わりに拒否した呼び出し                                                                                           | 拒否が起きたとき                                             |
+| `stream_event`                                                                           | API の生イベント（`message_start`・`content_block_delta` など）                                                          | `--include-partial-messages`                                 |
+| `assistant`・`user`                                                                      | 応答とツール結果。サブエージェントの分も含む                                                                             | 常に                                                         |
+| `rate_limit_event`・`system/status`・`system/thinking_tokens`・`system/commands_changed` | 実測で出たイベント。いずれも TS SDK の `SDKMessage` に型がある                                                           | 状況による                                                   |
+| `result`                                                                                 | 最終結果・費用・セッション情報                                                                                           | 常に。最後の行                                               |
+
+:::danger[食い違い]
+docs は init より前に出るのを `SessionStart`・`Setup` のフックと `plugin_install` に限っています。実測では `UserPromptSubmit`・`UserPromptExpansion` のフックイベントも init より前に出ました（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）。
+:::
+
+<div class="src">
+  出典: [headless#read-session-metadata](https://code.claude.com/docs/en/headless#read-session-metadata) · [#handle-api-retries](https://code.claude.com/docs/en/headless#handle-api-retries) · [#track-plugin-installs](https://code.claude.com/docs/en/headless#track-plugin-installs) · [agent-sdk/typescript#sdkmessage](https://code.claude.com/docs/en/agent-sdk/typescript#sdkmessage) · 実機確認 2.1.321
+</div>
+
+<span id="ch44-stream-subagents" />
+
+## stream-json のイベント (2/2): サブエージェントと部分出力
+
+| 起動のされ方                         | `parent_tool_use_id`         | 届く時期             |
+| ------------------------------------ | ---------------------------- | -------------------- |
+| メインから Agent ツール              | その Agent `tool_use` の ID  | 作業中               |
+| メインから Skill ツールで fork skill | その Skill `tool_use` の ID  | 作業中               |
+| プロンプトに `/<skill-name>`         | `forked-command-` で始まる値 | 終了後にまとめて順に |
+
+- メインの会話は `null` です。`forked-command-` の後ろの名前は入力と違うことがあるため、接頭辞で照合します。
+- 既定では `tool_use`・`tool_result` だけが届きます。`--forward-subagent-text` か `CLAUDE_CODE_FORWARD_SUBAGENT_TEXT` で text・thinking も届き、入れ子の全階層が対象になります。
+- 欠ける場合の最低版: Skill ツールの fork skill は v2.1.86（text・thinking は v2.1.265）、入れ子は v2.1.275、`/<skill-name>` の fork skill は v2.1.287 です。
+
+### テキストの差分だけを表示する
+
+```bash
+claude -p "Write a poem" --output-format stream-json \
+  --verbose --include-partial-messages | \
+  jq -rj 'select(.type == "stream_event" and
+    .event.delta.type? == "text_delta") | .event.delta.text'
+```
+
+docs の例を紙面に合わせて折り返しています。
+
+- 読み手が遅い場合、終了前に出力の排出を待ちます。待ち時間は残量に応じて伸び、上限は 30 秒です。
+- Agent SDK のストリームイベントはメインセッションだけで、サブエージェントの差分は転送しません（[Ch45](/claude-code-deep-dive/ja/automation/agent-sdk/)）。
+
+<div class="src">
+  出典: [headless#follow-subagent-messages](https://code.claude.com/docs/en/headless#follow-subagent-messages) · [#stream-responses](https://code.claude.com/docs/en/headless#stream-responses) · [agent-sdk/streaming-output](https://code.claude.com/docs/en/agent-sdk/streaming-output)
+</div>
+
+<span id="ch44-init-gate" />
+
+## init イベントを CI ゲートに使う（実測）
+
+- `--mcp-config` の各エントリは起動時に検証され、不正なものは飛ばされます。実行は続き、正常終了します。
+- 端末なら stderr に `Warning: 1 MCP server skipped due to invalid config:` が出ます。CI や SDK ホストが stderr を捕まえると、`mcp_server_errors` にだけ残ります。
+- `plugin_errors`・`mcp_server_errors` は、エラーがないときキーごと省かれます。
+- `mcp_server_errors` の `type` は `unknown_type`・`url_missing_type`・`invalid_config`・`reserved_name` など。未知の値もスキップ扱いです。
+- キャッシュ済みツール一覧を持つリモートサーバーは `pending` のまま載ります。機能の判定は `capabilities` 配列で行います。
+- `--safe-mode` の init でも `plugins` には `"path": "builtin"` の組み込みプラグインが並びます。「空であること」は条件にできません。
+- init の主なキー（実測）: `tools`・`mcp_servers`・`model`・`permissionMode`・`slash_commands`・`agents`・`skills`・`plugins`・`capabilities` ほか（[Ch21](/claude-code-deep-dive/ja/settings/tools/)・[Ch12](/claude-code-deep-dive/ja/operation/commands/)）。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --strict-mcp-config --mcp-config \
+  '{"mcpServers":{"bad":{"url":"https://example.invalid/mcp"}}}' \
+    --plugin-dir ./no-such-plugin \
+    --output-format stream-json --verbose "Reply with OK"
+"mcp_servers": [],
+"mcp_server_errors": [{"name": "bad",
+  "type": "url_missing_type",
+  "message": "Skipped — MCP server \"bad\" has a
+    \"url\" but no \"type\"; add \"type\": \"http\"
+    (or \"sse\" / \"ws\") to this entry"}],
+"plugin_errors": [{"plugin": "inline[0]", "type":
+  "path-not-found", "message": "Path not found:
+  <redacted>", "path": "<redacted>"}]
+→ exit 0、stderr は空
+```
+
+```bash
+jq -e 'select(.type == "system" and .subtype == "init")
+  | ((.mcp_server_errors // []) + (.plugin_errors // []))
+  | length == 0' run.jsonl > /dev/null
+```
+
+上の出力で 1、エラーなしで 0 を返すことを確認済み（jq 1.8.2）。共通のフラグ（`--model haiku` など）は省略しています。
+
+<div class="src">
+  出典: [headless#read-session-metadata](https://code.claude.com/docs/en/headless#read-session-metadata) · [#fail-ci-when-a-plugin-or-mcp-server-doesnt-load](https://code.claude.com/docs/en/headless#fail-ci-when-a-plugin-or-mcp-server-doesnt-load) · 実機確認 2.1.321
+</div>
+
+<span id="ch44-permissions" />
+
+## 無人実行の権限（実測）
+
+- モード未指定の `-p` は、v2.1.302 以降 Manual（設定値は `default`）で始まります。2.1.285〜2.1.301 は、サードパーティのプロバイダやテレメトリ無効時に auto で始まりました（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)）。
+- Manual の `-p` では、承認が要る呼び出しは拒否されます。承認できるのは allow ルール、`PermissionRequest` フック、`--permission-prompt-tool` です。
+- `--allowedTools` は権限ルール構文です。`Bash(git diff*)` は `git diff-index` にも一致するため、`*` の前に空白を入れます。auto で始まる実行では素の `Bash` が捨てられます。
+- `dontAsk`: 確認になる呼び出しをすべて拒否します。`AskUserQuestion`、組織が `ask` にしたコネクタ、`requiresUserInteraction` の MCP ツール、ネットワークパスの読み取りは、allow ルールがあっても拒否です。
+- `--permission-prompts none`: ホスト（`canUseTool`・プロンプトツール）に問い合わせず待ちません。`AskUserQuestion` を外し、未応答の elicitation を取り消します。ルール・フック・モードが先に判定します。
+
+```bash
+claude -p "Update the dependency pins and run the tests" \
+  --permission-mode auto --permission-prompts none
+```
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p --permission-prompts none \
+    --output-format stream-json --verbose \
+    "Use the Write tool to create a file named out.txt …"
+{"type": "system", "subtype": "permission_denied",
+ "tool_name": "Write", "decision_reason_type": "asyncAgent",
+ "decision_reason": "no approval surface in this
+   session; permission request denied automatically",
+ "message": "Permission for this tool use was denied. …", …}
+{"type": "result", "subtype": "success", …, "permission_denials":
+   [{"tool_name": "Write", "tool_use_id": …, "tool_input": {…}}]}
+→ exit 0
+```
+
+共通のフラグ（`--model haiku`・`--no-session-persistence` など）と、途中の一部のイベントは省略しています。拒否されても終了コードは 0 です。CI で拒否を失敗扱いにするなら `permission_denials` を調べます。
+
+<div class="src">
+  出典: [headless#auto-approve-tools](https://code.claude.com/docs/en/headless#auto-approve-tools) · [#turn-off-permission-prompts-in-unattended-runs](https://code.claude.com/docs/en/headless#turn-off-permission-prompts-in-unattended-runs) · [permission-modes](https://code.claude.com/docs/en/permission-modes#tool-calls-denied-in-claude--p-and-agent-sdk-runs) · changelog 2.1.285・2.1.302 · 実機確認 2.1.321
+</div>
+
+<span id="ch44-system-prompt" />
+
+## システムプロンプト系フラグとスナップショット
+
+| フラグ                        | 動作                                                                 |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `--system-prompt`             | 既定のプロンプト全体を置き換える                                     |
+| `--system-prompt-file`        | ファイルの内容で置き換える                                           |
+| `--append-system-prompt`      | 既定のプロンプトに追記する                                           |
+| `--append-system-prompt-file` | ファイルの内容を追記する                                             |
+| `--system-prompt-snapshot`    | `on`（既定）は記録したプロンプトを再利用、`off` は毎リクエスト再構築 |
+
+- 5 つとも対話・非対話の両方で使えます。`-file` の 2 つは `--help` に単独の行がありません。
+- 置き換えと追記は併用できます。v2.1.283 以降は文字列形とファイル形も併用でき、ファイル、空行、文字列の順に並びます。置き換えると git status のスナップショットも付きません。
+- 置き換え文の `__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__` だけの行で、キャッシュする静的部と動的部を分けます（v2.1.275 以降）。
+
+### 記録（スナップショット）の規則
+
+- プロンプトは会話の最初のリクエストで組み立てて記録し、圧縮まで再利用します。`--resume`・`--continue` で別のフラグを渡しても、効くのは圧縮後か新しい会話からです。文言を詰める間は `off` にします。
+- `--bare`（または `CLAUDE_CODE_SIMPLE=1`）では、クラウドセッション以外で記録が off です。`on` を渡すと記録します。
+- v2.1.265 より前は、フラグを渡すと記録が off でした。v2.1.268 より前は、feature flag を取得しないセッション（Bedrock など）で常に再構築でした。
+- `off` は 2.1.267 から（changelog）。フラグ自体は docs 上 v2.1.257 以降です。
+
+```bash
+claude -p --append-system-prompt-file ./style.md --append-system-prompt "Always reply in French" "Summarize README.md"
+```
+
+<div class="src">
+  出典: [cli-reference#system-prompt-flags](https://code.claude.com/docs/en/cli-reference#system-prompt-flags) · [#system-prompt-flags-in-resumed-conversations](https://code.claude.com/docs/en/cli-reference#system-prompt-flags-in-resumed-conversations) · changelog 2.1.267
+</div>
+
+<span id="ch44-sessions" />
+
+## セッションと実行の終わり方
+
+- `--continue`: このディレクトリの最新の会話を開きます。対話モードは `-p`・SDK・`/loop` のセッションを飛ばしますが、`claude -p --continue` は含めます。v2.1.257 以降は終了済みのバックグラウンドセッションも対象です。
+- `--resume`: ID・名前・`.jsonl` の絶対パスを受け取ります。ID は現在のプロジェクトと worktree、次に全プロジェクトから探します（v2.1.223 以降）。
+- `--fork-session` は新しい ID に分岐し、`--session-id` は ID を先に決めます（[Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/)）。ファイルの巻き戻しは SDK の `rewindFiles()` です（[Ch45](/claude-code-deep-dive/ja/automation/agent-sdk/)）。
+
+### バックグラウンド処理の待ち
+
+- ターン終了後も、Claude が始めたバックグラウンドのコマンド・サブエージェント・ワークフロー・Monitor・`/loop` の wakeup を待ちます。MCP タスクは待ちません。
+- 連続 10 分の待機で残りを止めます（`CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS`、`0` で無制限）。メインが始めたコマンドの実行中は、この上限で止まりません。
+
+### SIGTERM
+
+- 終了コード 143 です。Bash のプロセスツリーを止め、`SessionEnd` フックだけを実行します。
+- ターンを終えるには先に SIGINT か SDK の `interrupt()` を送ります。再開時に続けるには `CLAUDE_CODE_RESUME_INTERRUPTED_TURN=1` です。
+
+```bash
+session_id=$(claude -p "Start a review" --output-format json | jq -r '.session_id')
+claude -p "Continue that review" --resume "$session_id"
+```
+
+<div class="src">
+  出典: [headless#continue-conversations](https://code.claude.com/docs/en/headless#continue-conversations) · [#background-tasks-at-exit](https://code.claude.com/docs/en/headless#background-tasks-at-exit) · [#stop-a-run-with-sigterm](https://code.claude.com/docs/en/headless#stop-a-run-with-sigterm) · [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags)
+</div>

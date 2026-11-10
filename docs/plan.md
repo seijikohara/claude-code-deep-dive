@@ -1,5 +1,7 @@
 # Claude Code Deep Dive Implementation Plan
 
+> **Historical.** This document was written for the original Reveal.js slide format. On 2026-11-11 the reference moved to a Starlight documentation site (one MDX page per chapter); see `docs/authoring-guide.md` for the current format.
+
 **Goal:** Build a ~500-slide Japanese Reveal.js reference deck on Claude Code 2.1.321, verified against the docs and the binary, and publish it locally and as a private claude.ai Artifact.
 
 **Architecture:** Chapter slides are hand-authored HTML fragments. Catalog and appendix slides are generated from JSON data. A dependency-free Node build inlines CSS, escapes code, and emits a full document plus an Artifact fragment. Node lint scripts and an in-page browser check gate every build.

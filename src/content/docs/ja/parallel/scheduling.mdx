@@ -1,0 +1,157 @@
+---
+title: "スケジュール実行"
+description: "プロンプトを繰り返し、または決まった時刻に実行する 3 つの仕組みを扱います。セッション内の /loop と Cron ツール、クラウドのスケジュールタスク（旧 routines）、Desktop のローカルのスケジュールタスクです。この章では、それぞれの書式・タイミング・上限・停止方法と、3 つの比較を扱います。"
+sidebar:
+  order: 43
+---
+
+プロンプトを繰り返し、または決まった時刻に実行する 3 つの仕組みを扱います。セッション内の `/loop` と Cron ツール、クラウドのスケジュールタスク（旧 routines）、Desktop のローカルのスケジュールタスクです。この章では、それぞれの書式・タイミング・上限・停止方法と、3 つの比較を扱います。
+
+<span id="ch43-loop" />
+
+## `/loop`: 固定間隔と自己ペース
+
+| 指定             | 例                          | 動作                                     |
+| ---------------- | --------------------------- | ---------------------------------------- |
+| 間隔とプロンプト | `/loop 5m check the deploy` | 固定の cron スケジュール                 |
+| プロンプトだけ   | `/loop check the deploy`    | Claude が毎回 1 分〜1 時間から間隔を選ぶ |
+| 間隔だけ・なし   | `/loop`、`/loop 15m`        | 組み込みの保守プロンプトか `loop.md`     |
+
+- 間隔は先頭のトークン（`30m`）か末尾の句（`every 2 hours`）で、単位は `s`・`m`・`h`・`d` です。秒は分に切り上げ、`7m`・`90m` など cron で表せない値は丸めて伝えます。
+- 自己ペースでは、各回の最後に選んだ待ち時間と理由を表示します。`Monitor` ツールがあれば、Claude はポーリングの代わりにそれを使うことがあります。
+- Skill も渡せます（`/loop 20m /review-pr 1234`）。ただし Claude が自分で呼べるものだけです。組み込みコマンド、`disable-model-invocation: true` の Skill（`/verify` を含む）、`skillOverrides` や `Skill` の deny で隠した Skill、MCP プロンプトは平文として届きます。
+
+### 組み込みの保守プロンプト
+
+- 毎回、次の順に進めます。会話の未完了の作業を続ける。現在のブランチの PR（レビューコメント、失敗した CI、コンフリクト）に対応する。何も無ければバグ探しや単純化などの掃除をする。
+- 範囲外の新しい取り組みは始めません。push や削除のような取り消せない操作は、トランスクリプトで既に許可された作業の続きのときだけ行います。
+
+### `loop.md`
+
+- `.claude/loop.md`（プロジェクト）が `~/.claude/loop.md`（ユーザー）より優先です。引数なしの `/loop` の既定プロンプトだけを置き換えます。
+- 毎回読み直すので、実行中に編集できます。25,000 バイトを超えた部分は切り捨てます。
+
+### 別の手段
+
+- 間隔ではなく条件を満たすまでターンを続けるなら `/goal`（[Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-goal-compare)）、ポーリングせずにイベントへ反応するなら Channels（[Ch34](/claude-code-deep-dive/ja/extensions/channels/)）を使います。
+
+<div class="src">
+  出典: [scheduled-tasks#run-a-prompt-repeatedly-with-loop](https://code.claude.com/docs/en/scheduled-tasks#run-a-prompt-repeatedly-with-loop) · [#run-the-built-in-maintenance-prompt](https://code.claude.com/docs/en/scheduled-tasks#run-the-built-in-maintenance-prompt) · [#customize-the-default-prompt-with-loop-md](https://code.claude.com/docs/en/scheduled-tasks#customize-the-default-prompt-with-loop-md)
+</div>
+
+<span id="ch43-loop-stop" />
+
+## `/loop` の停止・終了・再開
+
+| 種類       | 止め方                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 自己ペース | 待機中に <kbd>Esc</kbd>。アイドル時の <kbd>Ctrl</kbd>+<kbd>C</kbd> でも止まる（接続中の背景セッションを除く）。`Pending wakeup cancelled` と出る |
+| 固定間隔   | <kbd>Esc</kbd>・<kbd>Ctrl</kbd>+<kbd>C</kbd> では止まらない。`cancel the deploy check loop` のように頼む。止めなければ 7 日で終わる              |
+
+- <span class="badge preview">Preview</span> 接続中の背景セッションでは、空のプロンプトで <kbd>Ctrl</kbd>+<kbd>C</kbd> を 2 回押すと、自己ペースのループを残したまま切り離します（v2.1.295 以降）。止めるなら先に <kbd>Esc</kbd> です。
+- 2.1.319 から、自己ペースのループは、再予約も停止もせずにターンを終えると終了します。以前の動作に戻すには `CLAUDE_CODE_LOOP_KEEPALIVE=1` を設定します。
+
+:::danger[食い違い]
+scheduled-tasks ページは、再予約も停止もしなかった回の後に「約 20 分後に 1 回だけ予備の起動を入れ、それも再予約しなければ終える」と記載しています。changelog 2.1.319 はこの予備の起動を廃止しました。
+:::
+
+- 自己ペースの次回は `ScheduleWakeup` で予約します。`delaySeconds` は 60〜3600 秒に丸められ、`stop: true`（v2.1.202 以降）で予約を取り消してループを終えます。`noop: true` は変化なしの回です。
+- 発火するのは Claude Code が動いていてアイドルのときだけです。忙しい間に過ぎた回は、まとめて 1 回だけ実行します。
+- `--resume`・`--continue` は `CronCreate` のタスクを戻します。期限切れの繰り返しタスクと、時刻を過ぎた 1 回限りのタスクは除きます。止まっていた間の回は埋め合わせません。
+- 自己ペースの `/loop` は再開で戻りません。`/loop` を実行し直します。背景の Bash やモニターも再起動しません。
+- <span class="badge preview">Preview</span> <kbd>←</kbd> や `/bg` で背景に送ると、`/loop` のタスクも移ります。プロセスが落ちている間に次回が来た自己ペースのループは止まります。
+- クラウドセッションでは、タイマーがコンテナと一緒に止まることを `/loop` の確認メッセージが伝えます（2.1.319）。
+- `/usage` にはループごとの回数・合計トークン・1 回あたりのトークン・最終実行を示す Loops 内訳があります（2.1.243）。
+
+<div class="src">
+  出典: [scheduled-tasks#stop-a-loop](https://code.claude.com/docs/en/scheduled-tasks#stop-a-loop) · [#limitations](https://code.claude.com/docs/en/scheduled-tasks#limitations) · [agent-sdk/typescript](https://code.claude.com/docs/en/agent-sdk/typescript#schedulewakeup) · changelog 2.1.319（`CLAUDE_CODE_LOOP_KEEPALIVE` はリファレンス未掲載） · changelog 2.1.243
+</div>
+
+<span id="ch43-cron" />
+
+## Cron ツール: ジッター・期限・上限
+
+```typescript
+type CronCreateInput = {
+  cron: string;
+  prompt: string;
+  recurring?: boolean;
+  durable?: boolean;
+};
+```
+
+- `CronCreate` が作り、`CronList` が ID・スケジュール・次回時刻（v2.1.299 以降）・プロンプトを一覧し、`CronDelete` が ID で消します。`recurring: false` は次の一致で 1 回だけ動きます。
+- 1 セッション 50 件まで、ID は 8 文字です。スケジューラは毎秒確認し、低い優先度でターンの合間に発火します。時刻はローカルのタイムゾーンです。
+- 1 回限りのリマインダーは自然文で頼みます（`remind me at 3pm to push the release branch`）。実行後に自分を消します。
+- `durable: true` は `.claude/scheduled_tasks.json` への保存を求めます。使えないセッションでは受け付けたうえで、セッション限りで作ります。出力の `durable` で確認します。作ったフォルダでだけ動き、別の worktree にコピーしても一覧に出るだけです。
+
+| スケジュール                | 各回の開始          |
+| --------------------------- | ------------------- |
+| `*/5 * * * *`（`/loop 5m`） | 前回の 4 分 45 秒後 |
+| 10 分ごと                   | 0〜5 分遅れ         |
+| 30 分ごと                   | 0〜15 分遅れ        |
+| 1 時間ごと・日次など        | 0〜30 分遅れ        |
+
+- 繰り返しタスクは間隔の半分まで（最大 30 分）遅れます。5 分ごとだけは、5 分のプロンプトキャッシュが切れる前に 15 秒早く始めます。
+- `:00`・`:30` の 1 回限りタスクは最大 90 秒早まります。時刻が大事なら `0 9 * * *` ではなく `3 9 * * *` にします。
+- 繰り返しタスクは作成から 7 日で最後に 1 回動いて消えます。
+- cron は 5 フィールド（`*`・値・`*/15`・範囲・リスト）です。曜日は `0` と `7` が日曜、`L`・`W`・`?`・`MON` などは不可。日と曜日の両方を指定すると OR です。
+- `CLAUDE_CODE_DISABLE_CRON=1` で `/loop` と Cron ツールが消え、予約済みのタスクも止まります。実機の `-p` の init では `CronCreate`・`CronDelete`・`CronList`・`loop` が消え、`ScheduleWakeup` は残りました。
+
+<div class="src">
+  出典: [scheduled-tasks#manage-session-scoped-scheduled-tasks](https://code.claude.com/docs/en/scheduled-tasks#manage-session-scoped-scheduled-tasks) · [#jitter](https://code.claude.com/docs/en/scheduled-tasks#jitter) · [#cron-expression-reference](https://code.claude.com/docs/en/scheduled-tasks#cron-expression-reference) · [agent-sdk/typescript#croncreate](https://code.claude.com/docs/en/agent-sdk/typescript#croncreate) · [env-vars](https://code.claude.com/docs/en/env-vars) · 実機確認 2.1.321
+</div>
+
+<span id="ch43-cloud" />
+
+## クラウドのスケジュールタスク（旧 routines） <span class="badge preview">Preview</span>
+
+```bash
+curl -X POST https://api.anthropic.com/v1/claude_code/routines/trig_01ABCDEFGHJKLMNOPQRSTUVW/fire \
+  -H "Authorization: Bearer sk-ant-oat01-xxxxx" \
+  -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Sentry alert SEN-4521 fired in prod. Stack trace attached."}'
+```
+
+- プロンプト・リポジトリ・コネクタをまとめた設定を、Anthropic のクラウドで完全なセッションとして実行します。トリガーは Schedule・API・GitHub で、組み合わせられます。Pro・Max・Ultra・Team・Enterprise で、claude.ai/code/routines・Desktop・`/schedule`（別名 `/routines`）から作ります。
+- 例: `/schedule daily PR review at 9am`、`/schedule list`・`update`・`run`。プリセットはローカル時刻、cron 式は UTC（先頭に `CRON_TZ=` があればその時間帯）です。1 時間より短い間隔は拒否され、ちょうど 9\:00 は数分遅れることがあるので 9\:07 などにします。
+- 実行は既定で auto mode で始まり、リポジトリは毎回 clone、push 先は `claude/` で始まるブランチです。コネクタは既定で全部入ります。API キー・クラウドプロバイダの認証では `/schedule` が出ません。
+
+* `text` は `<routine-fire-payload>` に包まれ、信頼しないデータとして届きます。保存したプロンプトが明示的に参照しない限り、指示として扱われません。トークンは 1 回だけ表示されます。API トリガーは Web でだけ管理します。
+* `/schedule` は `RemoteTrigger` ツールで動きます。
+* GitHub トリガーは Claude GitHub App が必要で、PR・リリース・Issue のイベントごとに新しいセッションを始めます。正規表現フィルタは値全体と照合します（`.*hotfix.*`）。
+* 上限（超過課金なし）: スケジュール実行（1 回限りを含む）はアカウントで 100 回/時（超えると待つ）。タスクごとに Run now・API・1 回限りの再実行の計 30 回/時、アカウントで Run now・再実行に 100 回/時、API に別の 100 回/時（超えると失敗）。
+
+<div class="src">
+  出典: [routines](https://code.claude.com/docs/en/routines) · [#add-a-schedule-trigger](https://code.claude.com/docs/en/routines#add-a-schedule-trigger) · [#trigger-a-scheduled-task](https://code.claude.com/docs/en/routines#trigger-a-scheduled-task) · [#add-a-github-trigger](https://code.claude.com/docs/en/routines#add-a-github-trigger) · [#usage-and-limits](https://code.claude.com/docs/en/routines#usage-and-limits) · [tools-reference](https://code.claude.com/docs/en/tools-reference)
+</div>
+
+<span id="ch43-compare" />
+
+## `/loop`・Desktop・クラウドの比較
+
+|                  | クラウド <span class="badge preview">Preview</span> | Desktop                             | `/loop`                       |
+| ---------------- | --------------------------------------------------- | ----------------------------------- | ----------------------------- |
+| 実行場所         | クラウド（既定は Anthropic 管理）                   | 自分のマシン                        | 自分のマシン                  |
+| マシン起動       | 不要                                                | 必要                                | 必要                          |
+| 開いたセッション | 不要                                                | 不要                                | 必要                          |
+| 再起動後         | 残る                                                | 残る                                | `--resume` で戻る（例外あり） |
+| ローカルファイル | 不可（毎回 clone）                                  | 可                                  | 可                            |
+| MCP              | タスクごとのコネクタ                                | 設定ファイルとコネクタ              | セッションから継承            |
+| 権限確認         | 既定で auto mode                                    | タスクごとに設定                    | セッションから継承            |
+| 最短間隔         | 1 時間                                              | Claude なら 1 分、フォームは 1 時間 | 1 分                          |
+| cron の時刻      | UTC（先頭の `CRON_TZ=` があればその時間帯）         | ローカル                            | ローカル                      |
+
+### Desktop のローカルタスク
+
+- Claude Desktop 1.1.5368 以降の Code タブの **Scheduled** で作ります。**Only on this computer** を ON にし、ローカルフォルダを選びます。リポジトリや GitHub・API トリガーを付けるとクラウドタスクになります。
+- アプリが起動中でマシンが起きている間、毎分確認し、期限のタスクごとに新しいセッションを始めます。開始はタスクごとに決まった数分の遅れが付きます。
+- 起動・復帰時に過去 7 日の取りこぼしを調べ、最も新しい 1 回だけを追加で実行します。
+- スケジュールは Hourly・Daily・Weekdays・Weekly・Manual・Custom です。Custom の cron はローカル時刻で、曜日・月の名前は不可、日曜は `0` のみ（`7` は不可）です。
+- 権限モードはタスクごとで、`~/.claude/settings.json` の allow ルールも効きます。プロンプトは `~/.claude/scheduled-tasks/<task-name>/SKILL.md` にあり、スケジュールやモデルは含みません。
+
+<div class="src">
+  出典: [scheduled-tasks#compare-scheduling-options](https://code.claude.com/docs/en/scheduled-tasks#compare-scheduling-options) · [desktop-scheduled-tasks](https://code.claude.com/docs/en/desktop-scheduled-tasks) · [routines#add-a-schedule-trigger](https://code.claude.com/docs/en/routines#add-a-schedule-trigger)
+</div>

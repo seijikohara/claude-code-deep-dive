@@ -1,0 +1,728 @@
+---
+title: "MCP"
+description: "Model Context Protocol（MCP）で外部のツールやデータを Claude Code につなぐ仕組みです。この章では、トランスポートとスコープ、承認と認証、タイムアウトと出力上限、tool search、claude.ai コネクタ、組織による管理を扱います。"
+sidebar:
+  order: 30
+---
+
+Model Context Protocol（MCP）で外部のツールやデータを Claude Code につなぐ仕組みです。この章では、トランスポートとスコープ、承認と認証、タイムアウトと出力上限、tool search、claude.ai コネクタ、組織による管理を扱います。
+
+<span id="ch30-overview" />
+
+## 全体像: サーバーが提供するものと、サーバーの出どころ
+
+### 接続したサーバーが提供するもの
+
+- **ツール**: `mcp__<server>__<tool>` の名前で Claude に渡ります。プラグインのサーバーは `mcp__plugin_<plugin-name>_<server-name>__<tool-name>` です（[Ch31](/claude-code-deep-dive/ja/extensions/plugins/)）。
+- **リソース**: `@server:protocol://resource/path` で参照します。
+- **プロンプト**: `/servername:promptname (MCP)` としてコマンドになります。
+- **elicitation**: サーバーが作業の途中で入力を求めるダイアログです。
+- **channel**: サーバーがセッションへメッセージを送り込みます。`--channels` で有効にします（[Ch34](/claude-code-deep-dive/ja/extensions/channels/)）。
+
+tool search が既定で有効です。起動時に読み込むのはツール名とサーバーの instructions だけで、定義は必要になったときに読み込みます。MCP ツールの権限ルールは [Ch22](/claude-code-deep-dive/ja/settings/permission-rules/) で扱います。
+
+### サーバーの出どころ
+
+| 出どころ             | 定義する場所                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| local・user スコープ | `~/.claude.json`                                                                              |
+| project スコープ     | プロジェクトルートの `.mcp.json`                                                              |
+| プラグイン           | プラグインの `.mcp.json` か `plugin.json`                                                     |
+| claude.ai コネクタ   | claude.ai の設定（ログイン方法で取得可否が決まる）                                            |
+| 組織が追加で提供     | managed settings の `managedMcpServers`                                                       |
+| 組織が固定（排他）   | システムパスの `managed-mcp.json`                                                             |
+| 実行単位             | `--mcp-config`、Agent SDK の `mcpServers`                                                     |
+| サブエージェント     | エージェントファイル内の inline 定義（[Ch37](/claude-code-deep-dive/ja/parallel/subagents/)） |
+
+<div class="src">
+  出典: [mcp](https://code.claude.com/docs/en/mcp) · [mcp#plugin-provided-mcp-servers](https://code.claude.com/docs/en/mcp#plugin-provided-mcp-servers) · [managed-mcp](https://code.claude.com/docs/en/managed-mcp)
+</div>
+
+<span id="ch30-cli" />
+
+## `claude mcp` サブコマンド
+
+| 構文                                            | 役割と注意点                                                                                                                                                                                                                    |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `add [options] <name> <commandOrUrl> [args...]` | サーバーを追加する。`-t, --transport`（`stdio`・`sse`・`http`、既定 `stdio`）、`-s, --scope`（既定 `local`）、`-e, --env`、`-H, --header`、`--client-id`、`--client-secret`、`--callback-port`。成功すると `Added ...` 行を出す |
+| `add-json [options] <name> <json>`              | JSON 文字列で追加する。stdio・SSE・HTTP・WebSocket に対応。`-s` と `--client-secret` を受け付ける                                                                                                                               |
+| `add-from-claude-desktop [options]`             | Claude Desktop の設定から対話で選んで取り込む（macOS と WSL のみ）。同名があると `server_1` のように番号が付く                                                                                                                  |
+| `list` / `get <name>`                           | 承認済みサーバーをヘルスチェックして状態を出す。未承認の `.mcp.json` サーバーには接続せず `⏸ Pending approval` と出す                                                                                                           |
+| `login [--no-browser] <name>`                   | HTTP・SSE・claude.ai コネクタの OAuth をシェルから実行する                                                                                                                                                                      |
+| `logout <name>`                                 | 保存済みの OAuth 資格情報を消す。認可サーバーが対応していればトークンを失効させる                                                                                                                                               |
+| `remove [-s <scope>] <name>`                    | スコープ省略時は定義のあるスコープから消す。トークンとクライアント登録は消すが**失効はさせない**ので、先に `logout` を実行する                                                                                                  |
+| `reset-project-choices`                         | このプロジェクトの `.mcp.json` サーバーへの承認と拒否をすべて戻す                                                                                                                                                               |
+| `serve [options]`                               | Claude Code 自身を stdio MCP サーバーとして起動する（[後述](/claude-code-deep-dive/ja/extensions/mcp/#ch30-serve)）                                                                                                             |
+
+サーバー名に使える文字は英数字・`-`・`_` だけです。同じスコープに同じ名前で追加すると `MCP server sentry already exists in local config` のように失敗します。
+
+<div class="src">
+  出典: [mcp#managing-your-servers](https://code.claude.com/docs/en/mcp#managing-your-servers) · [#import-mcp-servers-from-claude-desktop](https://code.claude.com/docs/en/mcp#import-mcp-servers-from-claude-desktop) · [#authenticate-with-remote-mcp-servers](https://code.claude.com/docs/en/mcp#authenticate-with-remote-mcp-servers) · 実機確認 2.1.321（`claude mcp --help`）
+</div>
+
+<span id="ch30-transports" />
+
+## トランスポート: `http`・`sse`・`stdio`・`ws`
+
+| `type`  | 用途と追加方法                                                                                                                                                                                                            |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `http`  | リモートの推奨。`add --transport http`。JSON では `streamable-http` も同じ意味。OAuth とヘッダーで認証                                                                                                                    |
+| `sse`   | ドキュメントで非推奨。`--transport http` で追加すると HTTP を試し、受け付けなければ SSE に切り替える（v2.1.265 以降）。直接指定は `--transport sse`                                                                       |
+| `stdio` | ローカルプロセス。`--transport` の既定。`add [options] <name> -- <command> [args...]`                                                                                                                                     |
+| `ws`    | サーバーから能動的に送るリモート向け。`.mcp.json` か `add-json` で設定し、`--transport` は `ws` を受け付けない。認証はヘッダーのみ（OAuth なし）。フィールドは `url`・`headers`・`headersHelper`・`timeout`・`alwaysLoad` |
+| `sdk`   | Agent SDK アプリや Desktop などの SDK ホストだけが登録できる in-process サーバー。設定ファイルに書くとスキップされる                                                                                                      |
+
+```bash
+# Example with Bearer token
+claude mcp add --transport http secure-api https://api.example.com/mcp \
+  --header "Authorization: Bearer your-token"
+
+claude mcp add-json events-server \
+  '{"type":"ws","url":"wss://mcp.example.com/socket","headers":{"Authorization":"Bearer YOUR_TOKEN"}}'
+```
+
+- `type` の無いエントリは stdio と読まれます。`url` だけで `type` が無いとスキップし、`MCP server "<name>" has a "url" but no "type"; add "type": "http" (or "sse" / "ws") to this entry` と報告します。
+- `"type": "sdk"` のエントリは `Skipped — MCP server "<name>" declares type "sdk", which only an SDK host application can register` と報告します。
+
+<div class="src">
+  出典: [mcp#installing-mcp-servers](https://code.claude.com/docs/en/mcp#installing-mcp-servers) · [#option-4-add-a-remote-websocket-server](https://code.claude.com/docs/en/mcp#option-4-add-a-remote-websocket-server)
+</div>
+
+<span id="ch30-stdio" />
+
+## stdio サーバー: `--` の区切り・環境・停止手順
+
+```bash
+# Basic syntax
+claude mcp add [options] <name> -- <command> [args...]
+
+# Real example: Add Airtable server
+claude mcp add --env AIRTABLE_API_KEY=YOUR_KEY \
+  --transport stdio airtable -- npx -y airtable-mcp-server
+```
+
+- `--` より後ろは、そのままサーバーの起動コマンドになります。`--` が無いと、`--port` のようなサーバーのフラグを Claude Code が自分のオプションとして解釈します。
+- `--env` は複数の `KEY=value` を受け取ります。サーバー名を `--env` の直後に置くと値の 1 つと読まれて拒否されるため、間に `--transport stdio` などを挟みます。
+- 他クライアント向けの `mcpServers` ブロックは、内側のオブジェクトを `add-json` に渡します。`url` だけのエントリには `type` を足し、使えない文字を含むキーは名前を付け直します。
+
+* サーバーの環境には `CLAUDE_PROJECT_DIR`（プロジェクトルート）が入ります。作業ディレクトリを増減しても変わりません。
+* `CLAUDE_PROJECT_DIR` は Claude Code 自身の環境には無いため、`.mcp.json` や `~/.claude.json` の `command`・`args` では `${CLAUDE_PROJECT_DIR:-.}` のように既定値が要ります。プラグインの設定は直接置換されます。
+* アクセス範囲を絞るサーバーは `roots/list` を使います。起動ディレクトリと `--add-dir`・`/add-dir`・`additionalDirectories` の追加分を返し、変わると `notifications/roots/list_changed` を送ります。
+* `CLAUDE_CODE_MCP_ALLOWLIST_ENV=1` にすると、シェルの環境を引き継がず、安全な最小環境と設定した `env` だけで起動します。
+* 停止は、macOS・Linux では `SIGINT`、100 ms 後に `SIGTERM`、さらに 400 ms 後に `SIGKILL` です。Windows では stdin を閉じ、300 ms 後にプロセスツリーを終了します（v2.1.296 より前は即時終了）。
+
+<div class="src">
+  出典: [mcp#option-3-add-a-local-stdio-server](https://code.claude.com/docs/en/mcp#option-3-add-a-local-stdio-server) · [#add-a-server-from-setup-instructions-written-for-another-client](https://code.claude.com/docs/en/mcp#add-a-server-from-setup-instructions-written-for-another-client) · [env-vars](https://code.claude.com/docs/en/env-vars)
+</div>
+
+<span id="ch30-scopes" />
+
+## スコープ・保存先・優先順位
+
+| スコープ        | 読み込む範囲                         | 保存先                                              |
+| --------------- | ------------------------------------ | --------------------------------------------------- |
+| `local`（既定） | 追加したプロジェクトだけ。本人のみ   | `~/.claude.json` の `projects["<path>"].mcpServers` |
+| `project`       | そのプロジェクト。VCS でチームと共有 | プロジェクトルートの `.mcp.json`                    |
+| `user`          | 全プロジェクト。本人のみ             | `~/.claude.json` のトップレベル `mcpServers`        |
+
+- 同じサーバーが複数の場所にあると、最上位の定義を**エントリごと**使います。順位は local、project、user、プラグイン、claude.ai コネクタです。
+- `managedMcpServers` はこのすべてより上です（v2.1.259 以降）。
+- 3 スコープ間は**名前**で、プラグインとコネクタは**エンドポイント**で重複を判定します。スキーム・ホストの大文字小文字、既定ポート、末尾 `/` の差は同一とみなし、パス・クエリ・userinfo・既定外ポートの差は別サーバーです。
+
+```bash
+# Add a project-scoped server
+claude mcp add --transport http shared-server \
+  --scope project https://example.com/mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "shared-server": {
+      "type": "http",
+      "url": "https://example.com/mcp"
+    }
+  }
+}
+```
+
+- MCP の local は `.claude/settings.local.json` とは別物です。git リポジトリのルート（外なら実行したディレクトリ）に結び付きます。
+- `~/.claude/.mcp.json`・`~/.claude/mcp.json` などは読みません。`CLAUDE_CONFIG_DIR` があれば `.claude.json` はその中から読みます。
+- スコープの変更は `remove` と再追加で行います。`.mcp.json` は開始時に読むため、編集後は再起動します。
+
+<div class="src">
+  出典: [mcp#mcp-installation-scopes](https://code.claude.com/docs/en/mcp#mcp-installation-scopes) · [#scope-hierarchy-and-precedence](https://code.claude.com/docs/en/mcp#scope-hierarchy-and-precedence) · [mcp-quickstart#find-your-configuration-on-disk](https://code.claude.com/docs/en/mcp-quickstart#find-your-configuration-on-disk) · [#troubleshooting](https://code.claude.com/docs/en/mcp-quickstart#troubleshooting)
+</div>
+
+<span id="ch30-approval" />
+
+## project サーバーの承認とワークスペース信頼
+
+対話セッションは `.mcp.json` のサーバーを使う前に承認を求め、選択を `.claude/settings.local.json` に書きます。
+
+| キー（どのファイルでも可）   | 意味                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| `enableAllProjectMcpServers` | boolean。すべて承認。既定は未設定（都度確認）                                         |
+| `enabledMcpjsonServers`      | string\[]。名前を指定して承認                                                         |
+| `disabledMcpjsonServers`     | string\[]。拒否。コミットされた `.claude/settings.json` からも効き、上の 2 つより優先 |
+
+- 未信頼のフォルダでは、コミットされた `.claude/settings.json` の承認を無視し、サーバーは `⏸ Pending approval` のままです。`~/.claude/settings.json`・managed settings・`--settings` の承認は効きます。
+- 未追跡の `.claude/settings.local.json` は、git で追跡状況を確かめられる信頼済みフォルダでだけ効きます（v2.1.207 以降）。
+- `enableAllProjectMcpServers` は、信頼済みなら上位の `false` が下位の `true` に勝ち、未信頼なら有効なファイルのどれかが `true` で足ります。
+
+:::caution[注意]
+次の場面では確認を出せないため、project サーバーを**確認なしで読み込みます**。
+
+- `claude -p`、Agent SDK、プロジェクトのスレッド外のクラウドセッション
+- `bypassPermissions` で開始し、user か managed settings に `skipDangerousModePermissionPrompt` がある場合
+
+防ぐには `disabledMcpjsonServers`、`--setting-sources` で project を外す、`--strict-mcp-config`（未読み込みサーバーの承認待ちを飛ばすのは v2.1.246 以降）のいずれかを使います。
+:::
+
+- `claude mcp reset-project-choices` で承認と拒否を戻せます。
+- `/mcp` のオン・オフは別の仕組みです。`~/.claude.json` のプロジェクト単位の `disabledMcpServers`（通常のサーバー）か `enabledMcpServers`（`computer-use` など既定オフの組み込み）に記録し、サーバーごとに片方だけを見ます。
+
+<div class="src">
+  出典: [mcp#project-server-approvals-and-workspace-trust](https://code.claude.com/docs/en/mcp#project-server-approvals-and-workspace-trust) · [#project-scope](https://code.claude.com/docs/en/mcp#project-scope) · [#disable-a-server-without-removing-it](https://code.claude.com/docs/en/mcp#disable-a-server-without-removing-it) · [settings-reference#enableallprojectmcpservers](https://code.claude.com/docs/en/settings-reference#enableallprojectmcpservers)
+</div>
+
+<span id="ch30-env" />
+
+## 環境変数の展開と、空として読まれる資格情報変数
+
+- `${VAR}` と `${VAR:-default}` を、`command`・`args`・`env`・`url`・`headers` の値で使えます。
+- 未設定で既定値も無い変数は、`claude mcp list` と `/mcp` に警告を出したうえで、`${VAR}` の文字列のまま読み込みます。
+- 空文字列は「設定済み」で `:-default` は使われません。下の例で `API_BASE_URL` を空にすると `url` が `/mcp` になり、`'url' is not a valid URL` になります。
+- `/mcp` の詳細と `claude mcp list`・`get` は、参照を名前のまま表示します（`/mcp` は v2.1.268 以降）。
+
+```json
+{
+  "mcpServers": {
+    "api-server": {
+      "type": "http",
+      "url": "${API_BASE_URL:-https://api.example.com}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${API_KEY}"
+      }
+    }
+  }
+}
+```
+
+### リモートサーバーの `url`・`headers` で空になる変数
+
+`.mcp.json` やプラグインが、利用者の資格情報を指定先へ送れないようにする仕組みです。
+
+- 対象は、Claude Code 自身の資格情報（`ANTHROPIC_API_KEY`、`ANTHROPIC_AUTH_TOKEN` など）、クラウドプロバイダの資格情報（`AWS_BEARER_TOKEN_BEDROCK` など）、その他（`HTTPS_PROXY`、`NPM_TOKEN` など）です。
+- 設定の有無にかかわらず空になり、`:-default` も無視され、警告も出ません。`Bearer ${ANTHROPIC_AUTH_TOKEN}` は `Bearer `になり、通常は 401 で失敗します。
+- `ANTHROPIC_BASE_URL` は展開されます。ただし値に資格情報（ユーザー名とパスワード）を含む場合は除きます。
+- `API_KEY` のような対象外の名前はそのまま展開します。対象の値を渡したいときは、自分で名付けた変数にコピーして参照します。
+- 設定済みの対象変数を参照すると、debug ログに `never expanded toward a remote server` を含む行が出ます（`claude --debug-file` で確認）。
+
+<div class="src">
+  出典: [mcp#environment-variable-expansion-in-mcp-json](https://code.claude.com/docs/en/mcp#environment-variable-expansion-in-mcp-json) · [#credential-variables-that-read-as-empty](https://code.claude.com/docs/en/mcp#credential-variables-that-read-as-empty) · [#configuration-warnings](https://code.claude.com/docs/en/mcp#configuration-warnings)
+</div>
+
+<span id="ch30-headershelper" />
+
+## `headersHelper`: 接続時にヘッダーを生成する
+
+```json
+{
+  "mcpServers": {
+    "internal-api": {
+      "type": "http",
+      "url": "https://mcp.internal.example.com",
+      "headersHelper": "/opt/bin/get-mcp-auth-headers.sh"
+    }
+  }
+}
+```
+
+- 文字列の key-value の JSON オブジェクトを stdout に書くコマンドです。シェルで実行し、10 秒で打ち切ります。
+- 接続のたび（開始時・再接続時）に実行し、キャッシュしません。同名の静的 `headers` より優先します。
+- ツール呼び出しが 401・403 を返すと、ヘルパーを再実行して再接続し、1 回だけ再試行します。
+- 出力に `Authorization` があればそれで認証し、OAuth へは切り替えません。渡す変数は `CLAUDE_CODE_MCP_SERVER_NAME`・`CLAUDE_CODE_MCP_SERVER_URL`・`CLAUDE_PLUGIN_ROOT`（プラグインのみ）です。
+
+| サーバーの定義場所               | 作業ディレクトリ                   | 資格情報変数 |
+| -------------------------------- | ---------------------------------- | ------------ |
+| プラグイン                       | プラグインのルート                 | 除去         |
+| project `.mcp.json`              | 宣言したプロジェクト               | 除去         |
+| local スコープ                   | 宣言したプロジェクト               | 残す         |
+| `--mcp-config`・SDK              | 主作業ディレクトリ                 | 残す         |
+| user スコープ・managed・コネクタ | `~/.claude`（`CLAUDE_CONFIG_DIR`） | 残す         |
+
+- 除去されるのは、名前に `TOKEN`・`SECRET`・`PASSWORD`・`KEY`・`AUTH` を含む変数（大文字小文字を問わない。`GIT_CONFIG_KEY_<n>` を除く）と、`ANTHROPIC_CUSTOM_HEADERS` などの固定リストです。
+- project `.mcp.json` と local スコープのヘルパーは、宣言したディレクトリの信頼ダイアログを承認するまで実行しません（v2.1.238 以降）。親フォルダの信頼は数えません。
+- 未信頼の間は静的 `headers` だけで接続し、`-p`・SDK では stderr に `headersHelper not run` を出します。ダイアログなしの信頼は `~/.claude.json` の `projects["<path>"].hasTrustDialogAccepted: true` です。
+
+<div class="src">
+  出典: [mcp#use-dynamic-headers-for-custom-authentication](https://code.claude.com/docs/en/mcp#use-dynamic-headers-for-custom-authentication) · [#where-the-helper-runs](https://code.claude.com/docs/en/mcp#where-the-helper-runs) · [#which-variables-a-helper-can-read](https://code.claude.com/docs/en/mcp#which-variables-a-helper-can-read) · [#trust-a-folder-before-its-headershelper-runs](https://code.claude.com/docs/en/mcp#trust-a-folder-before-its-headershelper-runs)
+</div>
+
+<span id="ch30-oauth" />
+
+## OAuth (1/2): 認証が必要と判定される条件とサインイン
+
+- リモートサーバーが `401 Unauthorized` か `403 Forbidden` を返すと、`/mcp` で「認証が必要」と表示します。例外は次の 3 つです。
+
+  - `headers` か `headersHelper` で `Authorization` を設定したサーバーは、接続失敗として報告し OAuth に切り替えない。
+  - claude.ai がセッショントークンを拒否した 401 は、コネクタではなく session-token-rejected 状態として表示する。
+  - クラウドセッションに届いたコネクタはサインインを実行しない。claude.ai 側で接続し直す。
+
+- 保存済みトークンが 401 で拒否された場合、refresh token があれば更新して 1 回再試行します。無ければトークンなしで 1 回接続し、通ればトークンを削除します。
+
+- 起動時に、Claude Code からサインインできる要認証サーバーを通知します（各サーバー 1 回）。
+
+```bash
+claude mcp add --transport http sentry https://mcp.sentry.dev/mcp
+claude mcp login sentry
+claude mcp login sentry --no-browser
+claude mcp logout sentry
+```
+
+- セッション内では `/mcp` からブラウザでサインインします。リダイレクトが失敗したら、アドレスバーのコールバック URL を Claude Code のプロンプトに貼ります。トークンは安全に保存され、自動で更新されます。
+- `claude mcp login` は、SSH やディスプレイの無い Linux を検出して URL を表示します。貼り戻しには対話端末が要るので `ssh -t` で接続します。
+- `-p` と Agent SDK では OAuth を実行できません。事前に対話セッションか `claude mcp login` で済ませます。tool search が有効なら、未認可のサーバーのツールが使えないことを Claude に伝えます。
+- refresh token が拒否されると、すぐに `/mcp` を案内します。**Re-authenticate** でサインインし直します。
+
+<div class="src">
+  出典: [mcp#authenticate-with-remote-mcp-servers](https://code.claude.com/docs/en/mcp#authenticate-with-remote-mcp-servers) · [#authenticate-from-the-command-line](https://code.claude.com/docs/en/mcp#authenticate-from-the-command-line) · 実機確認 2.1.321（`claude mcp login --help`）
+</div>
+
+<span id="ch30-oauth-config" />
+
+## OAuth (2/2): コールバックポート・事前登録クライアント・メタデータ・スコープ
+
+| 指定                 | 書き方                                                                                       | 挙動                                                                                                                                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| コールバックポート   | `--callback-port 8080`、JSON の `"oauth": {"callbackPort": 8080}`、`MCP_OAUTH_CALLBACK_PORT` | 既定はランダムな空きポート。リダイレクト URI は `http://localhost:PORT/callback`（v2.1.229 は `127.0.0.1` を送り、v2.1.231 で戻した）                                                                                          |
+| 事前登録クライアント | `--client-id` と `--client-secret`、JSON の `"oauth": {"clientId": ...}`                     | Dynamic Client Registration 非対応のサーバー向け。CIMD は自動検出。秘密はキーチェーン（macOS）か資格情報ファイルに保存し、追加時にしか設定できない。`MCP_CLIENT_SECRET` でプロンプトを省略。HTTP・SSE のみ                     |
+| メタデータ URL       | `oauth.authServerMetadataUrl`（`https://` 必須）                                             | 既定の探索（RFC 9728 の `/.well-known/oauth-protected-resource`、次に RFC 8414）を置き換える。その `scopes_supported` を要求スコープにする                                                                                     |
+| スコープ固定         | `oauth.scopes`（空白区切りの 1 文字列）                                                      | メタデータより優先。`offline_access` が広告されていれば付け足す。未設定なら自動探索した `scopes_supported` 全体は要求しない。403 `insufficient_scope` は `needs additional permissions` になり、不足スコープを足して再認証する |
+| 認証プロキシ         | プロキシ用ヘッダーを `headers` か `headersHelper` に入れ、`Authorization` は入れない         | v2.1.299 以降、`Authorization` 以外の設定ヘッダーを、同じオリジンへのサインイン・更新・失効リクエストにも付ける                                                                                                                |
+
+```bash
+claude mcp add --transport http \
+  --client-id your-client-id --client-secret --callback-port 8080 \
+  my-server https://mcp.example.com/mcp
+```
+
+v2 ランタイムでは、認可応答の issuer が想定と違うとサインインを失敗させます。トークンエンドポイントが HTTPS でも `localhost`・`127.0.0.1`・`::1` でもなければ資格情報を送りません。
+
+<div class="src">
+  出典: [mcp#use-a-fixed-oauth-callback-port](https://code.claude.com/docs/en/mcp#use-a-fixed-oauth-callback-port) · [#use-pre-configured-oauth-credentials](https://code.claude.com/docs/en/mcp#use-pre-configured-oauth-credentials) · [#override-oauth-metadata-discovery](https://code.claude.com/docs/en/mcp#override-oauth-metadata-discovery) · [#restrict-oauth-scopes](https://code.claude.com/docs/en/mcp#restrict-oauth-scopes) · [#use-oauth-with-a-server-behind-an-authenticating-proxy](https://code.claude.com/docs/en/mcp#use-oauth-with-a-server-behind-an-authenticating-proxy) · [#mcp-client-runtimes](https://code.claude.com/docs/en/mcp#mcp-client-runtimes)
+</div>
+
+<span id="ch30-status" />
+
+## `claude mcp list`・`/mcp` の状態表示
+
+| 表示                                                  | 意味                                                                                                                         |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `✔ Connected`                                         | 使える状態                                                                                                                   |
+| `! Connected · tools fetch failed`                    | 接続したがツール一覧を取れない（quickstart の表だけに記載）                                                                  |
+| `! Needs authentication`                              | 到達できるがサインインかトークンが要る                                                                                       |
+| `✘ Failed to connect`                                 | 接続失敗。`list` は行末、`get` は `Issue:` 行に HTTP ステータスなどの詳細を出す（資格情報らしき文字列と展開後 URL は伏せる） |
+| `✘ Connection error`                                  | 接続中の例外。URL を含みうるため詳細を付けない                                                                               |
+| ``⏸ Pending approval (run `claude` to approve)``      | 未承認の `.mcp.json` サーバー。接続しない                                                                                    |
+| `✘ Rejected (see disabledMcpjsonServers in settings)` | 拒否済み。`get` だけに出る                                                                                                   |
+| `⊘ Disabled for this project (re-enable via /mcp)`    | `/mcp` でオフにした                                                                                                          |
+| `✘ Blocked by enterprise managed policy`              | 組織のポリシーが拒否。allow/deny リストで弾かれたサーバーは、この表示ではなく一覧から消える                                  |
+| `not configured`                                      | `url` が空のプレースホルダー。接続しない                                                                                     |
+| `cached 2h ago · connects on first use · 5 tools`     | 発見キャッシュから読んだ（v2.1.221 以降）。最初のツール呼び出しで接続する                                                    |
+
+発見キャッシュは段階的ロールアウトで、既定はオフです。`MCP_DISCOVERY_CACHE=1` でオン、`0` でオフに固定します。期限は `MCP_DISCOVERY_CACHE_TTL_S`（900）、`MCP_DISCOVERY_CACHE_MAX_STALE_S`（14400、上限 7 日）、`MCP_DISCOVERY_CACHE_STRIKES`（1）で決まります。
+
+<div class="src">
+  出典: [mcp#server-status](https://code.claude.com/docs/en/mcp#server-status) · [#server-status-detail](https://code.claude.com/docs/en/mcp#server-status-detail) · [mcp-quickstart#add-and-verify-a-server](https://code.claude.com/docs/en/mcp-quickstart#add-and-verify-a-server) · [env-vars](https://code.claude.com/docs/en/env-vars)
+</div>
+
+<span id="ch30-reconnect" />
+
+## `/mcp` の操作・設定警告・自動再接続
+
+- サーバーのメニューには **Reconnect**・**Re-authenticate**・**Clear authentication**・**Disable** があります。Disable と Clear authentication は発見キャッシュも捨てます。
+
+- `/mcp reconnect all` は、失敗したサーバーと要認証のサーバーをまとめて再試行します（v2.1.284 以降。以前は `MCP server "all" not found`）。
+
+- 設定警告（`claude mcp list` と `/mcp`）:
+
+  - 値の前後の空白。値は伏せて `Leading or trailing whitespace in: headers.Authorization` のように出し、空白は削らない。
+  - 同じ名前で別エンドポイントの定義が複数スコープにある。OAuth はエンドポイントごとに保存する。
+  - 予約名（`workspace`・`claude-in-chrome`・`computer-use`・`Claude Preview`・`Claude Browser`）。読み込み時はスキップし、`claude mcp add` はエラーにする。
+  - 未設定の `${VAR}`。
+
+- `list_changed` 通知を受けると、対話セッションはツール・プロンプト・リソースを取り直し、`-p`・SDK はツールだけを取り直します。
+
+| 状況                 | 挙動                                                                                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| リモートが途中で切断 | 1 秒から倍々で 5 回試す。対話では失敗すると `MCP server "<name>" disconnected · open /mcp to reconnect`。`-p`・SDK は一時エラーなら HTTP・SSE を約 30 分再試行する |
+| HTTP・SSE の初回接続 | 5xx・接続拒否・タイムアウトなら 3 回再試行。認証・not-found エラーは再試行しない（`Authorization` の出どころが `headersHelper` だけなら認証エラーも再試行）        |
+| stdio が途中で終了   | 対話: failed にする（`/mcp` で Reconnect）。`-p`・SDK: 次のツール呼び出しで再起動                                                                                  |
+| stdio の初回が失敗   | 対話: failed。`-p`: ツールなしで続行。プラグインのサーバーは新しい実行でも 15 分スキップ                                                                           |
+| Claude への通知      | tool search が有効なら失敗したサーバーと理由を伝える。無効なら伝えない                                                                                             |
+
+ランタイムは v1（MCP TypeScript SDK 1.x）と v2（SDK 2.0、revision 2026-07-28 対応）です。v2 は flag 取得ありで v2.1.232、なしで v2.1.274 から既定です。`MCP_SDK_GENERATION`・`MCP_PROTOCOL_NEGOTIATION` で制御します。
+
+<div class="src">
+  出典: [mcp#configuration-warnings](https://code.claude.com/docs/en/mcp#configuration-warnings) · [#automatic-reconnection](https://code.claude.com/docs/en/mcp#automatic-reconnection) · [#dynamic-tool-updates](https://code.claude.com/docs/en/mcp#dynamic-tool-updates) · [#retry-failed-servers-yourself](https://code.claude.com/docs/en/mcp#retry-failed-servers-yourself) · [#mcp-client-runtimes](https://code.claude.com/docs/en/mcp#mcp-client-runtimes)
+</div>
+
+<span id="ch30-timeouts" />
+
+## タイムアウトと、長い呼び出しの自動バックグラウンド化
+
+| 対象                                | 既定                           | 設定                                                                              |
+| ----------------------------------- | ------------------------------ | --------------------------------------------------------------------------------- |
+| サーバーの起動                      | 30 秒                          | `MCP_TIMEOUT`                                                                     |
+| ブロッキング起動の待機              | 5 秒                           | `MCP_CONNECT_TIMEOUT_MS`（`MCP_CONNECTION_NONBLOCKING=0` か `alwaysLoad` のとき） |
+| ツール呼び出し全体                  | 約 28 時間                     | サーバーの `timeout`（ms。1000 未満は無視）が `MCP_TOOL_TIMEOUT` より優先         |
+| 1 リクエスト（HTTP・SSE・コネクタ） | 60 秒                          | 60 秒・適用されるツールタイムアウト・`MCP_TIMEOUT` の最大値                       |
+| 無応答（idle）                      | ネットワーク 5 分、stdio 30 分 | `CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT`（`0` で無効）                                 |
+| 並列接続数                          | stdio 3、リモート 20           | `MCP_SERVER_CONNECTION_BATCH_SIZE`、`MCP_REMOTE_SERVER_CONNECTION_BATCH_SIZE`     |
+
+wall-clock の上限は progress 通知では延びません。サーバーの `timeout` が 1000 以上なら idle の下限にもなります。
+
+- 未設定時の 28 時間は 1 リクエストの比較に入りません。stdio と WebSocket には 1 リクエストのタイマーがありません。
+- メイン会話の MCP 呼び出しが 2 分を超えると、バックグラウンドタスクに移ります。Claude はタスク ID を受け取って作業を続け、結果はタスク通知で届きます。
+- タスクは `/tasks` に進捗付きで出て、そこで止められます。止めてもサーバー側が止まる保証はありません。セッションを終えると消えます。移ったあとも wall-clock と idle の上限は効きます。
+- `CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS` で閾値を変えます（既定 120000、`0` で無効、v2.1.212 以降）。`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` でも無効になります。
+- 移らない呼び出しは、サブエージェントから、IDE サーバーへ、非対話モード（`CLAUDE_AUTO_BACKGROUND_TASKS=1` を除く）、elicitation ダイアログを開いている間、の 4 つです。
+
+<div class="src">
+  出典: [mcp#time-limits-on-mcp-tool-calls](https://code.claude.com/docs/en/mcp#time-limits-on-mcp-tool-calls) · [#automatic-backgrounding-of-long-tool-calls](https://code.claude.com/docs/en/mcp#automatic-backgrounding-of-long-tool-calls) · [env-vars](https://code.claude.com/docs/en/env-vars)
+</div>
+
+<span id="ch30-tasks" />
+
+## MCP tasks: サーバー側で動く長いジョブ <span class="badge beta">Beta</span>
+
+- サーバーが `tools/call` に task で応答すると、呼び出しはすぐ戻り、Claude は作業を続けます。フッターに `1 MCP task` のような件数が出ます。
+- 終わると `MCP task <server task id> (<server>/<tool>) completed.` が出ます。結果は Claude に渡るので、Claude に尋ねます。
+- `/tasks` で選んで <kbd>x</kbd> で止め、サーバーにキャンセルを依頼します。<kbd>Esc</kbd> では止まりません。
+- リモートのタスクは終了後も動きます。同じセッションを対話で再開すると追跡を再開します。`-p "<prompt>"` での再開、新規セッション、`--fork-session` は追跡しません。
+- 結果を待たせるには、`CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0`（全 MCP 呼び出しを待つ）か `CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND=1`（タスクを待ち、2 分を超えたら通常のバックグラウンド呼び出しにする）を設定します。
+
+### task になる条件（docs）
+
+- tasks 対応サーバーと、HTTP・stdio・コネクタの revision 2026-07-28 接続（v1 ランタイムや `legacy` では不可）
+- ターミナル CLI・Agent SDK・GitHub Actions のメイン会話で、対話か、SDK・stream-json 入力で `CLAUDE_AUTO_BACKGROUND_TASKS=1`（VS Code・Desktop・単発の `-p` は不可）
+
+:::danger[食い違い]
+
+- **docs**: feature flag の取得が必要（Bedrock・テレメトリ無効では不可）。MCP tasks と `CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND` は v2.1.304 以降。
+- **changelog 2.1.319**: 両方とも同版で Added。flag 取得なし（Bedrock・Vertex・Foundry・ゲートウェイ・`DISABLE_TELEMETRY`）でも動き、`CLAUDE_CODE_DISABLE_MCP_TASKS=1` で無効化。
+
+flag 取得は新しい changelog を採用します。追加バージョンは未解決です。
+:::
+
+<div class="src">
+  出典: [mcp#mcp-tasks-that-run-on-the-server](https://code.claude.com/docs/en/mcp#mcp-tasks-that-run-on-the-server) · [#requirements-for-mcp-tasks](https://code.claude.com/docs/en/mcp#requirements-for-mcp-tasks) · [env-vars](https://code.claude.com/docs/en/env-vars) · [changelog 2.1.319（リファレンス未掲載）](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch30-output" />
+
+## 出力の上限と、サーバー作者向けの指定
+
+| 対象                                    | 上限            | 超えたとき・設定                                                                |
+| --------------------------------------- | --------------- | ------------------------------------------------------------------------------- |
+| 警告                                    | 10,000 トークン | 警告を出す。値は固定                                                            |
+| トークン上限                            | 25,000 トークン | `MAX_MCP_OUTPUT_TOKENS`。画像の無い成功結果はファイルに保存し、パスに置き換える |
+| 成功テキスト（前景）                    | 50,000 文字     | トークン数に関係なくファイルに保存。上の変数では変わらない                      |
+| `isError` の結果                        | 約 11,000 文字  | 先頭と末尾の 5,000 文字ずつだけ残す                                             |
+| HTTP・SSE の 1 応答、WS の 1 メッセージ | 16 MiB          | HTTP・SSE は解凍後に数えて失敗、WS は接続を閉じる                               |
+
+- 保存先は `~/.claude/projects/` 配下のセッションの `tool-results` です。バックグラウンドの呼び出しはタスク通知で返ります。
+- PNG・JPEG・GIF・WebP は会話に inline で入り、元のバイト列もファイルに保存します（v2.1.283 以降。`--no-session-persistence` では保存しない）。
+
+| ツールへの指定                                     | 効果                                                                                                                                      |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `_meta["anthropic/maxResultSizeChars"]`            | 50,000 文字の閾値を最大 500,000 文字まで上げる。テキストだけに効く                                                                        |
+| `_meta["anthropic/requiresUserInteraction"]: true` | 毎回確認する。`bypassPermissions` でも allow ルールでも省略しない。`dontAsk` では拒否。`--permission-prompt-tool` の allow は拒否に変わる |
+| `annotations.idempotentHint` / `readOnlyHint`      | 切断時に保留中の HTTP・コネクタ呼び出しを 1 回再送できる。`readOnlyHint` は並列実行も許す                                                 |
+| `_meta.ui.visibility`                              | `model` を含まないツールは Claude に渡さない                                                                                              |
+| 完全名が 128 文字超                                | Claude に渡さない（`/mcp` には出る）                                                                                                      |
+
+ルートの `anyOf`・`oneOf`・`allOf` は平坦化します。API の規則に反するスキーマのツールは除外します（v2.1.216 以降。feature flag を取得できない環境ではログに残すだけ）。
+
+<div class="src">
+  出典: [mcp#mcp-output-limits-and-warnings](https://code.claude.com/docs/en/mcp#mcp-output-limits-and-warnings) · [#raise-the-limit-for-a-specific-tool](https://code.claude.com/docs/en/mcp#raise-the-limit-for-a-specific-tool) · [#images-in-tool-results](https://code.claude.com/docs/en/mcp#images-in-tool-results) · [#require-approval-for-a-specific-tool](https://code.claude.com/docs/en/mcp#require-approval-for-a-specific-tool) · [#mark-tools-that-are-safe-to-call-twice](https://code.claude.com/docs/en/mcp#mark-tools-that-are-safe-to-call-twice) · [#tools-with-invalid-input-schemas](https://code.claude.com/docs/en/mcp#tools-with-invalid-input-schemas)
+</div>
+
+<span id="ch30-toolsearch" />
+
+## Tool search (1/2): 遅延読み込みと `ENABLE_TOOL_SEARCH`
+
+- 既定で有効です。起動時に読むのはツール名とサーバーの instructions だけで、定義は Claude が `ToolSearch` で必要なときに読み込みます。
+- サーバーごとのツール数に固定の上限はありません。実質の上限はコンテキストウィンドウです。
+
+| 値       | 挙動                                                                                                                                               |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 未設定   | MCP ツールをすべて遅延読み込み（例外は次の節）                                                                                                     |
+| `true`   | 未設定と同じ                                                                                                                                       |
+| `auto`   | 定義の合計がコンテキストの 10% 未満なら最初から読み込み、10% 以上で tool search をオンにする。一度オンになると、合計が下がっても遅延のまま残りうる |
+| `auto:N` | 閾値を N%（0〜100）にする。例 `auto:5`                                                                                                             |
+| `false`  | すべて最初から読み込む                                                                                                                             |
+
+```bash
+# Use a custom 5% threshold
+ENABLE_TOOL_SEARCH=auto:5 claude
+```
+
+```json
+{
+  "mcpServers": {
+    "core-tools": {
+      "type": "http",
+      "url": "https://mcp.example.com/mcp",
+      "alwaysLoad": true
+    }
+  }
+}
+```
+
+- `"alwaysLoad": true` のサーバーは、`ENABLE_TOOL_SEARCH` に関係なく最初から読み込みます。全サーバー種別で使えます。
+- その代わり起動がそのサーバーを待ちます（上限は標準の 5 秒）。有効な `cached` エントリがあるリモートサーバーは待ちません。
+- `"alwaysLoad": false` は、作者が upfront 指定したツールも含めて全部を遅延にします（v2.1.287 以降）。
+- `permissions.deny` に `ToolSearch` を入れるか `--tools` から外すと、最初から読み込みます。この場合もリクエストに `defer_loading` のプレースホルダーが載ることがあります。
+- `/context` では `(deferred)`・`(loaded on-demand)` と表示します。
+
+<div class="src">
+  出典: [mcp#scale-with-mcp-tool-search](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search) · [#configure-tool-search](https://code.claude.com/docs/en/mcp#configure-tool-search) · [#exempt-a-server-from-deferral](https://code.claude.com/docs/en/mcp#exempt-a-server-from-deferral) · [#defer-a-servers-tools](https://code.claude.com/docs/en/mcp#defer-a-servers-tools)
+</div>
+
+<span id="ch30-toolsearch-limits" />
+
+## Tool search (2/2): 使われない条件・ゲートウェイ・説明文の上限
+
+### tool search が使われない場合
+
+- Opus 4・Sonnet 4・Haiku 4.5 より前のモデル（`ENABLE_TOOL_SEARCH=true` でも不可）。
+- Agent Platform（Google Cloud）の Opus・Sonnet・Haiku 4.5 より前のモデル（v2.1.221 より前は既定で全モデル）。
+- Azure ホストの Microsoft Foundry。サーバー側の拒否を検知して最初から読み込みます。
+- `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` の設定時。`ENABLE_TOOL_SEARCH` では戻せず、managed settings なら有効を保てます（v2.1.227 以降）。
+- HIPAA 構成のセッション（どの設定でも戻せない）。
+
+### LLM ゲートウェイ（`ANTHROPIC_BASE_URL`）
+
+- v2.1.304 から既定で有効です。ゲートウェイは `defer_loading` と `tool_reference` を `anthropic-beta` ヘッダーと一緒に転送する必要があります。
+- v2.1.305 以降は、400 か 422 を受けると tool search なしで再送し、後で再び試します。
+
+### 無効時の違い
+
+- 接続中のサーバーを待つ方法が、`ToolSearch` の中から `WaitForMcpServers` ツールに変わります。
+- 接続に失敗したサーバーを Claude に伝えません。
+
+### 説明文と instructions の上限
+
+- サーバーの instructions と、最初から読み込むツールの説明は 4,096 文字です。tool search で読み込むツールの説明は 16,384 文字です。超えた分は切り捨てます。
+- `CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH` は両方の上限を同じ値に置き換えます（v2.1.280 以降）。v2.1.296 より前は短い方が 2,048 文字でした。
+- 作者はツールの `_meta["anthropic/alwaysLoad"]` で `true`（最初から読み込む）を指定できます。`false` は、利用者がサーバーに `"alwaysLoad": true` を付けても遅延のままにします。これが効くのは `--mcp-config`・SDK・プラグインのサーバーだけです（v2.1.285 以降）。
+
+<div class="src">
+  出典: [mcp#configure-tool-search](https://code.claude.com/docs/en/mcp#configure-tool-search) · [#tool-search-through-a-gateway](https://code.claude.com/docs/en/mcp#tool-search-through-a-gateway) · [#for-mcp-server-authors](https://code.claude.com/docs/en/mcp#for-mcp-server-authors) · [#per-tool-alwaysload](https://code.claude.com/docs/en/mcp#per-tool-alwaysload) · [#tools-from-a-server-that-is-still-connecting](https://code.claude.com/docs/en/mcp#tools-from-a-server-that-is-still-connecting)
+</div>
+
+<span id="ch30-resources" />
+
+## リソース・プロンプト・elicitation
+
+### リソース
+
+- `@` を打つと、接続中サーバーのリソースがファイルと並んで補完されます。
+- 書式は `@server:protocol://resource/path` です。例: `@docs:file://api/authentication`、`@postgres:schema://users`。
+- 参照したリソースは添付として取得します。対応サーバーには、リソースを一覧・読み取りするツールも自動で付きます。
+- `ui://` や `text/html;profile=mcp-app` の MCP Apps UI リソースは候補にも一覧にも出ません。
+
+### プロンプト
+
+- `/` の一覧に `/servername:promptname (MCP)` と出ます。`/mcp__servername__promptname` でも実行できます。
+- 引数は空白で区切ります。1 引数は 1 トークンです。
+
+```text
+/mcp__jira__create_issue login-bug high
+```
+
+- `/mcp__…` 形式では、サーバー名の英数字・`_`・`-` 以外を `_` に置き換えます。
+- 結果は会話に直接入ります。名前が `anthropic-skills` のサーバーのプロンプトは出ません（同期 Skill 用の予約名）。
+
+### elicitation
+
+- **Form** はサーバーが定義した入力欄、**URL** はブラウザで開くリンクの確認です。
+- URL はコマンドライン引数で渡すため長さに上限があり、エスケープ不要なら約 8,000 文字です（`%` 等は 4 文字分）。超えると Decline しかできません。
+- 自動応答は `Elicitation` フックで行います（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）。クラウドセッションではカードで答えます。
+- 宣言は、2026-07-28 の接続と利用者が設定したサーバー（v2.1.287 以降）で `elicitation: {form: {}, url: {}}`、コネクタなどでは `elicitation: {}`（Form のみ）です。Java MCP SDK 0.17.0 以前は拒否することがあります。
+
+<div class="src">
+  出典: [mcp#use-mcp-resources](https://code.claude.com/docs/en/mcp#use-mcp-resources) · [#use-mcp-prompts-as-commands](https://code.claude.com/docs/en/mcp#use-mcp-prompts-as-commands) · [#respond-to-mcp-elicitation-requests](https://code.claude.com/docs/en/mcp#respond-to-mcp-elicitation-requests) · [#elicitation-modes-claude-code-declares](https://code.claude.com/docs/en/mcp#elicitation-modes-claude-code-declares)
+</div>
+
+<span id="ch30-connectors" />
+
+## claude.ai コネクタ
+
+- claude.ai で追加したコネクタが自動で使えます（Team・Enterprise では管理者だけが追加）。
+- 取得するのは、認証方法が claude.ai サブスクリプションのログインのときだけです。`ANTHROPIC_API_KEY`・`ANTHROPIC_AUTH_TOKEN`・`apiKeyHelper`、サードパーティプロバイダ、Anthropic profile や federation、`claude setup-token` の `CLAUDE_CODE_OAUTH_TOKEN` のときは読み込みません。
+- 一覧の取得に失敗するとバックグラウンドで 3 回まで再試行します。未使用のコネクタは `Show unused connectors` の下にまとめます。
+- 同じ URL のサーバーを自分で追加すると、そちらが優先し、コネクタは hidden になります。
+- 組織のツール別設定が `ask` なら、毎回 `Your organization requires approval for this tool` で確認します（`bypassPermissions` でも）。`blocked` なら Claude に渡しません。
+- 全部を止めるには `"disableClaudeAiConnectors": true`（どこか 1 つの `true` が勝つ。project の `false` では戻せない）か `ENABLE_CLAUDEAI_MCP_SERVERS=false` を使います。`--mcp-config` のサーバーは対象外です。
+
+| セッション                          | 届き方と効く制御                                                                                   |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| ターミナル・VS Code・JetBrains・SDK | Claude Code が自分で取得する。この節の設定と managed MCP が効く                                    |
+| クラウドセッション                  | ホストが渡す。claude.ai の組織設定、届いた allow/deny リスト、ホスト上の `managed-mcp.json` が効く |
+| Desktop のローカル・SSH             | in-process の `type: "sdk"` として渡す。効くのは組織の `blocked` だけ                              |
+
+- 個別には `deniedMcpServers` に表示名か URL を入れるか、`/mcp` でプロジェクト単位にオフにします。
+
+:::danger[食い違い]
+**mcp ページ**: クラウドセッションではプロキシがコネクタの URL を書き換えるため、元の URL 向けの `serverUrl` は一致しない。**changelog 2.1.318**: `deniedMcpServers` の URL エントリが、セッションに元の URL が渡るクラウドセッションと self-hosted runner のコネクタも止めるよう変更。それ以外は名前で拒否する。
+:::
+
+<div class="src">
+  出典: [mcp#use-mcp-servers-from-claude-ai](https://code.claude.com/docs/en/mcp#use-mcp-servers-from-claude-ai) · [#how-connectors-reach-claude-code](https://code.claude.com/docs/en/mcp#how-connectors-reach-claude-code) · [#organization-controls-on-connector-tools](https://code.claude.com/docs/en/mcp#organization-controls-on-connector-tools) · [#disable-claude-ai-connectors](https://code.claude.com/docs/en/mcp#disable-claude-ai-connectors) · [changelog 2.1.318](https://code.claude.com/docs/en/changelog)
+</div>
+
+<span id="ch30-serve" />
+
+## `claude mcp serve`・`--mcp-config`・`--strict-mcp-config`
+
+- `claude mcp serve` は Claude Code を stdio MCP サーバーとして起動し、起動時は何も出力しません。公開するのは Claude Code のツールだけで、呼び出しの確認はクライアントが実装します。
+- クライアントには `"command": "claude"`・`"args": ["mcp", "serve"]` の stdio エントリを書きます。PATH に無いと `spawn claude ENOENT` になるので絶対パスを使います。
+- <span class="undocumented">オプションは `-d, --debug` と `--verbose` です（`--help` だけに記載）。</span>
+- Bash・PowerShell の結果の `backgroundOutputPath` は、実行中コマンドの出力ファイルです（v2.1.295 以降）。
+- `--mcp-config <configs...>` は JSON ファイルか文字列を空白区切りで受け取ります。`-p` では接続待ちのサーバーを最初のターンの前に最大 `MCP_TIMEOUT`（30 秒）待ちます（v2.1.221 以降）。
+- `--strict-mcp-config` は `--mcp-config` のサーバーだけを使い、他の MCP 設定を無視します。allow/deny リストはどちらでも効きます。`managed-mcp.json` との関係は [Managed MCP](/claude-code-deep-dive/ja/extensions/mcp/#ch30-managed)、`--bare`・`--restricted` は [Ch44](/claude-code-deep-dive/ja/automation/headless/) で扱います。
+
+```text title="実測 2.1.321" frame="terminal"
+$ claude -p "Reply with OK" --output-format stream-json \
+    --verbose --strict-mcp-config --mcp-config \
+    '{"mcpServers":{"badurl":{"url":"https://example.invalid/mcp"},
+    …,"cc":{"type":"stdio","command":"claude",
+    "args":["mcp","serve"]}}}'
+# system/init（jq で抽出）
+"mcp_servers": [{"name": "cc", "status": "connected",
+                 "source": "dynamic"}]
+"mcp_server_errors": [{"name": "badurl",
+  "type": "url_missing_type",
+  "message": "Skipped — MCP server \"badurl\" has a \"url\"
+  but no \"type\"; add \"type\": \"http\" (or \"sse\" /
+  \"ws\") to this entry"}, …]
+
+$ claude -p --strict-mcp-config \
+    --mcp-config ./empty.json "Reply with OK"
+Error: Invalid MCP configuration:
+MCP config file not found: <cwd>/Reply with OK
+                                          → exit 1
+```
+
+`--mcp-config` は可変長なので、後ろのプロンプトも設定ファイル名として読まれます。プロンプトは前に置きます。空のディレクトリで `--model haiku --setting-sources project --no-session-persistence` を付けて実行しました。
+
+<div class="src">
+  出典: [mcp#use-claude-code-as-an-mcp-server](https://code.claude.com/docs/en/mcp#use-claude-code-as-an-mcp-server) · [#read-a-background-commands-output-as-an-mcp-client](https://code.claude.com/docs/en/mcp#read-a-background-commands-output-as-an-mcp-client) · [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · [headless#stream-responses](https://code.claude.com/docs/en/headless#stream-responses) · 実機確認 2.1.321
+</div>
+
+<span id="ch30-managed" />
+
+## Managed MCP (1/3): パターンと `managed-mcp.json`
+
+| パターン         | 設定                                                      |
+| ---------------- | --------------------------------------------------------- |
+| MCP を無効化     | 空の `managed-mcp.json`                                   |
+| 固定配備         | `managed-mcp.json`。利用者は追加できない                  |
+| 追加で提供       | `managedMcpServers`。利用者のサーバーも残る               |
+| 承認済みカタログ | `allowedMcpServers` ＋ `allowManagedMcpServersOnly: true` |
+| プラグインのみ   | `strictPluginOnlyCustomization` に `mcp`                  |
+| 緩い allowlist   | `allowedMcpServers` だけ（利用者が広げられる）            |
+| denylist のみ    | `deniedMcpServers`                                        |
+| 制限なし         | 何も配備しない                                            |
+
+```json
+{
+  "mcpServers": {}
+}
+```
+
+空のマップでも `managedMcpServers` などの許可分は読み込みます。ファイルは全員が読めるため、`env` に秘密を書かず `${VAR}`・OAuth・`headersHelper` を使います。配信経路は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
+
+- 置き場所は `/Library/Application Support/ClaudeCode/`（macOS）、`/etc/claude-code/`（Linux・WSL）、`C:\Program Files\ClaudeCode\`（Windows）です。書式は `.mcp.json` と同じで、server-managed settings では配れません。
+- 読み込むのは、このファイル、`managedMcpServers`、起動元アプリの in-process サーバー、許可した Claude in Chrome だけです。
+- 止まるもの: プラグインのサーバー、`--mcp-config`、自分で取得するコネクタ（`allowAllClaudeAiMcps` で許可）、Claude in Chrome（`allowClaudeInChromeWithManagedMcp`。v2.1.282 以降、端末の managed settings のみ）。
+- `--mcp-config` はワークステーションでは `You cannot dynamically configure MCP servers when an enterprise MCP config is present` で終了します。`--strict-mcp-config` はクラウドセッションでも終了します。
+- `claude mcp add` は `Cannot add MCP server: enterprise MCP configuration is active and has exclusive control over MCP servers` で失敗します。
+
+<div class="src">
+  出典: [managed-mcp#choose-a-pattern](https://code.claude.com/docs/en/managed-mcp#choose-a-pattern) · [#exclusive-control-with-managed-mcp-json](https://code.claude.com/docs/en/managed-mcp#exclusive-control-with-managed-mcp-json) · [#disable-mcp-entirely](https://code.claude.com/docs/en/managed-mcp#disable-mcp-entirely) · [#validate-the-configuration](https://code.claude.com/docs/en/managed-mcp#validate-the-configuration)
+</div>
+
+<span id="ch30-managed-provided" />
+
+## Managed MCP (2/3): `managedMcpServers` で追加提供する
+
+```json
+{
+  "managedMcpServers": {
+    "search": {
+      "type": "http",
+      "url": "https://search.example.com/mcp"
+    },
+    "records": {
+      "type": "http",
+      "url": "https://records.example.com/mcp",
+      "headers": {
+        "X-Records-Key": "key-issued-for-all-claude-code-users"
+      }
+    }
+  }
+}
+```
+
+- v2.1.259 以降です。managed settings からだけ読み、user・project・local では警告付きで捨てます。
+- ヘッダーの値は、managed settings を読める人なら利用者を含め誰でも読めます。全員向けの資格情報を使うか、OAuth に任せます。
+
+* エントリの条件: `type` は `http`・`sse`（`streamable-http` 可）、`url` は `https://` のみ（`localhost` の `http://` も不可）、`command`・`args`・`env`・`headersHelper` は不可、`${VAR}` は展開しない。外れたエントリは捨てて `/status` に記録します。
+* 同名の local・project・user のサーバー、同じ URL のプラグインとコネクタより優先します。`managed-mcp.json` と同名なら、ファイル側が勝ちます。
+* `strictPluginOnlyCustomization` で `mcp` を締めても読み込みます。allowlist は不要で、denylist は効きます。
+* `claude mcp remove` は `MCP server "<name>" is provided by your organization (managed settings) and cannot be removed locally.` で失敗します。`/mcp` の **Managed MCPs** で個人的にオフにはできます。URL はホスト名だけ表示します。
+* `managed-mcp.json` が無ければ、同名の `--mcp-config` がその実行に限って置き換え、`--strict-mcp-config` は提供分も外します。
+* 実行中の対話セッションにも、追加・変更・削除が再起動なしで反映されます。`-p` は削除されたサーバーを終了まで保持します。
+
+<div class="src">
+  出典: [managed-mcp#provide-servers-through-managed-settings](https://code.claude.com/docs/en/managed-mcp#provide-servers-through-managed-settings) · [settings-reference#managedmcpservers](https://code.claude.com/docs/en/settings-reference#managedmcpservers)
+</div>
+
+<span id="ch30-managed-lists" />
+
+## Managed MCP (3/3): allowlist と denylist の評価
+
+| キー            | 一致の規則                                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `serverUrl`     | リモート向け。`*` 可。ホストは大文字小文字を無視し、パスは区別する。ポート省略時、ホストを書き切れば既定ポートだけ、ホストに `*` があれば全ポート |
+| `serverCommand` | stdio 向け。コマンドと引数の配列が順序まで完全一致。`env` は比べない                                                                              |
+| `serverName`    | 利用者が付けたラベルの完全一致で、**セキュリティ制御ではない**。allowlist では英数字・`-`・`_` のみ                                               |
+
+1. **合成**: 全スコープのリストを合わせます。`allowManagedMcpServersOnly: true` なら allowlist は managed だけです。denylist は常に全スコープです。
+2. **denylist**: 一致したら拒否します。何も上書きできません。
+3. **allowlist**: どこにも無ければ全許可、`[]` なら全拒否です。`serverUrl` が 1 つでもあればリモートは URL 一致が、`serverCommand` があれば stdio はコマンド一致が必須です。
+
+```json
+{
+  "allowedMcpServers": [
+    { "serverUrl": "https://*.example.com/*" }
+  ],
+  "deniedMcpServers": [
+    { "serverUrl": "https://staging.example.com/*" }
+  ]
+}
+```
+
+- この例で `https://staging.example.com:8443/api` は許可されます（deny 側は既定ポートだけに一致）。
+- allowlist を通さないもの: `managedMcpServers`、`env` の外で `${VAR}` を使わない `managed-mcp.json` のエントリ、組み込み（Chrome・`ide`）、Claude Tag の Slack ツール。`type: "sdk"` は 3 段階とも通しません。
+- 再接続や再有効化のたびに評価します。弾かれたサーバーは `/mcp` と `claude mcp list` から黙って消えます。
+- `claude mcp add` は `Cannot add MCP server "<name>": server is explicitly blocked by enterprise policy` か `... not allowed by enterprise policy` で失敗します。
+
+<div class="src">
+  出典: [managed-mcp#policy-based-control-with-allowlists-and-denylists](https://code.claude.com/docs/en/managed-mcp#policy-based-control-with-allowlists-and-denylists) · [#how-a-server-is-evaluated](https://code.claude.com/docs/en/managed-mcp#how-a-server-is-evaluated) · [#how-serverurl-entries-match](https://code.claude.com/docs/en/managed-mcp#how-serverurl-entries-match) · [#how-restrictions-appear-to-users](https://code.claude.com/docs/en/managed-mcp#how-restrictions-appear-to-users)
+</div>

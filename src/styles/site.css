@@ -1,0 +1,140 @@
+/*
+ * Site theme on top of Starlight: IBM Plex type, ink-first neutrals with a single restrained accent,
+ * status labels as a colored square plus a word, and observed output shown as terminal frames.
+ * Starlight defines its dark palette on :root and the light palette on :root[data-theme="light"].
+ */
+:root {
+  --sl-font:
+    "IBM Plex Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP",
+    sans-serif;
+  --sl-font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, "IBM Plex Sans JP", monospace;
+  --sl-line-height: 1.8;
+  /* reference pages are table-heavy; give the content column more room than the default */
+  --sl-content-width: 60rem;
+
+  --ccdd-beta: #7fa7ff;
+  --ccdd-preview: #b99bff;
+  --ccdd-experimental: #ff9a5c;
+  --ccdd-undocumented: #a3aab5;
+  --ccdd-deprecated: #e2b65a;
+  --ccdd-removed: #ff7b72;
+  --ccdd-src: #9aa2ad;
+
+  --sl-color-accent-low: #1d2a3f;
+  --sl-color-accent: #6f9ce8;
+  --sl-color-accent-high: #c9dbff;
+}
+
+:root[data-theme="light"] {
+  --ccdd-beta: #1f5bd8;
+  --ccdd-preview: #7a3fd1;
+  --ccdd-experimental: #c2410c;
+  --ccdd-undocumented: #6b7280;
+  --ccdd-deprecated: #a16207;
+  --ccdd-removed: #b42318;
+  --ccdd-src: #6b7280;
+
+  --sl-color-accent-low: #e3ebf9;
+  --sl-color-accent: #1f4fa8;
+  --sl-color-accent-high: #16305f;
+}
+
+/* Japanese body text reads better with a little more air and no forced justification. */
+.sl-markdown-content {
+  font-feature-settings: "palt" 0;
+}
+.sl-markdown-content h2 {
+  margin-top: 2.6rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--sl-color-hairline);
+}
+.sl-markdown-content h2:first-of-type {
+  border-top: 0;
+}
+
+/* status: a colored square and a word */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-inline-start: 0.5em;
+  font-family: var(--sl-font);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  white-space: nowrap;
+  vertical-align: 0.15em;
+  color: var(--ccdd-undocumented);
+}
+.badge::before {
+  content: "";
+  width: 0.62em;
+  height: 0.62em;
+  border-radius: 2px;
+  background: currentColor;
+}
+.badge.beta {
+  color: var(--ccdd-beta);
+}
+.badge.preview {
+  color: var(--ccdd-preview);
+}
+.badge.experimental {
+  color: var(--ccdd-experimental);
+}
+.badge.undocumented::before {
+  background: transparent;
+  border: 1.5px solid currentColor;
+}
+.badge.deprecated {
+  color: var(--ccdd-deprecated);
+}
+.badge.removed {
+  color: var(--ccdd-removed);
+}
+.undocumented {
+  border-bottom: 1.5px dashed var(--ccdd-undocumented);
+}
+
+/* the source line that closes every section */
+.src {
+  margin-top: 1rem;
+  font-size: var(--sl-text-xs);
+  color: var(--ccdd-src);
+}
+.src p {
+  margin: 0;
+}
+.src a {
+  color: inherit;
+}
+
+kbd {
+  font-family: var(--sl-font-mono);
+  font-size: 0.82em;
+  padding: 0 0.4em;
+  border: 1px solid var(--sl-color-gray-5);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+/* generated tables (appendix, command catalog) scroll inside their own box on narrow screens */
+.data-table {
+  overflow-x: auto;
+}
+.data-table table {
+  font-size: var(--sl-text-sm);
+}
+.data-table td code,
+.data-table th code {
+  overflow-wrap: anywhere;
+}
+.data-table .sub code {
+  font-size: 0.85em;
+  color: var(--sl-color-gray-3);
+  background: transparent;
+}
+.sl-markdown-content table code {
+  overflow-wrap: anywhere;
+}

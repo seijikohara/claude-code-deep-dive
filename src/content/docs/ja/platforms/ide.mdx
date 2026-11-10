@@ -1,0 +1,159 @@
+---
+title: "IDE"
+description: "VS Code 拡張と JetBrains プラグイン、そして CLI が IDE とつながる仕組みです。この章では、VS Code の要件と開始時の権限モード、選択範囲と差分、claudeCode.* 設定とショートカット、JetBrains、IDE MCP サーバーと /ide・--ide を扱います。"
+sidebar:
+  order: 53
+---
+
+VS Code 拡張と JetBrains プラグイン、そして CLI が IDE とつながる仕組みです。この章では、VS Code の要件と開始時の権限モード、選択範囲と差分、`claudeCode.*` 設定とショートカット、JetBrains、IDE MCP サーバーと `/ide`・`--ide` を扱います。
+
+<span id="ch53-vscode" />
+
+## VS Code 拡張: 要件と開始時の権限モード
+
+- VS Code 1.94.0 以降が必要です。アカウントは有料の Claude プラン（Pro・Max・Ultra・Team・Enterprise）か Claude Console で、API キーは不要です。
+- Cursor にもそのまま入ります。Devin Desktop・Kiro などのフォークは、拡張ビューか Open VSX から入れます。
+- **拡張のバージョンは、同梱する Claude Code のバージョン**です。「v2.1.286 以降が必要」な機能には拡張 2.1.286 以降が要ります。
+- 拡張はチャットパネル用に専用の CLI を同梱しますが、`claude` を PATH に追加しません。統合ターミナルで `claude` を使うには CLI を別途インストールします。
+- パネルはエディタツールバーの Spark アイコン（ファイルを開いているとき）、アクティビティバー、コマンドパレット、ステータスバーの **✻ Claude Code** から開きます。
+- 拡張と CLI は会話履歴を共有します。CLI で続けるには `claude --resume` を使います。
+
+### 新しい会話の開始モード（最初に当たったもの）
+
+1. `claudeCode.initialPermissionMode`（user 設定のみ。`auto` は指定不可）
+2. モード表示で最後に選んだ Manual・Edit automatically・Auto（Plan と Bypass はその会話だけ）
+3. managed settings か `~/.claude/settings.json` の `permissions.defaultMode`
+4. プラン・プロバイダ・組織設定による組み込みの既定
+
+- プロジェクトの `.claude/settings.json`・`settings.local.json` は開始モードに使いません。
+- `claudeCode.claudeProcessWrapper` を設定すると 3 と 4 は使われず、1・2 がなければ Manual で始まります。
+- Bypass permissions は `claudeCode.allowDangerouslySkipPermissions` がオンのときだけ表示されます。オフのまま `bypassPermissions` を指定すると Manual で始まります。
+- 表示名: Manual＝`default`、Edit automatically＝`acceptEdits`。モード自体は [Ch23](/claude-code-deep-dive/ja/settings/permission-modes/) で扱います。
+
+<div class="src">
+  出典: [vs-code#prerequisites](https://code.claude.com/docs/en/vs-code#prerequisites) · [#install-the-extension](https://code.claude.com/docs/en/vs-code#install-the-extension) · [#get-started](https://code.claude.com/docs/en/vs-code#get-started) · [permission-modes#switch-permission-modes](https://code.claude.com/docs/en/permission-modes#switch-permission-modes)
+</div>
+
+<span id="ch53-context" />
+
+## 選択範囲・@メンション・差分のレビュー
+
+- エディタで選択したテキストと、開いているファイルの名前は自動で Claude に渡ります。<kbd>Option</kbd>+<kbd>K</kbd>（Windows・Linux は <kbd>Alt</kbd>+<kbd>K</kbd>）で `@app.ts#5-10` のような参照を挿入します。
+- `claudeCode.attachSelection`（v2.1.300 以降）と `claudeCode.attachOpenFile`（v2.1.271 以降）をオフにすると、それぞれ渡さなくなります。統合ターミナルの `claude` にも効きます。
+- チャットパネルでは、`files.exclude`・`search.exclude` に一致するファイルや git が無視するファイルの選択テキストを渡しません。統合ターミナルにはこの除外がないため、`Read` の deny ルールで防ぎます。
+- `@` はあいまい一致です（フォルダは末尾に `/`）。`@terminal:name` でターミナルの出力を参照します。PDF はページ範囲を指定して読めます（poppler-utils が必要）。
+- `@browser` で Claude in Chrome を使います（Chrome 拡張 1.0.36 以降、[Ch54](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）。
+
+* Manual では、編集のたびに元と提案の差分を並べて表示し、許可を求めます。差分を直接編集してから受け入れると、Claude は変更されたことを知らされます。
+* 変更ごとの **Accept this change**・**Reject this change** で 1 か所ずつレビューできます（v2.1.275 以降）。100 か所を超える差分にはこのボタンが出ません。
+* セッション履歴は検索でき、14 日間活動のないセッションは自動でアーカイブされます（`archiveInactiveSessions`）。plan mode で終えた会話は plan mode で再開します（v2.1.246 以降）。
+* **Session history** の **Web** タブで、claude.ai のクラウドセッションを再開できます。会話のコピーをダウンロードするだけで、claude.ai には同期しません。Remote Control のセッションは、開いているフォルダのものならローカルの会話を開きます。
+* CLI 専用の機能: `!` の Bash ショートカットと Tab 補完。コマンドと Skill は一部だけです。
+
+<div class="src">
+  出典: [vs-code#use-the-prompt-box](https://code.claude.com/docs/en/vs-code#use-the-prompt-box) · [#automatic-context-from-your-selection-and-open-file](https://code.claude.com/docs/en/vs-code#automatic-context-from-your-selection-and-open-file) · [#get-started](https://code.claude.com/docs/en/vs-code#get-started) · [#resume-past-conversations](https://code.claude.com/docs/en/vs-code#resume-past-conversations) · [#resume-cloud-sessions-from-claude-ai](https://code.claude.com/docs/en/vs-code#resume-cloud-sessions-from-claude-ai) · [#automate-browser-tasks-with-chrome](https://code.claude.com/docs/en/vs-code#automate-browser-tasks-with-chrome)
+</div>
+
+<span id="ch53-settings" />
+
+## `claudeCode.*` 設定とショートカット
+
+| 設定（`claudeCode.` を省略）      | 既定    | 内容                                                   |
+| --------------------------------- | ------- | ------------------------------------------------------ |
+| `useTerminal`                     | `false` | パネルの代わりにターミナルモード                       |
+| `preferredLocation`               | `panel` | `sidebar` か `panel`（新しいタブ）                     |
+| `lockEditorGroups`                | `true`  | Claude のタブのエディタグループを固定                  |
+| `autosave`                        | `true`  | Claude が読み書きする前に保存                          |
+| `useCtrlEnterToSend`              | `false` | <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd> で送信 |
+| `respectGitIgnore`                | `true`  | ファイル検索と選択文脈から除外                         |
+| `environmentVariables`            | `[]`    | Claude プロセスの環境変数                              |
+| `disableLoginPrompt`              | `false` | サードパーティプロバイダ用に認証画面を省く             |
+| `allowDangerouslySkipPermissions` | `false` | Bypass を選択肢に追加                                  |
+| `claudeProcessWrapper`            | なし    | Claude プロセスを起動する実行ファイル                  |
+
+| ショートカット（Mac）                          | 動作                                                 |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| <kbd>Cmd</kbd>+<kbd>Esc</kbd>                  | エディタと Claude のフォーカス切替                   |
+| <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Esc</kbd> | 新しい会話をエディタタブで開く                       |
+| <kbd>Option</kbd>+<kbd>K</kbd>                 | 現在のファイルと選択範囲の参照を挿入                 |
+| <kbd>Cmd</kbd>+<kbd>N</kbd>                    | 新しい会話（`enableNewConversationShortcut` が必要） |
+| <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>   | 閉じた Claude タブを再度開く                         |
+| <kbd>Ctrl</kbd>+<kbd>Option</kbd>+<kbd>F</kbd> | Focus view の切替                                    |
+
+- Windows・Linux では <kbd>Cmd</kbd> を <kbd>Ctrl</kbd>、<kbd>Option</kbd> を <kbd>Alt</kbd> に読み替えます。
+- Claude Code 本体の設定は `~/.claude/settings.json` で CLI と共有します。
+- `vscode://anthropic.claude-code/open` で、外部ツールから新しい Claude タブを開けます。
+
+<div class="src">
+  出典: [vs-code#extension-settings](https://code.claude.com/docs/en/vs-code#extension-settings) · [#vs-code-commands-and-shortcuts](https://code.claude.com/docs/en/vs-code#vs-code-commands-and-shortcuts) · [#launch-a-vs-code-tab-from-other-tools](https://code.claude.com/docs/en/vs-code#launch-a-vs-code-tab-from-other-tools)
+</div>
+
+<span id="ch53-jetbrains" />
+
+## JetBrains プラグイン <span class="badge beta">Beta</span>
+
+- IntelliJ IDEA・PyCharm・Android Studio・WebStorm・PhpStorm・GoLand などで動きます。プラグイン名と設定画面は **Claude Code \[Beta]** です。
+- プラグインは IDE の統合ターミナルで `claude` を起動して接続します。CLI を同梱しないため、CLI を別途インストールします（PATH になければ `Cannot launch Claude Code`）。
+- 機能: <kbd>Cmd</kbd>+<kbd>Esc</kbd> での起動、IDE の diff ビューア、選択範囲とタブの共有、<kbd>Cmd</kbd>+<kbd>Option</kbd>+<kbd>K</kbd> でのファイル参照、診断の共有。
+- 外部ターミナルからは `/ide` で接続し、`Connected to IntelliJ IDEA.` のように表示されます。
+- 差分の表示先は `/config` の **Diff tool**（`diffTool`: `auto` か `terminal`）で、IDE に接続中だけ表示されます。
+
+* **Settings → Tools → Claude Code \[Beta]** の **Claude command** で起動コマンドを変えます。WSL では `wsl -d Ubuntu -- bash -lic "claude"` のように指定します。
+* Remote Development では、プラグインをローカルではなくリモートホストに入れます（**Settings → Plugin (Host)**）。
+* WSL2 で `No available IDEs detected` になるのは、多くの場合 NAT ネットワークか Windows Firewall が原因です。Firewall の許可か mirrored ネットワークで直します。
+* <kbd>Esc</kbd> で中断できない場合は、ターミナル設定の「Move focus to the editor with Escape」を外します。
+
+:::caution[注意]
+`acceptEdits` では、IDE が自動実行する設定ファイルを Claude が書き換え、Bash の確認を迂回しうると docs は警告しています。`acceptEdits` と auto mode は作業ディレクトリ内の編集を確認なしで通すため、編集は Manual を勧めています。
+:::
+
+<div class="src">
+  出典: [jetbrains](https://code.claude.com/docs/en/jetbrains)（Features / Installation / Plugin settings / Special configurations / Security considerations） · [settings-reference#difftool](https://code.claude.com/docs/en/settings-reference#difftool)
+</div>
+
+<span id="ch53-ide-mcp" />
+
+## IDE MCP サーバー
+
+- 拡張・プラグインが有効なとき、ローカルの MCP サーバー `ide` が動き、CLI が自動で接続します。diff の表示、選択範囲の取得、Jupyter の実行に使います。設定項目がないため `/mcp` には表示されませんが、PreToolUse フックで MCP ツールを許可リスト管理している組織は、存在を知っておく必要があります。
+- 接続中は、各プロンプトに選択範囲と開いているファイルのパスが付き、`⧉ Selected N lines from <file>` と表示されます。`Read` の deny ルールに一致するファイルは渡しません。キューに入れたメッセージは <kbd>Enter</kbd> 時点の選択を保ちます。
+- 通信は loopback の `ws://` で、ポートは変更できません（VS Code は 10000–65535 のランダム、JetBrains は OS 割り当て）。起動ごとのトークンを `~/.claude/ide/<port>.lock`（VS Code では `0600`、ディレクトリは `0700`）に書き、CLI は `X-Claude-Code-Ide-Authorization` ヘッダーで提示します。
+- JetBrains の **Accept connections from all network interfaces** をオンにすると、ポートが LAN から届き、通信とトークンが平文で流れます。WSL2 では mirrored ネットワークを優先します。
+
+| モデルに見えるツール                 | 内容                                                            |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `mcp__ide__getDiagnostics`           | Problems パネル・インスペクションの診断（読み取り専用）         |
+| `mcp__ide__executeCode`              | アクティブな Jupyter ノートブックで Python を実行。VS Code のみ |
+| `mcp__claude-vscode__getDiagnostics` | VS Code のチャットパネル用の診断（v2.1.285 以降）               |
+
+- サーバー上の他のツールは CLI 自身の UI 用で、モデルに渡る前に除かれます。
+- `executeCode` は末尾にセルを追加し、VS Code の Quick Pick で **Execute** か **Cancel** を毎回確認します。ノートブックがない、Jupyter 拡張がない、カーネルが Python でない場合は拒否します。
+
+:::note[補足]
+診断を止めるには、`mcp__ide__getDiagnostics` と `mcp__claude-vscode__getDiagnostics` の両方を deny します。`Read` の deny はどちらにも効きません。`executeCode` を PreToolUse で許可しても、実行には Quick Pick の確認が要ります。
+:::
+
+<div class="src">
+  出典: [vs-code#the-built-in-ide-mcp-server](https://code.claude.com/docs/en/vs-code#the-built-in-ide-mcp-server) · [jetbrains#the-built-in-ide-mcp-server](https://code.claude.com/docs/en/jetbrains#the-built-in-ide-mcp-server)
+</div>
+
+<span id="ch53-connect" />
+
+## `/ide`・`--ide` と自動接続・自動インストール
+
+| 手段                                                                   | 挙動                                                                                                          |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| IDE の統合ターミナルで `claude`                                        | 自動で接続する。VS Code は拡張のインストールが前提                                                            |
+| `/ide`                                                                 | IDE 連携の管理と状態表示。外部ターミナルから IDE に接続する                                                   |
+| `claude --ide`                                                         | 有効な IDE がちょうど 1 つあれば、起動時に自動接続する                                                        |
+| `autoConnectIde`（global config）                                      | `true` で外部ターミナルからも自動接続。既定 `false`。`/config` の **Auto-connect to IDE (external terminal)** |
+| `CLAUDE_CODE_AUTO_CONNECT_IDE`                                         | `autoConnectIde` より先に読む。`false` で無効、`true` で接続を強制（tmux で検出に失敗する場合など）           |
+| `autoInstallIdeExtension` / `CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL=1`      | 外部ターミナルからの `/ide` による VS Code・Cursor・Devin Desktop への拡張インストールを許可 / 停止           |
+| `diffTool`（global config）                                            | `"auto"`（既定）で IDE の diff ビューア、`"terminal"` でターミナル                                            |
+| `CLAUDE_CODE_IDE_HOST_OVERRIDE` / `CLAUDE_CODE_IDE_SKIP_VALID_CHECK=1` | 接続先ホストの上書き（WSL など）/ ロックファイルの検証を省く                                                  |
+
+- v2.1.318 以降、`claude` の起動時に拡張をインストール・更新しません。VS Code の統合ターミナルでも、拡張を入れるまで `/ide` は `No available IDEs detected`、`/status` は `Not connected` になります。
+
+<div class="src">
+  出典: [vs-code#run-cli-in-vs-code](https://code.claude.com/docs/en/vs-code#run-cli-in-vs-code) · [settings-reference#autoconnectide](https://code.claude.com/docs/en/settings-reference#autoconnectide) · [#autoinstallideextension](https://code.claude.com/docs/en/settings-reference#autoinstallideextension) · [#difftool](https://code.claude.com/docs/en/settings-reference#difftool) · [env-vars](https://code.claude.com/docs/en/env-vars) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · [commands](https://code.claude.com/docs/en/commands)
+</div>

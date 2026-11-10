@@ -1,0 +1,40 @@
+---
+title: "未公開の実験フラグ候補"
+description: "2.1.321 のバイナリの文字列にだけ現れる環境変数名を、名前だけ掲載します。ドキュメントにも changelog にも --help にも載っていない名前です。設定手順ではありません。"
+sidebar:
+  order: 63
+  badge:
+    text: "Undocumented"
+    variant: note
+---
+
+2.1.321 のバイナリの文字列にだけ現れる環境変数名を、名前だけ掲載します。ドキュメントにも changelog にも `--help` にも載っていない名前です。設定手順ではありません。
+
+<span id="ch63-candidates" />
+
+## バイナリの文字列だけに現れる環境変数名 <span class="badge undocumented">Undocumented</span>
+
+| 名前（strings 出力のまま）                                                                                                                  | 名前が似たドキュメント記載項目                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE` 末尾が `_RESTART`、`_RESTARTED_FROM` の 2 件も                                                         | なし                                             |
+| `CLAUDE_CODE_EXPERIMENTAL_OBSERVER_AGENTS`                                                                                                  | なし                                             |
+| `CLAUDE_CODE_ENABLE_EXPERIMENTAL_ADVISOR_TOOL`                                                                                              | なし                                             |
+| `CLAUDE_CODE_COORDINATOR_MODE` 同じ接頭辞の `_EXTRA_TOOLS`、`_FORCE_WORKER_INHERIT_MODEL`、`_PROPAGATE_NESTED_MEMORY`、`_SKILL_GUIDANCE` も | なし                                             |
+| `CLAUDE_CODE_PROACTIVE`                                                                                                                     | `/proactive`（`/loop` のエイリアス）とは別の名前 |
+| `CLAUDE_CODE_WORKFLOWS`                                                                                                                     | `CLAUDE_CODE_DISABLE_WORKFLOWS` は記載あり       |
+
+### この一覧の扱い（設定手順ではありません）
+
+- 出典はバイナリの `strings` 出力だけです。動作は一度も確認していません。
+- 名前から機能を推測しないでください。設定したときの動作も、次のリリースで残るかも分かりません。
+- strings 由来の候補名は他にも多数あります。本資料が名前を挙げるのは、この節の表の 6 系統だけです。
+
+### 候補ではないもの（ドキュメントに記載あり）
+
+- `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`: Agent Teams を有効にする（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）
+- `CLAUDE_CODE_FORK_SUBAGENT`: fork モードを制御する（[Ch37](/claude-code-deep-dive/ja/parallel/subagents/)）
+- `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`、`CLAUDE_CODE_DISABLE_ADVISOR_TOOL`（[Ch20](/claude-code-deep-dive/ja/settings/env-vars/)）
+
+<div class="src">
+  出典: バイナリ文字列 2.1.321（strings のみ・未検証） · [env-vars](https://code.claude.com/docs/en/env-vars)（記載なしの確認と、記載ありの 4 件）
+</div>
