@@ -5,6 +5,8 @@ sidebar:
   order: 7
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 セッションは、プロジェクトのディレクトリに紐づいて保存される会話です。この章では、トランスクリプトの実体、再開の入口と復元される状態、ピッカーと命名、分岐、保持と永続化の制御、ヘッドレスで使えるコマンド、そして `/goal` の使い方と内部動作を扱います。
 
 <span id="ch07-transcript" />
@@ -71,7 +73,7 @@ Error: Invalid session ID. Must be a valid UUID. → exit 1
 `-p` では、一致しない名前はピッカーを開かずにエラーで終了する。ID は伏せ字にした
 
 - 名前が一意でないとき、`claude --resume <name>` は名前を検索語にしたピッカーを開き、`/resume <name>` はエラーにします。
-- <span class="badge preview">Preview</span> 実行中の背景セッションを再開すると、`claude attach` でそのセッションに接続します（[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)）。
+- <Badge text="Preview" variant="tip" size="small" class="badge preview" /> 実行中の背景セッションを再開すると、`claude attach` でそのセッションに接続します（[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)）。
 
 <div class="src">
   出典: [sessions#resume-a-session](https://code.claude.com/docs/en/sessions#resume-a-session) · [#resume-by-session-id-or-name](https://code.claude.com/docs/en/sessions#resume-by-session-id-or-name) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · [commands](https://code.claude.com/docs/en/commands) · 実機確認 2.1.321
@@ -177,12 +179,12 @@ context yet. Usage: /rename <name>"
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/branch [name]`                                                         | 現時点までの会話をコピーし、コピー側へ切り替える。元はそのまま残り `/resume` で戻れる。名前の既定は最初のプロンプト | 同じプロセスなので「このセッションで許可」を保つ。実行中の背景サブエージェントと背景 Bash の出力は分岐側に出る。Remote Control も追従する                                       |
 | `claude --continue --fork-session` `claude --resume <id> --fork-session` | 新しいセッション ID で再開する。元のトランスクリプトは変わらない                                                    | 別プロセスなので許可は引き継がず、承認し直す。plan mode も復元しない。`--session-id <uuid>` を併用すると分岐の ID を指定できる                                                  |
-| `/fork [prompt]` <span class="badge preview">Preview</span>              | 会話を新しい背景セッションへコピーし、自分はこのまま作業を続ける（2.1.212 から）                                    | コピーは自分の worktree を作るよう指示される（v2.1.221 以降）。agent view が off なら fork サブエージェントを起動する（[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)） |
+| `/fork [prompt]` <Badge text="Preview" variant="tip" size="small" class="badge preview" />              | 会話を新しい背景セッションへコピーし、自分はこのまま作業を続ける（2.1.212 から）                                    | コピーは自分の worktree を作るよう指示される（v2.1.221 以降）。agent view が off なら fork サブエージェントを起動する（[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)） |
 | `/subtask <task>`                                                        | 会話全体を引き継ぐ背景の fork サブエージェントに作業を渡す                                                          | 結果はこの会話に返る。agent view が off だと使えない（[Ch37](/claude-code-deep-dive/ja/parallel/subagents/)）                                                                   |
 
 - `/fork` は 2.1.77 で `/branch` に改名され、2.1.212 で背景セッションへのコピーとして再定義されました。それまで `/fork` が起動していた会話内のサブエージェントは `/subtask` になりました。
 - 分岐で始まったセッションでは、SessionStart の source が `fork` です。フォークせずに同じセッションを 2 つのターミナルで再開すると、両方のメッセージが 1 つのトランスクリプトに混ざります。
-- <span class="undocumented">`--fork-session` を `--resume`・`--continue` なしで渡しても、エラーにならず新規セッションとして動きました。 <span class="badge undocumented">Undocumented</span></span>
+- <span class="undocumented">`--fork-session` を `--resume`・`--continue` なしで渡しても、エラーにならず新規セッションとして動きました。 <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /></span>
 
 <div class="src">
   出典: [sessions#branch-a-session](https://code.claude.com/docs/en/sessions#branch-a-session) · [commands](https://code.claude.com/docs/en/commands) · [cli-reference](https://code.claude.com/docs/en/cli-reference) · [hooks#sessionstart](https://code.claude.com/docs/en/hooks#sessionstart) · [changelog 2.0.73, 2.1.77, 2.1.212, 2.1.221](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
@@ -208,7 +210,7 @@ context yet. Usage: /rename <name>"
 ```
 
 - `CLAUDE_CODE_SKIP_PROMPT_HISTORY` を付けたセッションは、`--resume`・`--continue`・<kbd>↑</kbd> の履歴に出ません。
-- <span class="badge preview">Preview</span> 背景セッションを `claude rm <id>` で消しても、トランスクリプトは残ります。ディレクトリ全体の一覧は [Ch10](/claude-code-deep-dive/ja/fundamentals/claude-dir/)。
+- <Badge text="Preview" variant="tip" size="small" class="badge preview" /> 背景セッションを `claude rm <id>` で消しても、トランスクリプトは残ります。ディレクトリ全体の一覧は [Ch10](/claude-code-deep-dive/ja/fundamentals/claude-dir/)。
 
 * 削除はセッション開始後の背景 sweep で、通知なしに行います。期限切れのセッションは `/resume` に出なくなります。
 * `cleanupPeriodDays: 0` は 2.1.89 から検証エラーです（以前は永続化を黙って止めていた）。長く残すなら `3650` などを設定します。
@@ -326,7 +328,7 @@ met — …
  "tokens": 695}
 ```
 
-<span class="undocumented">指示文と `goal_status` はドキュメントに記載がない <span class="badge undocumented">Undocumented</span></span>
+<span class="undocumented">指示文と `goal_status` はドキュメントに記載がない <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /></span>
 
 - 背景作業の実行中は評価を飛ばします。30 分で確認を入れ、以降 1 時間、その後 2 時間ごとです。間隔は `CLAUDE_CODE_GOAL_CHECKIN_MINUTES`（既定 30、最大 10080、`0` で確認と自動再試行を止める）。アイドル中の自発的な確認は対話セッションだけで、プロンプトの間に 3 回までです。
 - 評価モデルは `ANTHROPIC_DEFAULT_HAIKU_MODEL` で変わります（`haiku` エイリアスとタイトル生成にも効く）。

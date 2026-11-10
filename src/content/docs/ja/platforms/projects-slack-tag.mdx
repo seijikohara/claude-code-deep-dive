@@ -5,11 +5,13 @@ sidebar:
   order: 55
 ---
 
+import { Badge, Steps } from "@astrojs/starlight/components";
+
 複数のクラウドセッションをまとめて動かす Projects と、Slack から Claude Code を使う 2 つの形（旧来の Claude Code in Slack と、組織向けの Claude Tag）を扱います。3 つとも状態が異なるため、各節のバッジで区別します。
 
 <span id="ch55-projects" />
 
-## Projects: 構成と既定値 <span class="badge beta">Beta</span>
+## Projects: 構成と既定値 <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - プロジェクトは、Claude がコーディネーターとして関連作業を進める 1 本の長い会話です。タスクごとに**スレッド**（通常はクラウドセッション）を起動し、スレッドは並列に動いて結果を会話に返します。
 - **Overview** ペインで全スレッドの状態を見ます。他に **Library**（ファイル）、**Pull requests**、**Scheduled tasks** のタブがあります。
@@ -36,7 +38,7 @@ GitHub は github.com のみで、push 権限と Claude GitHub App が必要で�
 
 <span id="ch55-projects-local" />
 
-## Projects: 自分のマシンでスレッドを動かす <span class="badge beta">Beta</span>
+## Projects: 自分のマシンでスレッドを動かす <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - ローカルのデータベースや VPN の内側の API が必要なタスクは、スレッドを自分のマシンで動かせます。スレッドは Remote Control でつないだフォルダの Claude Code セッションになります（[Ch49](/claude-code-deep-dive/ja/platforms/remote-control/)）。
 
@@ -65,7 +67,7 @@ claude remote-control --spawn worktree
 
 <span id="ch55-slack" />
 
-## Claude Code in Slack（旧版） <span class="badge deprecated">Deprecated</span>
+## Claude Code in Slack（旧版） <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" />
 
 - チャンネルで `@Claude` にコーディングの依頼をすると、自分の Claude アカウントでクラウドセッションを作ります。リポジトリとプラン上限も自分のものです。
 - 応答するのは Pro・Max・Ultra のアカウントからのメンションだけで、Claude Tag に接続されていない Slack ワークスペースに限られます。
@@ -75,11 +77,15 @@ claude remote-control --spawn worktree
 
 ### セットアップ
 
+<Steps>
+
 1. ワークスペース管理者が Slack App Marketplace から Claude アプリを入れる
 2. 各ユーザーが App Home の **Connect Claude account** でアカウントをつなぐ
 3. claude.ai/code で GitHub を接続し、リポジトリを 1 つ以上認証する
 4. App Home の **Routing Mode** を選ぶ: **Code only**（すべて Claude Code へ）か **Code + Chat**（コーディングだけ Claude Code へ）
 5. 各チャンネルで `/invite @Claude` を実行する（自動では追加されない）
+
+</Steps>
 
 - 完了時はスレッドのメッセージにボタンが付き、DM でリンクが届きます。**Create PR** は GitHub の compare ページを開きます。
 - CLI の `/install-slack-app` は「Opens a browser to complete the OAuth flow」と docs にあります。
@@ -90,7 +96,7 @@ claude remote-control --spawn worktree
 
 <span id="ch55-tag" />
 
-## Claude Tag: 仕組みと Claude Code との対応 <span class="badge beta">Beta</span>
+## Claude Tag: 仕組みと Claude Code との対応 <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - Slack のチャンネルで誰でも `@Claude` に作業を渡せる、組織向けの Slack アプリです。Team・Enterprise の Anthropic ファーストパーティ提供だけで、個人プランとサードパーティ経由では使えません。
 - セットアップは Owner が `claude.ai/admin-settings/claude-tag` で 1 回だけ行います。Slack で `@Claude connect` を送ってペアリングコードを受け取り、設定ページに入力し、月の支出上限を決めてチャンネルに追加します。
@@ -115,7 +121,7 @@ claude remote-control --spawn worktree
 
 <span id="ch55-tag-commands" />
 
-## Claude Tag: `@Claude !` コマンドと旧版からの移行 <span class="badge beta">Beta</span>
+## Claude Tag: `@Claude !` コマンドと旧版からの移行 <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 | コマンド                    | 動作                                                               |
 | --------------------------- | ------------------------------------------------------------------ |

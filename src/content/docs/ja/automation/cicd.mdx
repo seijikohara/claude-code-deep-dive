@@ -5,6 +5,8 @@ sidebar:
   order: 46
 ---
 
+import { Badge, Steps } from "@astrojs/starlight/components";
+
 GitHub Actions（`anthropics/claude-code-action@v1`）と GitLab CI/CD から Claude Code を動かす方法です。この章では、セットアップ、入力と v1 への移行、ワークフロー例、クラウドプロバイダの OIDC 連携、GitLab と GitHub Enterprise Server を扱います。クラウドの定期実行（routines）は [Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)、PR の自動レビューは [Ch47](/claude-code-deep-dive/ja/automation/code-review/) です。
 
 <span id="ch46-setup" />
@@ -20,9 +22,13 @@ GitHub Actions（`anthropics/claude-code-action@v1`）と GitLab CI/CD から Cl
 
 ### 手動セットアップ
 
+<Steps>
+
 1. `github.com/apps/claude` をインストール
 2. シークレットを追加。OAuth トークンは `claude setup-token` で作る（Pro・Max・Ultra・Team・Enterprise）
 3. `examples/claude.yml` を `.github/workflows/` にコピー
+
+</Steps>
 
 ### 組織への展開
 
@@ -65,10 +71,14 @@ docs の表は「よく使う入力」だけです。全入力はアクション
 
 ### `@beta` から `@v1` へ
 
+<Steps>
+
 1. `uses` 行の `@beta` を `@v1` に変える
 2. `mode` を削除する（自動判定）
 3. `direct_prompt` を `prompt` に変える
 4. `max_turns`・`model` を `claude_args` に移す。`custom_instructions` は `--append-system-prompt` になる
+
+</Steps>
 
 <div class="src">
   出典: [github-actions#action-parameters](https://code.claude.com/docs/en/github-actions#action-parameters) · [#interactive-and-automation-modes](https://code.claude.com/docs/en/github-actions#interactive-and-automation-modes) · [#pass-cli-arguments](https://code.claude.com/docs/en/github-actions#pass-cli-arguments) · [#upgrade-from-beta](https://code.claude.com/docs/en/github-actions#upgrade-from-beta)
@@ -160,6 +170,8 @@ jobs:
 
 ## クラウドプロバイダ（OIDC）で動かす
 
+<Steps>
+
 1. **GitHub の ID**: 公式アプリ、カスタムアプリ（3 権限、webhook 無効）、`GITHUB_TOKEN`（CI を起動しない）
 
 2. **クラウド側の信頼を設定する**
@@ -171,6 +183,8 @@ jobs:
 3. **シークレット**: `AWS_ROLE_TO_ASSUME`、`GCP_WORKLOAD_IDENTITY_PROVIDER`・`GCP_SERVICE_ACCOUNT`、`AZURE_CLIENT_ID`・`AZURE_TENANT_ID`・`AZURE_SUBSCRIPTION_ID`、カスタムアプリなら `APP_ID`・`APP_PRIVATE_KEY`
 
 4. **ワークフローに `id-token: write`** を付ける
+
+</Steps>
 
 :::caution[注意]
 公開リポジトリでは、誰のコメントでも認証の手順まで進みます。先に投稿者の権限を確かめる手順を足します。
@@ -203,14 +217,14 @@ Bedrock の例の後半です。モデル ID の `us.` はクロスリージョ�
 
 ## GitLab CI/CD と GitHub Enterprise Server
 
-### GitLab CI/CD <span class="badge beta">Beta</span>
+### GitLab CI/CD <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - GitLab が保守する統合で、サポートは GitLab の issue で受けます。`.gitlab-ci.yml` のジョブで `claude -p` を動かし、変更は MR で戻します。
 - マスクした CI/CD 変数 `ANTHROPIC_API_KEY` を置き、ジョブ内で `curl -fsSL https://claude.ai/install.sh | bash` で入れます。GitLab API には `CI_JOB_TOKEN` か、`api` スコープのトークンを `GITLAB_ACCESS_TOKEN` として使います。
 - `@claude` のコメントで起動するには、自前の webhook リスナーからパイプラインのトリガー API を `AI_FLOW_INPUT`・`AI_FLOW_CONTEXT`・`AI_FLOW_EVENT` 付きで呼びます。
 - Bedrock は `id_tokens` の `GITLAB_OIDC_TOKEN` で、Agent Platform は WIF で認証します。`--max-turns` とジョブの `timeout: 30m` で費用を抑えます。
 
-```yaml
+```yaml title=".gitlab-ci.yml"
     - >
       claude
       -p "${AI_FLOW_INPUT:-'Review this MR and implement the requested changes'}"

@@ -5,6 +5,8 @@ sidebar:
   order: 49
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 自分のマシンで動く Claude Code のセッションを、claude.ai/code や Claude モバイルアプリから操作する仕組みです。この章では、起動の 3 モード、サーバーモードのフラグ、名前と自動接続、セキュリティと Trusted Devices、モバイルから使えるコマンドを扱います。
 
 <span id="ch49-overview" />
@@ -71,8 +73,8 @@ sidebar:
 ### `--settings <file>`（2.1.321）
 
 - 起動するすべてのセッションに設定ファイルを適用します。docs のフラグ表には未掲載で、changelog と `claude rc --help` に記載があります。
-- ファイルが変わると、サーバーを再起動するまで新しいセッションは始まりません（changelog）。<span class="undocumented">help は「起動時に 1 回だけ読む」「セッションが書き込めない場所に置く」とも記載しています。</span> <span class="badge undocumented">Undocumented</span>
-- <span class="undocumented">指定しない場合、claude.ai の Projects から起動したセッションでは、このマシンの設定より優先して auto-compact と auto mode が有効になります。指定するとこの上書きが止まります（help の記載）。</span> <span class="badge undocumented">Undocumented</span>
+- ファイルが変わると、サーバーを再起動するまで新しいセッションは始まりません（changelog）。<span class="undocumented">help は「起動時に 1 回だけ読む」「セッションが書き込めない場所に置く」とも記載しています。</span> <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" />
+- <span class="undocumented">指定しない場合、claude.ai の Projects から起動したセッションでは、このマシンの設定より優先して auto-compact と auto mode が有効になります。指定するとこの上書きが止まります（help の記載）。</span> <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" />
 - `remote-control` より**前**に置いたグローバルフラグは、起動するセッションへ渡りません。`--verbose`・`--model` などの無害なもの以外は、起動を拒否します（``Error: `--settings` before `remote-control` is not carried over…``）。
 - `--sandbox` / `--no-sandbox` は v2.1.300 で削除され、渡すとエラーになります。サンドボックスは設定ファイルで有効にします。
 
@@ -127,7 +129,7 @@ claude.ai やアプリで名前を変えると、`claude --resume` に出るロ�
 - 自動接続は自分の claude.ai アカウントで行われ、他人にアクセスを与えません。
 - ZDR・HIPAA 構成の組織は有効にできません。開いているセッションは組織ポリシーを約 1 時間ごとに取得します。
 
-### Trusted Devices <span class="badge beta">Beta</span>
+### Trusted Devices <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - Remote Control のセッションを見る・操作する端末に、登録済みであることと 18 時間以内のサインインを求めます。
 - 期限切れは、Face ID・Touch ID・Windows Hello・パスキーで再確認します。生体情報は Anthropic に送られません。

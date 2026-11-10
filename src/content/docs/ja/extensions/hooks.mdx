@@ -5,6 +5,8 @@ sidebar:
   order: 28
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 33 イベントの設定・入出力・決定制御・非同期実行・安全性を扱います（全件表は [付録 D](/claude-code-deep-dive/ja/appendix/hooks/)）。
 
 <span id="ch28-overview" />
@@ -143,7 +145,7 @@ matcher で Bash に絞り、`if` で `rm` のサブコマンドにさらに絞�
 | `TaskCompleted`      | タスクを完了にするとき                                         | なし             | 5   | 完了にしない                          |
 | `TeammateIdle`       | Agent Teams のチームメイトがアイドルになる直前                 | なし             | 5   | アイドルにせず、作業を続けさせる      |
 
-型 = 使えるハンドラの型（5 は全種、4 は `agent` 以外、3 は `command`・`http`・`mcp_tool`）。`TeammateIdle` とチームメイト経路の `TaskCompleted` は Agent Teams <span class="badge experimental">Experimental</span>（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）の機能です。
+型 = 使えるハンドラの型（5 は全種、4 は `agent` 以外、3 は `command`・`http`・`mcp_tool`）。`TeammateIdle` とチームメイト経路の `TaskCompleted` は Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）の機能です。
 
 <div class="src">
   出典: [hooks#hook-lifecycle](https://code.claude.com/docs/en/hooks#hook-lifecycle) · [#matcher-patterns](https://code.claude.com/docs/en/hooks#matcher-patterns) · [#exit-code-2-behavior-per-event](https://code.claude.com/docs/en/hooks#exit-code-2-behavior-per-event) · [#prompt-based-hooks](https://code.claude.com/docs/en/hooks#prompt-based-hooks)
@@ -415,7 +417,7 @@ LLM は次の JSON を返します。`reason` は `ok: false` のとき必須で
 
 <span id="ch28-agent" />
 
-## `agent` フック: ツールで確かめる検証エージェント <span class="badge experimental">Experimental</span>
+## `agent` フック: ツールで確かめる検証エージェント <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />
 
 - ドキュメントは「experimental で、挙動と設定は今後変わりうる。本番では command フックを推奨」と明記しています。
 - Read・Grep・Glob などのツールを使えるサブエージェントを起動し、最大 50 ターンで `{ "ok": true/false }` を返させます。
@@ -810,7 +812,7 @@ fi
 * `TaskCreated`: exit 2（stderr）か `decision: "block"`（`reason`）でタスクを削除し、理由をツールエラーとして返します。`continue: false` は無視します。
 * `TaskCompleted`: `TaskUpdate` での完了時と、チームメイトが進行中のタスクを残して終えたときに発火します。exit 2 で完了にせず、stderr をモデルに返します。`continue: false` はチームメイト経路でだけ停止です。
 * `TeammateIdle`: exit 2 で作業を続けさせ、`continue: false` で止めます。
-* `TaskCreated`・`TaskCompleted` の入力は `task_id`・`task_subject` と任意の `task_description`・`teammate_name`・`team_name`（非推奨）、v2.1.290 以降は `agent_id` です。matcher はなく、チームメイトの経路は Agent Teams <span class="badge experimental">Experimental</span>（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）の機能です。
+* `TaskCreated`・`TaskCompleted` の入力は `task_id`・`task_subject` と任意の `task_description`・`teammate_name`・`team_name`（非推奨）、v2.1.290 以降は `agent_id` です。matcher はなく、チームメイトの経路は Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）の機能です。
 
 <div class="src">
   出典: [hooks#userpromptsubmit](https://code.claude.com/docs/en/hooks#userpromptsubmit) · [#what-a-blocked-prompt-leaves-behind](https://code.claude.com/docs/en/hooks#what-a-blocked-prompt-leaves-behind) · [#userpromptexpansion](https://code.claude.com/docs/en/hooks#userpromptexpansion) · [#taskcreated](https://code.claude.com/docs/en/hooks#taskcreated) · [#taskcompleted](https://code.claude.com/docs/en/hooks#taskcompleted) · [#teammateidle](https://code.claude.com/docs/en/hooks#teammateidle)
@@ -1001,7 +1003,7 @@ hooks:
 | `CLAUDE_PID`                               | Claude Code のプロセス ID（v2.1.214 以降）                                                 |
 
 - 他に `CLAUDE_CODE_REMOTE`・`CLAUDE_CODE_BRIDGE_SESSION_ID` などがあり、`OTEL_*` は除かれます（[Ch20](/claude-code-deep-dive/ja/settings/env-vars/)）。
-- 実機では <span class="undocumented">`CLAUDE_CODE_ENTRYPOINT`</span>・<span class="undocumented">`CLAUDE_CODE_SESSION_ATTENDED`</span> も見えました <span class="badge undocumented">Undocumented</span>。
+- 実機では <span class="undocumented">`CLAUDE_CODE_ENTRYPOINT`</span>・<span class="undocumented">`CLAUDE_CODE_SESSION_ATTENDED`</span> も見えました <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" />。
 
 <div class="src">
   出典: [hooks#hooks-in-skills-and-agents](https://code.claude.com/docs/en/hooks#hooks-in-skills-and-agents) · [#limits-on-skill-hooks](https://code.claude.com/docs/en/hooks#limits-on-skill-hooks) · [#reference-scripts-by-path](https://code.claude.com/docs/en/hooks#reference-scripts-by-path) · [env-vars](https://code.claude.com/docs/en/env-vars) · 実機確認 2.1.321

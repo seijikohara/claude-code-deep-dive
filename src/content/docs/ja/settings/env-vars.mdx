@@ -5,6 +5,8 @@ sidebar:
   order: 20
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 env-vars リファレンスに載る 402 個の環境変数から、上級者がよく使うものを分野別に抜き出します。設定ファイルの `env` ブロックの規則、値の書き方、changelog にだけ載る変数、廃止された変数とキーも扱います。全件は [付録 B](/claude-code-deep-dive/ja/appendix/env/) にあります。
 
 <span id="ch20-env-block" />
@@ -177,11 +179,11 @@ Claude Code は自分が起動するサブプロセス（Bash、フック、stdi
 
 | 変数                                                    | 状態と要点                                                                                                                         |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`                  | <span class="badge experimental">Experimental</span> `1` で agent teams（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)） |
-| `CLAUDE_CODE_DISABLE_ADVISOR_TOOL`                      | <span class="badge experimental">Experimental</span> advisor を無効化（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/)）    |
-| `CLAUDE_CODE_NO_FLICKER`                                | <span class="badge preview">Preview</span> `1` でフルスクリーン描画。`tui` より優先                                                |
-| `CLAUDE_CODE_PROPAGATE_TRACEPARENT`                     | <span class="badge beta">Beta</span> カスタムプロキシ経由でも W3C trace context を伝播                                             |
-| `ENABLE_BETA_TRACING_DETAILED`・`BETA_TRACING_ENDPOINT` | <span class="badge beta">Beta</span> 内容を含む詳細トレース。対話 CLI は組織の allowlist が必要                                    |
+| `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`                  | <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> `1` で agent teams（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)） |
+| `CLAUDE_CODE_DISABLE_ADVISOR_TOOL`                      | <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> advisor を無効化（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/)）    |
+| `CLAUDE_CODE_NO_FLICKER`                                | <Badge text="Preview" variant="tip" size="small" class="badge preview" /> `1` でフルスクリーン描画。`tui` より優先                                                |
+| `CLAUDE_CODE_PROPAGATE_TRACEPARENT`                     | <Badge text="Beta" variant="note" size="small" class="badge beta" /> カスタムプロキシ経由でも W3C trace context を伝播                                             |
+| `ENABLE_BETA_TRACING_DETAILED`・`BETA_TRACING_ENDPOINT` | <Badge text="Beta" variant="note" size="small" class="badge beta" /> 内容を含む詳細トレース。対話 CLI は組織の allowlist が必要                                    |
 
 `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS` は、プレリリースの `anthropic-beta` ヘッダーとベータのスキーマ項目を送らない変数です。これを拒否するゲートウェイ向けで、MCP ツール検索も外れます。
 
@@ -193,7 +195,7 @@ Claude Code は自分が起動するサブプロセス（Bash、フック、stdi
 | `CLAUDE_CODE_DISABLE_ULTRATHINK`      | 2.1.316。`ultrathink` キーワードを無効化                                                                                        |
 | `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` | 2.1.296。workflow エージェントを 1 つのモデルで動かす                                                                           |
 | `CLAUDE_CODE_LOOP_KEEPALIVE`          | 2.1.319。self-paced `/loop` の旧挙動（フォールバックの wakeup）を残す（[Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)） |
-| `CLAUDE_CODE_DISABLE_MCP_TASKS`       | 2.1.319。MCP タスク <span class="badge beta">Beta</span> を無効化（[Ch30](/claude-code-deep-dive/ja/extensions/mcp/)）          |
+| `CLAUDE_CODE_DISABLE_MCP_TASKS`       | 2.1.319。MCP タスク <Badge text="Beta" variant="note" size="small" class="badge beta" /> を無効化（[Ch30](/claude-code-deep-dive/ja/extensions/mcp/)）          |
 
 <div class="src">
   出典: [env-vars#variables](https://code.claude.com/docs/en/env-vars#variables) · [changelog 2.1.296, 2.1.316, 2.1.319（リファレンス未掲載）](https://code.claude.com/docs/en/changelog)
@@ -238,25 +240,25 @@ docs は MCP タスクもこの一覧に挙げていますが、2.1.319 から�
 
 | 環境変数                                             | 状態                                                                           |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `ANTHROPIC_SMALL_FAST_MODEL`                         | <span class="badge deprecated">Deprecated</span>                               |
-| `ENABLE_PROMPT_CACHING_1H_BEDROCK`                   | <span class="badge deprecated">Deprecated</span> `ENABLE_PROMPT_CACHING_1H` へ |
-| `CLAUDE_CODE_ENABLE_OPUS_4_7_FAST_MODE`              | <span class="badge removed">Removed</span> 2.1.142                             |
-| `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE`            | <span class="badge removed">Removed</span> 2.1.160                             |
-| `CLAUDE_CODE_CONNECT_TIMEOUT_MS`                     | <span class="badge removed">Removed</span> 2.1.186。`API_TIMEOUT_MS` へ        |
-| `CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION`              | <span class="badge removed">Removed</span> 2.1.224                             |
-| `CLAUDE_SUBAGENT_BG_SHELL_MAX_MS`                    | <span class="badge removed">Removed</span> 2.1.260                             |
-| `TASK_MAX_OUTPUT_LENGTH`                             | <span class="badge removed">Removed</span> 2.1.277                             |
-| `CLAUDE_CODE_AUTO_BACKGROUND_WORKER_CHECKIN_SECONDS` | <span class="badge removed">Removed</span> 2.1.283                             |
+| `ANTHROPIC_SMALL_FAST_MODEL`                         | <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" />                               |
+| `ENABLE_PROMPT_CACHING_1H_BEDROCK`                   | <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> `ENABLE_PROMPT_CACHING_1H` へ |
+| `CLAUDE_CODE_ENABLE_OPUS_4_7_FAST_MODE`              | <Badge text="Removed" variant="danger" size="small" class="badge removed" /> 2.1.142                             |
+| `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE`            | <Badge text="Removed" variant="danger" size="small" class="badge removed" /> 2.1.160                             |
+| `CLAUDE_CODE_CONNECT_TIMEOUT_MS`                     | <Badge text="Removed" variant="danger" size="small" class="badge removed" /> 2.1.186。`API_TIMEOUT_MS` へ        |
+| `CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION`              | <Badge text="Removed" variant="danger" size="small" class="badge removed" /> 2.1.224                             |
+| `CLAUDE_SUBAGENT_BG_SHELL_MAX_MS`                    | <Badge text="Removed" variant="danger" size="small" class="badge removed" /> 2.1.260                             |
+| `TASK_MAX_OUTPUT_LENGTH`                             | <Badge text="Removed" variant="danger" size="small" class="badge removed" /> 2.1.277                             |
+| `CLAUDE_CODE_AUTO_BACKGROUND_WORKER_CHECKIN_SECONDS` | <Badge text="Removed" variant="danger" size="small" class="badge removed" /> 2.1.283                             |
 
 | 設定キー                     | 状態                                                                        |
 | ---------------------------- | --------------------------------------------------------------------------- |
-| `includeCoAuthoredBy`        | <span class="badge deprecated">Deprecated</span> 2.0.62。`attribution` へ   |
-| `voiceEnabled`               | <span class="badge deprecated">Deprecated</span> 2.1.92。`voice.enabled` へ |
-| `keybindingFlavor`           | <span class="badge deprecated">Deprecated</span> 2.1.261。効果なし          |
-| `disableArtifact`            | <span class="badge deprecated">Deprecated</span> `enableArtifact` へ        |
-| `teammateDefaultModel`       | <span class="badge removed">Removed</span> 2.1.234                          |
-| `permissionExplainerEnabled` | <span class="badge removed">Removed</span> 2.1.257                          |
-| `taskOutputMaxChars`         | <span class="badge removed">Removed</span> 2.1.277                          |
+| `includeCoAuthoredBy`        | <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> 2.0.62。`attribution` へ   |
+| `voiceEnabled`               | <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> 2.1.92。`voice.enabled` へ |
+| `keybindingFlavor`           | <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> 2.1.261。効果なし          |
+| `disableArtifact`            | <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> `enableArtifact` へ        |
+| `teammateDefaultModel`       | <Badge text="Removed" variant="danger" size="small" class="badge removed" /> 2.1.234                          |
+| `permissionExplainerEnabled` | <Badge text="Removed" variant="danger" size="small" class="badge removed" /> 2.1.257                          |
+| `taskOutputMaxChars`         | <Badge text="Removed" variant="danger" size="small" class="badge removed" /> 2.1.277                          |
 
 - Removed の変数とキーは、書いても効果がありません。Deprecated のキーは今も読まれますが、新しい設定では置き換え先を使います。
 - `CLAUDE_CODE_ENABLE_AUTO_MODE` も互換のために受け付けるだけで、効果はありません。

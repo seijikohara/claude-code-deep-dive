@@ -5,6 +5,8 @@ sidebar:
   order: 24
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 確認の代わりに別の分類器モデルが操作を審査するモードです。使える条件と分類器のモデル、判定順、既定のブロックと許可、しきい値とサブエージェントの扱い、サーバー側レビューと課金、`autoMode` 設定と関連コマンドを扱います。モードの一覧と開始モードは [Ch23](/claude-code-deep-dive/ja/settings/permission-modes/) を参照してください。
 
 <span id="ch24-availability" />
@@ -218,7 +220,7 @@ docs の例の抜粋です。`allow` 節を省き、各文を `…` で切って
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `claude auto-mode defaults [--label <prefix>]` | 組み込みルールを JSON で表示。`--label` はラベルの前方一致（大文字小文字無視）                                    |
 | `claude auto-mode config`                      | 設定を反映した実効値を JSON で表示                                                                                |
-| `claude auto-mode critique [--model <model>]`  | 独自ルールの曖昧さや重複を AI が指摘。`--model` は help のみ <span class="badge undocumented">Undocumented</span> |
+| `claude auto-mode critique [--model <model>]`  | 独自ルールの曖昧さや重複を AI が指摘。`--model` は help のみ <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /> |
 | `claude auto-mode reset [-y]`                  | user 設定の `autoMode` だけを削除。確認文は `Reset auto mode configuration to defaults?`                          |
 
 実機の組み込み一覧は allow 16・soft_deny 72・hard_deny 1・environment 21 件です。soft_deny には解除に必要な名指しを示す `[named+specifics — **must name:** …]` が付きます。

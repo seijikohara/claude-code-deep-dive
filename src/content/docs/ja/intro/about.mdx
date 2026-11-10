@@ -4,6 +4,8 @@ sidebar:
   order: 0
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 <span id="intro-reading" />
 
 ## この資料の読み方
@@ -25,12 +27,12 @@ sidebar:
 | 表記                                                 | 意味                                                 |
 | ---------------------------------------------------- | ---------------------------------------------------- |
 | （なし）                                             | 一般提供（GA）                                       |
-| <span class="badge beta">Beta</span>                 | ドキュメントが beta / public beta と明記             |
-| <span class="badge preview">Preview</span>           | ドキュメントが research preview / preview と明記     |
-| <span class="badge experimental">Experimental</span> | 実験的機能。多くは環境変数などで明示的に有効化が必要 |
-| <span class="badge undocumented">Undocumented</span> | 実機にあるが、ドキュメントに記載がない               |
-| <span class="badge deprecated">Deprecated</span>     | 非推奨                                               |
-| <span class="badge removed">Removed</span>           | 削除済み（経緯の説明のためだけに掲載）               |
+| <Badge text="Beta" variant="note" size="small" class="badge beta" />                 | ドキュメントが beta / public beta と明記             |
+| <Badge text="Preview" variant="tip" size="small" class="badge preview" />           | ドキュメントが research preview / preview と明記     |
+| <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> | 実験的機能。多くは環境変数などで明示的に有効化が必要 |
+| <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /> | 実機にあるが、ドキュメントに記載がない               |
+| <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" />     | 非推奨                                               |
+| <Badge text="Removed" variant="danger" size="small" class="badge removed" />           | 削除済み（経緯の説明のためだけに掲載）               |
 
 :::danger[食い違い]
 ドキュメント・changelog・実機の記述が食い違う箇所には、この枠を付けています。

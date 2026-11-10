@@ -8,13 +8,15 @@ sidebar:
     variant: caution
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 lead となるメインセッションが複数のチームメイト（別の Claude Code インスタンス）を起動し、共有タスクリストとメッセージで協調させる機能です。既定で無効です。この章では、有効化と副作用、構成要素と保存場所、表示モード、モデルとサブエージェント定義の流用、権限と plan 承認、フックと制限事項を扱います。
 
 <span id="ch39-enable" />
 
-## 有効化と注意 <span class="badge experimental">Experimental</span>
+## 有効化と注意 <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />
 
-```json
+```json title="settings.json"
 {
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
@@ -45,7 +47,7 @@ lead となるメインセッションが複数のチームメイト（別の Cl
 
 <span id="ch39-architecture" />
 
-## lead・チームメイト・タスクリスト・mailbox <span class="badge experimental">Experimental</span>
+## lead・チームメイト・タスクリスト・mailbox <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />
 
 | 構成要素     | 役割と保存場所                                                                                                                                                                       |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -69,7 +71,7 @@ lead となるメインセッションが複数のチームメイト（別の Cl
 
 <span id="ch39-display" />
 
-## 表示モード: in-process・tmux・iTerm2 <span class="badge experimental">Experimental</span>
+## 表示モード: in-process・tmux・iTerm2 <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />
 
 | `teammateMode`         | 動作                                                                                  |
 | ---------------------- | ------------------------------------------------------------------------------------- |
@@ -98,7 +100,7 @@ error: option '--teammate-mode <mode>' argument 'bogus' is invalid. Allowed choi
 
 <span id="ch39-model" />
 
-## チームメイトのモデルと、サブエージェント定義の流用 <span class="badge experimental">Experimental</span>
+## チームメイトのモデルと、サブエージェント定義の流用 <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />
 
 ### モデルの決まり方（先に当たったもの）
 
@@ -131,7 +133,7 @@ error: option '--teammate-mode <mode>' argument 'bogus' is invalid. Allowed choi
 
 <span id="ch39-permissions" />
 
-## 権限モードと plan 承認 <span class="badge experimental">Experimental</span>
+## 権限モードと plan 承認 <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />
 
 - 新しいチームメイトは lead のモードで始まります。`bypassPermissions` も同じです。lead が `dontAsk` なら Manual で始まります（lead が Manual・`dontAsk` の分割ペインでは v2.1.317 以降）。起動時にチームメイトごとのモードは指定できません。
 - 動作中のモードは <kbd>Shift</kbd>+<kbd>Tab</kbd> で切り替えます。分割ペインはそのペインで、in-process は表示中に押し、次のターンから効きます。
@@ -162,7 +164,7 @@ claude --settings '{"permissions":{"allow":["Bash(npm *)"]}}'
 
 <span id="ch39-limits" />
 
-## チーム用フック・制限事項・コスト <span class="badge experimental">Experimental</span>
+## チーム用フック・制限事項・コスト <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />
 
 ### フック（詳細は [Ch28](/claude-code-deep-dive/ja/extensions/hooks/#ch28-prompt-tasks)）
 

@@ -5,6 +5,8 @@ sidebar:
   order: 25
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 Bash・PowerShell・Monitor のコマンドと子プロセスに、OS がファイルとネットワークの境界を強制する仕組みです。OS ごとの機構、承認モード、ファイルシステムとネットワークの規則、除外と再試行、認証情報の保護と組織での強制、限界と他の隔離方式を扱います。
 
 <span id="ch25-os" />
@@ -117,7 +119,7 @@ touch: .mcp.json: Operation not permitted
 - `allowedDomains`（ポートなしは全ポート）、`deniedDomains`、`strictAllowlist`（user・managed・`--settings`、v2.1.219 以降）、`allowManagedDomainsOnly`（managed）があります。
 - 確認で Yes を選ぶとセッション中だけ許可し、「don't ask again」は `WebFetch(domain:…)` の allow を local 設定に保存します。
 - 許可したホスト名でも、ループバック・リンクローカル・自機のアドレスにしか解決しない場合は拒否されます。`"127.0.0.1:8080"` のように IP も許可に加えます。
-- `httpProxyPort`・`socksProxyPort` を設定すると、そのトラフィックには Claude Code のドメイン制御が効かなくなります。`network.tlsTerminate` <span class="badge experimental">Experimental</span> は TLS を終端しますが内容の検査はしません。
+- `httpProxyPort`・`socksProxyPort` を設定すると、そのトラフィックには Claude Code のドメイン制御が効かなくなります。`network.tlsTerminate` <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> は TLS を終端しますが内容の検査はしません。
 
 | モード                        | 許可外のホストへの接続                                                         |
 | ----------------------------- | ------------------------------------------------------------------------------ |

@@ -5,6 +5,8 @@ sidebar:
   order: 45
 ---
 
+import { TabItem, Tabs } from "@astrojs/starlight/components";
+
 Claude Code をライブラリとして TypeScript と Python から使う SDK です。この章では、パッケージと認証、最小例、ループの上限とメッセージ型、CLI と既定値が違うオプション、セッションと SessionStore、権限・フック・カスタムツール・MCP、サブエージェントとシステムプロンプト、運用時のコストと分離を扱います。SDK のコード例は docs からの転記で、実行はしていません。
 
 <span id="ch45-packages" />
@@ -39,8 +41,14 @@ Claude Code をライブラリとして TypeScript と Python から使う SDK �
 </div>
 
 <span id="ch45-minimal-py" />
+<span id="ch45-minimal-ts" />
 
-## 最小例: Python
+## 最小例: Python と TypeScript
+
+同じエージェントを 2 つの言語で書いた例です。
+
+<Tabs syncKey="sdk-lang">
+<TabItem label="Python">
 
 ```python
 import asyncio
@@ -70,13 +78,8 @@ async def main():
 asyncio.run(main())
 ```
 
-<div class="src">
-  出典: [agent-sdk/quickstart#build-an-agent-that-finds-and-fixes-bugs](https://code.claude.com/docs/en/agent-sdk/quickstart#build-an-agent-that-finds-and-fixes-bugs)（docs のコードを転記。未実行）
-</div>
-
-<span id="ch45-minimal-ts" />
-
-## 最小例: TypeScript
+</TabItem>
+<TabItem label="TypeScript">
 
 ```typescript
 import { query } from "@anthropic-ai/claude-agent-sdk";
@@ -104,14 +107,17 @@ for await (const message of query({
 }
 ```
 
+</TabItem>
+</Tabs>
+
 - `query()` は非同期イテレータを返し、作業の進行に合わせてメッセージを流します。
 - `allowedTools` は列挙したツールを確認なしで通します。使えるツールを絞る指定ではありません。
 - `permissionMode: "acceptEdits"` はファイル編集を自動で承認します。
 - 結果メッセージ（`type: "result"`）の後にも `prompt_suggestion` などが届くことがあります。結果で `break` せず、最後まで読み切ります。
-- 同じ例を Python で書いたものが前の節です。Python は `isinstance` で型を判定します。
+- Python 版は `isinstance` で型を判定します。
 
 <div class="src">
-  出典: [agent-sdk/quickstart](https://code.claude.com/docs/en/agent-sdk/quickstart#build-an-agent-that-finds-and-fixes-bugs)（docs のコードを転記。未実行） · [agent-sdk/agent-loop#message-types](https://code.claude.com/docs/en/agent-sdk/agent-loop#message-types) · [agent-sdk/typescript#options](https://code.claude.com/docs/en/agent-sdk/typescript#options)
+  出典: [agent-sdk/quickstart#build-an-agent-that-finds-and-fixes-bugs](https://code.claude.com/docs/en/agent-sdk/quickstart#build-an-agent-that-finds-and-fixes-bugs)（docs のコードを転記。未実行） · [agent-sdk/agent-loop#message-types](https://code.claude.com/docs/en/agent-sdk/agent-loop#message-types) · [agent-sdk/typescript#options](https://code.claude.com/docs/en/agent-sdk/typescript#options)
 </div>
 
 <span id="ch45-loop" />

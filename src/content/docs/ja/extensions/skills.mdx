@@ -5,6 +5,8 @@ sidebar:
   order: 29
 ---
 
+import { FileTree } from "@astrojs/starlight/components";
+
 `SKILL.md` で Claude に手順や知識を足す仕組みです。この章では、配置と名前の解決、frontmatter の全フィールド、呼び出し制御、引数と動的コンテキスト注入、`allowed-tools` と信頼モデル、`context: fork`、説明文の予算、可視性と権限ルールを扱います。バンドル Skill の一覧は [Ch12](/claude-code-deep-dive/ja/operation/commands/#ch12-catalog-bundled-1) にあります。
 
 <span id="ch29-overview" />
@@ -18,7 +20,7 @@ sidebar:
 - 経緯: 2.0.20 で追加、2.1.0 でホットリロード・`context: fork`・frontmatter のフック、2.1.3 でスラッシュコマンドと統合。
 - claude.ai へのアップロード、Skills API、`package_skill.py` は `name`・`description`・`license`・`compatibility`・`metadata`・`allowed-tools` の 6 つだけを受け付け、他はエラーになります。
 
-```yaml
+```yaml title="SKILL.md"
 ---
 name: my-skill
 description: What this skill does
@@ -362,14 +364,16 @@ hooks:
 - Skill 自身の `UserPromptSubmit` フックは、呼び出したプロンプトの次から動きます（2.1.299）。
 - 出どころごとの上限と plugin-only ロックは [Ch28](/claude-code-deep-dive/ja/extensions/hooks/#ch28-frontmatter-env) を参照してください。
 
-```text
-my-skill/
-├── SKILL.md (required - overview and navigation)
-├── reference.md (detailed API docs - loaded when needed)
-├── examples.md (usage examples - loaded when needed)
-└── scripts/
-    └── helper.py (utility script - executed, not loaded)
-```
+<FileTree>
+
+- my-skill/
+  - SKILL.md (required - overview and navigation)
+  - reference.md (detailed API docs - loaded when needed)
+  - examples.md (usage examples - loaded when needed)
+  - scripts/
+    - helper.py (utility script - executed, not loaded)
+
+</FileTree>
 
 - `SKILL.md` から各ファイルを参照し、何がいつ要るかを Claude に伝えます。スクリプトは読み込まずに実行します。`SKILL.md` は 500 行以内が目安です。
 - 描画した `SKILL.md` は 1 つのメッセージとして会話に入り、後のターンも残ります。ファイルは読み直しません。

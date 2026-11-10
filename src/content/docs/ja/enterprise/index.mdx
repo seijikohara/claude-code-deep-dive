@@ -1,0 +1,44 @@
+---
+title: "エンタープライズ"
+description: "インストールと更新、認証、管理設定、クラウドプロバイダ、ネットワークとゲートウェイ、監視とコストを扱います。"
+sidebar:
+  label: 概要
+  order: 0
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+インストールと更新、認証、管理設定、クラウドプロバイダ、ネットワークとゲートウェイ、監視とコストを扱います。
+
+<CardGrid>
+  <LinkCard
+    title="インストールと更新"
+    href="/claude-code-deep-dive/ja/enterprise/install/"
+    description="Claude Code を配る方法と、版を管理する仕組みを扱います。"
+  />
+  <LinkCard
+    title="認証"
+    href="/claude-code-deep-dive/ja/enterprise/auth/"
+    description="Claude Code が受け付けるアカウントと資格情報、その優先順位を扱います。"
+  />
+  <LinkCard
+    title="管理設定"
+    href="/claude-code-deep-dive/ja/enterprise/managed-settings/"
+    description="組織のポリシーを配る managed settings を、配布経路ごとの保存形式から扱います。"
+  />
+  <LinkCard
+    title="クラウドプロバイダ"
+    href="/claude-code-deep-dive/ja/enterprise/providers/"
+    description="Amazon Bedrock（Mantle を含む）、Claude Platform on AWS、Google Cloud's Agent Platform（旧 Vertex AI）、Microsoft Foundry で Claude Code を動かす設定を扱います。"
+  />
+  <LinkCard
+    title="ネットワークとゲートウェイ"
+    href="/claude-code-deep-dive/ja/enterprise/network-gateways/"
+    description="企業ネットワークで Claude Code を動かすための設定を扱います。"
+  />
+  <LinkCard
+    title="監視・コスト・分析"
+    href="/claude-code-deep-dive/ja/enterprise/monitoring-costs/"
+    description="組織が Claude Code の利用を測る手段を扱います。"
+  />
+</CardGrid>

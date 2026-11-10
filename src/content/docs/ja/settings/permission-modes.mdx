@@ -5,6 +5,8 @@ sidebar:
   order: 23
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 セッションが確認なしで実行できる範囲を決める 6 つのモードを扱います。Manual への改名、開始モードの決まり方、<kbd>Shift</kbd>+<kbd>Tab</kbd> での切り替え、各モードの細部、どのモードでも自動承認されない操作と保護パス・危険な `rm` の扱いまでを示します。
 
 <span id="ch23-modes" />
@@ -86,7 +88,7 @@ user 設定を読まない `-p`（モード未指定）の init イベント:
 | サーフェス                                     | 選べるモードと既定の決め方                                                                                                                    |
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | VS Code                                        | Manual / Edit automatically / Plan / Auto / Bypass permissions。Bypass は **Allow dangerously skip permissions** の有効化が必要               |
-| JetBrains <span class="badge beta">Beta</span> | IDE のターミナルで CLI と同じ操作                                                                                                             |
+| JetBrains <Badge text="Beta" variant="note" size="small" class="badge beta" /> | IDE のターミナルで CLI と同じ操作                                                                                                             |
 | Desktop                                        | モードセレクタ。Bypass は Pro・Max・Ultra では **Allow bypass permissions mode**、Team・Enterprise では組織ポリシー。選択はフォルダごとに記憶 |
 | クラウド                                       | Accept edits（`default` に相当）/ Plan / Auto。Bypass なし                                                                                    |
 | Remote Control                                 | Manual / Accept edits / Plan / Auto。アプリから Bypass は選べない                                                                             |
@@ -109,7 +111,7 @@ user 設定を読まない `-p`（モード未指定）の init イベント:
 - ファイル編集に加え、`mkdir`・`touch`・`rm`・`rmdir`・`mv`・`cp`・`sed` を自動承認します。対象は作業ディレクトリと `additionalDirectories` 内のパスだけです。
 - `touch` 以外は、`LANG=C` のような安全な環境変数や `timeout`・`nice`・`nohup` を前に付けても承認されます。
 - 確認が残るもの: 範囲外のパス、保護パス、クリティカルパスの削除、オプション・glob・前置きつきの `touch`、読み取り専用以外の Bash。各パスは symlink の検査も通ります。
-- PowerShell <span class="badge preview">Preview</span> では `Set-Content`・`Add-Content`・`Clear-Content`・`Remove-Item` も対象です。引用符を含む位置引数は確認になるので `-Value` で渡します。
+- PowerShell <Badge text="Preview" variant="tip" size="small" class="badge preview" /> では `Set-Content`・`Add-Content`・`Clear-Content`・`Remove-Item` も対象です。引用符を含む位置引数は確認になるので `-Value` で渡します。
 
 ### `plan`
 
@@ -182,7 +184,7 @@ claude -p "Update the dependency pins and run the tests" \
 privileges for security reasons
 ```
 
-- <span class="badge preview">Preview</span> バックグラウンドセッションは承諾の記録がないと bypass 起動を拒否し、承諾が `.claude/settings.local.json` だけなら bypass 要求を無視して通知します。
+- <Badge text="Preview" variant="tip" size="small" class="badge preview" /> バックグラウンドセッションは承諾の記録がないと bypass 起動を拒否し、承諾が `.claude/settings.local.json` だけなら bypass 要求を無視して通知します。
 - `permissions.disableBypassPermissionsMode: "disable"` はどのスコープでも効き、フラグとエージェント定義の `permissionMode: bypassPermissions` を無効にします。`--restricted` も bypass を拒否します。クラウドセッションは設定の `"bypassPermissions"` を黙って無視します。
 
 :::caution[注意]

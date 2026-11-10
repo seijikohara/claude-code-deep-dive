@@ -5,6 +5,8 @@ sidebar:
   order: 69
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 本資料の情報源と調査方法、各節の出典表記の読み方をまとめます。
 
 <span id="ch69-sources" />
@@ -39,8 +41,8 @@ sidebar:
 | changelog だけ                  | 事実。出典欄は「changelog 2.1.x（リファレンス未掲載）」。Undocumented バッジは付けない                                                                                                               |
 | 保存した実行出力                | 事実。出典欄に「実機確認 2.1.321」。伏せ字を入れたうえで原文のまま引用                                                                                                                               |
 | 実行したが出力は未保存          | 出典欄に「実機確認 2.1.321」。調査メモに残る範囲を超えて出力を引用しない                                                                                                                             |
-| `--help` や実行結果にだけ現れる | <span class="badge undocumented">Undocumented</span> と「実機確認 2.1.321」                                                                                                                          |
-| バイナリの文字列だけ            | <span class="badge undocumented">Undocumented</span>。[Ch63](/claude-code-deep-dive/ja/summary/candidates/) と [Ch67](/claude-code-deep-dive/ja/summary/conflicts/) にだけ載せ、手順としては書かない |
+| `--help` や実行結果にだけ現れる | <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /> と「実機確認 2.1.321」                                                                                                                          |
+| バイナリの文字列だけ            | <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" />。[Ch63](/claude-code-deep-dive/ja/summary/candidates/) と [Ch67](/claude-code-deep-dive/ja/summary/conflicts/) にだけ載せ、手順としては書かない |
 
 - 3 つの情報源が食い違う箇所は、各節の食い違い枠に両方の記述と出典を示し、[Ch67](/claude-code-deep-dive/ja/summary/conflicts/) に一覧しました。
 - 判定の基本は、新しく明示的な changelog が古いドキュメントより優先、実機の観察が strings からの推測より優先、です。

@@ -5,6 +5,8 @@ sidebar:
   order: 48
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 Claude Code は同じエンジンを CLI・Desktop・IDE・Web・モバイルで動かします。この章では、各サーフェスの役割、サーフェス間の機能差、プロバイダとプランによる可用性、端末を離れて作業する手段の違いを整理します。
 
 <span id="ch48-overview" />
@@ -13,16 +15,16 @@ Claude Code は同じエンジンを CLI・Desktop・IDE・Web・モバイルで
 
 | サーフェス                                                                                 | 向いている用途                                         | 得られるもの                                                                                                                       |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| [CLI](/claude-code-deep-dive/ja/automation/headless/)                                      | ターミナル作業、スクリプト、リモートサーバー           | 全機能、Agent SDK、macOS での computer use <span class="badge preview">Preview</span>（Pro・Max・Ultra）、サードパーティプロバイダ |
-| [Desktop](/claude-code-deep-dive/ja/platforms/desktop/)                                    | 視覚的なレビュー、並列セッション、管理された配布       | diff ビューア、アプリのプレビュー、computer use <span class="badge preview">Preview</span> と Dispatch（Pro・Max・Ultra）          |
+| [CLI](/claude-code-deep-dive/ja/automation/headless/)                                      | ターミナル作業、スクリプト、リモートサーバー           | 全機能、Agent SDK、macOS での computer use <Badge text="Preview" variant="tip" size="small" class="badge preview" />（Pro・Max・Ultra）、サードパーティプロバイダ |
+| [Desktop](/claude-code-deep-dive/ja/platforms/desktop/)                                    | 視覚的なレビュー、並列セッション、管理された配布       | diff ビューア、アプリのプレビュー、computer use <Badge text="Preview" variant="tip" size="small" class="badge preview" /> と Dispatch（Pro・Max・Ultra）          |
 | [VS Code](/claude-code-deep-dive/ja/platforms/ide/)                                        | ターミナルに切り替えずに VS Code 内で作業              | インライン diff、統合ターミナル、ファイルのコンテキスト                                                                            |
-| [JetBrains](/claude-code-deep-dive/ja/platforms/ide/) <span class="badge beta">Beta</span> | IntelliJ・PyCharm・WebStorm などで作業                 | diff ビューア、選択範囲の共有、ターミナルセッション                                                                                |
+| [JetBrains](/claude-code-deep-dive/ja/platforms/ide/) <Badge text="Beta" variant="note" size="small" class="badge beta" /> | IntelliJ・PyCharm・WebStorm などで作業                 | diff ビューア、選択範囲の共有、ターミナルセッション                                                                                |
 | [Web](/claude-code-deep-dive/ja/platforms/cloud/)                                          | 手のかからない長時間タスク、オフライン中も続けたい作業 | クラウド実行（既定は Anthropic 管理）。切断後も続く                                                                                |
 | [モバイル](/claude-code-deep-dive/ja/platforms/remote-control/)                            | 外出先でのタスク開始と監視                             | iOS・Android の Claude アプリから、クラウドセッション、Remote Control、Desktop への Dispatch                                       |
 
 - スクリプト（`-p`）と Agent SDK は CLI 専用です。サードパーティプロバイダは VS Code と JetBrains（IDE のターミナルで CLI を動かす）でも使えます。
 - 同じプロジェクトでサーフェスを混在できます。設定・プロジェクトメモリ・MCP サーバーは、ローカルのサーフェス間で共有されます。
-- 外部連携は Chrome（[Ch54](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）、GitHub Actions・GitLab CI/CD <span class="badge beta">Beta</span>（[Ch46](/claude-code-deep-dive/ja/automation/cicd/)）、Code Review（[Ch47](/claude-code-deep-dive/ja/automation/code-review/)）、Slack <span class="badge deprecated">Deprecated</span> と Claude Tag <span class="badge beta">Beta</span>（[Ch55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)）が担います。
+- 外部連携は Chrome（[Ch54](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）、GitHub Actions・GitLab CI/CD <Badge text="Beta" variant="note" size="small" class="badge beta" />（[Ch46](/claude-code-deep-dive/ja/automation/cicd/)）、Code Review（[Ch47](/claude-code-deep-dive/ja/automation/code-review/)）、Slack <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> と Claude Tag <Badge text="Beta" variant="note" size="small" class="badge beta" />（[Ch55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)）が担います。
 
 <div class="src">
   出典: [platforms#where-to-run-claude-code](https://code.claude.com/docs/en/platforms#where-to-run-claude-code) · [platforms#connect-your-tools](https://code.claude.com/docs/en/platforms#connect-your-tools)
@@ -41,8 +43,8 @@ Claude Code は同じエンジンを CLI・Desktop・IDE・Web・モバイルで
 | `!` Bash・Tab 補完                                               | 使える                           | 記載なし                                                                     | 使えない                                                    |
 | MCP・プラグイン                                                  | 設定ファイル、`/plugin`          | Connectors UI、プラグインマネージャ                                          | `/mcp` と `/plugins` のダイアログ                           |
 | 添付ファイル                                                     | 使えない                         | 画像・PDF                                                                    | 画像の貼り付け、<kbd>Shift</kbd>+ドラッグでファイル         |
-| Computer use <span class="badge preview">Preview</span>          | macOS（`/mcp` で有効化）         | macOS・Windows（Linux 版は未対応）                                           | 記載なし                                                    |
-| Agent Teams <span class="badge experimental">Experimental</span> | 使える                           | 使えない（Workflows は使える）                                               | 記載なし                                                    |
+| Computer use <Badge text="Preview" variant="tip" size="small" class="badge preview" />          | macOS（`/mcp` で有効化）         | macOS・Windows（Linux 版は未対応）                                           | 記載なし                                                    |
+| Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> | 使える                           | 使えない（Workflows は使える）                                               | 記載なし                                                    |
 | Dispatch                                                         | 使えない                         | サイドバーに Dispatch セッション                                             | 記載なし                                                    |
 | 定期実行                                                         | cron、CI                         | スケジュールタスク（[Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)） | 記載なし                                                    |
 
@@ -62,8 +64,8 @@ Console の API キーやサードパーティプロバイダからは使えま�
 
 - クラウドセッションとモバイル、Remote Control
 - Desktop（ゲートウェイ設定と Claude Desktop on 3P は例外）
-- クラウドのスケジュールタスク（`/schedule`） <span class="badge preview">Preview</span>、Ultrareview <span class="badge preview">Preview</span>、Code Review（Team・Enterprise）
-- Claude Code in Slack <span class="badge deprecated">Deprecated</span>（Pro・Max・Ultra）、Chrome 拡張、Computer use <span class="badge preview">Preview</span>（Pro・Max・Ultra）、Artifacts、音声入力
+- クラウドのスケジュールタスク（`/schedule`） <Badge text="Preview" variant="tip" size="small" class="badge preview" />、Ultrareview <Badge text="Preview" variant="tip" size="small" class="badge preview" />、Code Review（Team・Enterprise）
+- Claude Code in Slack <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" />（Pro・Max・Ultra）、Chrome 拡張、Computer use <Badge text="Preview" variant="tip" size="small" class="badge preview" />（Pro・Max・Ultra）、Artifacts、音声入力
 
 `ANTHROPIC_BASE_URL` が `api.anthropic.com` 以外を指すと、ゲートウェイの転送先にかかわらず Remote Control と server-managed settings がオフになります。
 
@@ -74,11 +76,11 @@ Console の API キーやサードパーティプロバイダからは使えま�
 | Web search                                                   | ✓   | ✓       | ✗       | ✓      | 注 1     | ✓       |
 | Fast mode                                                    | ✓   | ✓       | ✗       | ✗      | ✗        | ✗       |
 | Auto mode                                                    | ✓   | ✓       | 注 2    | ✓      | 注 2     | 注 2    |
-| Advisor <span class="badge experimental">Experimental</span> | ✓   | ✓       | ✗       | ✗      | ✗        | ✗       |
+| Advisor <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> | ✓   | ✓       | ✗       | ✗      | ✗        | ✗       |
 | セッション間メッセージ                                       | ✓   | 同一機  | 同一機  | 同一機 | 同一機   | 同一機  |
-| Channels <span class="badge preview">Preview</span>          | ✓   | ✓       | ✗       | ✗      | ✗        | ✗       |
+| Channels <Badge text="Preview" variant="tip" size="small" class="badge preview" />          | ✓   | ✓       | ✗       | ✗      | ✗        | ✗       |
 | GitHub Actions                                               | ✓   | ✓       | ✓       | ✗      | ✓        | ✓       |
-| GitLab CI/CD <span class="badge beta">Beta</span>            | ✓   | ✓       | ✓       | ✓      | ✓        | ✗       |
+| GitLab CI/CD <Badge text="Beta" variant="note" size="small" class="badge beta" />            | ✓   | ✓       | ✓       | ✓      | ✓        | ✗       |
 
 - Sub = サブスクリプション、AWS = Claude Platform on AWS、Agent P. = Google Cloud の Agent Platform。
 - 注 1: Opus 4・Sonnet 4・Haiku 4.5 以降のモデル。注 2: Sonnet 5 以降・Opus 4.7 以降・Haiku 5.5・Fable のみ。
@@ -95,10 +97,10 @@ Console の API キーやサードパーティプロバイダからは使えま�
 | 機能                                                                    | Pro | Max | Ultra | Team   | Ent.   |
 | ----------------------------------------------------------------------- | --- | --- | ----- | ------ | ------ |
 | クラウドセッション                                                      | ✓   | ✓   | ✓     | ✓      | ✓ 注   |
-| クラウドのスケジュールタスク <span class="badge preview">Preview</span> | ✓   | ✓   | ✓     | ✓      | ✓      |
+| クラウドのスケジュールタスク <Badge text="Preview" variant="tip" size="small" class="badge preview" /> | ✓   | ✓   | ✓     | ✓      | ✓      |
 | Remote Control                                                          | ✓   | ✓   | ✓     | 管理者 | 管理者 |
-| Channels <span class="badge preview">Preview</span>                     | ✓   | ✓   | ✓     | 管理者 | 管理者 |
-| Computer use <span class="badge preview">Preview</span>                 | ✓   | ✓   | ✓     | ✗      | ✗      |
+| Channels <Badge text="Preview" variant="tip" size="small" class="badge preview" />                     | ✓   | ✓   | ✓     | 管理者 | 管理者 |
+| Computer use <Badge text="Preview" variant="tip" size="small" class="badge preview" />                 | ✓   | ✓   | ✓     | ✗      | ✗      |
 | Dispatch（Desktop）                                                     | ✓   | ✓   | ✓     | ✗      | ✗      |
 | Code Review                                                             | ✗   | ✗   | ✗     | ✓      | ✓      |
 | Artifacts                                                               | ✓   | ✓   | ✓     | ✓      | ✓      |
@@ -121,9 +123,9 @@ Console の API キーやサードパーティプロバイダからは使えま�
 | ------------------------------------------------------ | ---------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
 | Dispatch                                               | モバイルアプリからタスクをメッセージ                 | 自分のマシン（Desktop）               | モバイルアプリと Desktop をペアリング。Pro・Max・Ultra                                                 | [Ch52](/claude-code-deep-dive/ja/platforms/desktop/)            |
 | Remote Control                                         | 動作中のセッションを claude.ai/code やアプリから操作 | 自分のマシン（CLI・Desktop・VS Code） | `claude remote-control` か `/remote-control`                                                           | [Ch49](/claude-code-deep-dive/ja/platforms/remote-control/)     |
-| Channels <span class="badge preview">Preview</span>    | Telegram・Discord や自前サーバーからイベントを送る   | 自分のマシン（CLI）                   | チャネルプラグインを入れる                                                                             | [Ch34](/claude-code-deep-dive/ja/extensions/channels/)          |
-| Slack <span class="badge deprecated">Deprecated</span> | チャンネルで `@Claude` にメンション                  | Anthropic のクラウド                  | Slack アプリを入れ、Web 版を有効化。Pro・Max・Ultra。Claude Tag 接続済みのワークスペースでは応答しない | [Ch55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/) |
-| セルフホスト環境 <span class="badge beta">Beta</span>  | クラウドセッションで自組織の環境を選ぶ               | 自組織のインフラ                      | ランナーを配備。Team・Enterprise                                                                       | [Ch51](/claude-code-deep-dive/ja/platforms/self-hosted/)        |
+| Channels <Badge text="Preview" variant="tip" size="small" class="badge preview" />    | Telegram・Discord や自前サーバーからイベントを送る   | 自分のマシン（CLI）                   | チャネルプラグインを入れる                                                                             | [Ch34](/claude-code-deep-dive/ja/extensions/channels/)          |
+| Slack <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" /> | チャンネルで `@Claude` にメンション                  | Anthropic のクラウド                  | Slack アプリを入れ、Web 版を有効化。Pro・Max・Ultra。Claude Tag 接続済みのワークスペースでは応答しない | [Ch55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/) |
+| セルフホスト環境 <Badge text="Beta" variant="note" size="small" class="badge beta" />  | クラウドセッションで自組織の環境を選ぶ               | 自組織のインフラ                      | ランナーを配備。Team・Enterprise                                                                       | [Ch51](/claude-code-deep-dive/ja/platforms/self-hosted/)        |
 | スケジュールタスク                                     | スケジュールを設定                                   | CLI・Desktop・クラウド                | 頻度を選ぶ                                                                                             | [Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)          |
 
 - マシンの電源が切れる場合は、クラウドセッションか Projects を使います。Remote Control と Dispatch は自分のマシンを動かすため、マシンと Claude Code（または Desktop）が動き続けている必要があります。

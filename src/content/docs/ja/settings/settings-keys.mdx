@@ -5,6 +5,8 @@ sidebar:
   order: 19
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 249 個の設定キーから、日常の調整でよく触るものを分野別に抜き出しました。1 キー 1 行で、既定値と要点だけを示します。全キーの一覧は [付録 A](/claude-code-deep-dive/ja/appendix/settings/)、ファイルの優先順位とマージは [Ch18](/claude-code-deep-dive/ja/settings/settings-files/) を参照してください。スコープの列が無い行は Any file（4 種のファイルすべてに書ける）です。
 
 <span id="ch19-model" />
@@ -21,7 +23,7 @@ sidebar:
 | `effortLevel`           | 未設定                           | `"low"`・`"medium"`・`"high"`・`"xhigh"`。保存の無いモデルの既定                                                                |
 | `maxEffortLevel`        | 未設定（上限なし）               | effort の上限。全スコープで最も低い上限が効く                                                                                   |
 | `alwaysThinkingEnabled` | 未設定（対応モデルで思考オン）   | `false` で拡張思考をオフ。`true` は何も変えない                                                                                 |
-| `advisorModel`          | 未設定（advisor オフ）           | advisor のモデル <span class="badge experimental">Experimental</span>（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/)） |
+| `advisorModel`          | 未設定（advisor オフ）           | advisor のモデル <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/)） |
 | `promptCacheTtl`        | 未設定                           | メイン会話のキャッシュ TTL。`"5m"` か `"1h"`                                                                                    |
 | `language`              | 未設定                           | 既定の応答言語。固定の一覧は無く、値をそのまま Claude に渡す                                                                    |
 
@@ -81,7 +83,7 @@ sidebar:
 | キー                       | 既定               | 要点                                                                                      |
 | -------------------------- | ------------------ | ----------------------------------------------------------------------------------------- |
 | `theme`                    | `"dark"`           | `"auto"`・`"light"`・`*-daltonized`・`*-ansi`・`"custom:<slug>"`                          |
-| `tui`                      | 未設定（自動選択） | `"default"`（従来の描画）か `"fullscreen"` <span class="badge preview">Preview</span>     |
+| `tui`                      | 未設定（自動選択） | `"default"`（従来の描画）か `"fullscreen"` <Badge text="Preview" variant="tip" size="small" class="badge preview" />     |
 | `viewMode`                 | 未設定             | `"default"`・`"verbose"`・`"focus"`。`--verbose` が優先                                   |
 | `editorMode`               | `"normal"`         | `"vim"` で入力欄を Vim キーバインドに                                                     |
 | `statusLine`               | 未設定             | ステータスラインを描くコマンド（[Ch15](/claude-code-deep-dive/ja/operation/statusline/)） |
@@ -108,7 +110,7 @@ sidebar:
 | `sandbox.network.allowedDomains`             | 未設定         | 通信先を事前に許可。`*.example.com` はサブドメインに一致                                             |
 | `agent`                                      | 未設定         | メインスレッドを名前付きサブエージェントとして動かす。`--agent` が優先                               |
 | `worktree.baseRef`                           | `"fresh"`      | `"fresh"` は `origin/<default-branch>`、`"head"` はローカルの `HEAD` から分岐                        |
-| `teammateMode`                               | `"in-process"` | `"auto"`・`"tmux"`・`"iterm2"` で分割ペイン表示 <span class="badge experimental">Experimental</span> |
+| `teammateMode`                               | `"in-process"` | `"auto"`・`"tmux"`・`"iterm2"` で分割ペイン表示 <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> |
 | `attribution`                                | 未設定         | commit・PR の帰属表記。`false` ですべて非表示（2.1.281 以降）                                        |
 | `includeGitInstructions`                     | `true`         | git の手順と git status のスナップショットを Claude に渡す                                           |
 | `apiKeyHelper`                               | 未設定         | 認証情報を出力するコマンド。`/bin/sh`（Windows は `cmd`）で実行                                      |

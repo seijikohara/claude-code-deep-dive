@@ -5,6 +5,8 @@ sidebar:
   order: 22
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 allow・ask・deny の権限ルールを扱います。確認プロンプトと保存先、評価順とスコープ間の優先、フック・mod との関係、構文、Bash の照合規則と限界、Read・Edit のパス規則、WebFetch・MCP・Agent・Skill・Cd のルール、作業ディレクトリとワークスペース信頼までを示します。
 
 <span id="ch22-layers" />
@@ -240,7 +242,7 @@ mod の `tool.check` は PreToolUse フックの後に答えます。結果は�
 - 区切りは `&&`・`||`・`;`・`|`・`|&`・`&`・改行です。確認なしで走るには、すべてのサブコマンドが allow ルールか読み取り専用判定で許可されている必要があります。
 - deny・ask は、サブシェル・コマンド置換・`for` の本体を含むどれか 1 つに一致すれば効きます。auto mode でも同じです。ask `Bash(git clean *)` は `cd /tmp && git clean -f` や `echo "$(git clean -f)"` でも確認します。
 - `npm test &&` のように後ろが空の `&&`・`||` は解析不能として分割されず、`Bash(npm *)` でも承認されません。
-- PowerShell <span class="badge preview">Preview</span> は AST を解析し、`|`・`;`・PowerShell 7 以降の `&&`・`||` で分割します。別名は正規化され（`PowerShell(Get-ChildItem *)` は `gci`・`ls`・`dir` にも一致）、大文字小文字を区別しません。
+- PowerShell <Badge text="Preview" variant="tip" size="small" class="badge preview" /> は AST を解析し、`|`・`;`・PowerShell 7 以降の `&&`・`||` で分割します。別名は正規化され（`PowerShell(Get-ChildItem *)` は `gci`・`ls`・`dir` にも一致）、大文字小文字を区別しません。
 
 ### ラッパーと環境変数
 

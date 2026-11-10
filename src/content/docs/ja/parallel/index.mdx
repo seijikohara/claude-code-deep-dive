@@ -1,0 +1,54 @@
+---
+title: "並列化"
+description: "並列化の全体像、サブエージェント、Agent View とバックグラウンドセッション、Agent Teams、セッション間メッセージング、Dynamic Workflows、worktree、スケジュール実行を扱います。"
+sidebar:
+  label: 概要
+  order: 0
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+並列化の全体像、サブエージェント、Agent View とバックグラウンドセッション、Agent Teams、セッション間メッセージング、Dynamic Workflows、worktree、スケジュール実行を扱います。
+
+<CardGrid>
+  <LinkCard
+    title="並列化の全体像"
+    href="/claude-code-deep-dive/ja/parallel/parallel/"
+    description="Claude Code が複数のタスクを同時に進める 5 つの手段を並べ、誰が調整するか、ワーカー同士がどう通信するか、同じファイルをどう扱うかで比較します。"
+  />
+  <LinkCard
+    title="サブエージェント"
+    href="/claude-code-deep-dive/ja/parallel/subagents/"
+    description="1 つのセッションの中で、独立したコンテキストを持つワーカーに作業を委譲する仕組みです。"
+  />
+  <LinkCard
+    title="Agent View とバックグラウンド"
+    href="/claude-code-deep-dive/ja/parallel/agent-view/"
+    description="端末を占有しないバックグラウンドセッションを起動し、claude agents の 1 画面で状態を見て、必要なときだけ介入する仕組みです。"
+  />
+  <LinkCard
+    title="Agent Teams"
+    href="/claude-code-deep-dive/ja/parallel/agent-teams/"
+    description="lead となるメインセッションが複数のチームメイト（別の Claude Code インスタンス）を起動し、共有タスクリストとメッセージで協調させる機能です。"
+  />
+  <LinkCard
+    title="セッション間メッセージング"
+    href="/claude-code-deep-dive/ja/parallel/messaging/"
+    description="ある Claude Code セッションの Claude が、あなたの別のセッションへテキストを送る仕組みです。"
+  />
+  <LinkCard
+    title="Dynamic Workflows"
+    href="/claude-code-deep-dive/ja/parallel/workflows/"
+    description="Claude が書いた JavaScript のスクリプトを、ランタイムがバックグラウンドで実行し、多数のサブエージェントを動かす仕組みです。"
+  />
+  <LinkCard
+    title="Worktree"
+    href="/claude-code-deep-dive/ja/parallel/worktrees/"
+    description="セッションやサブエージェントを別々の git worktree で動かし、並列の編集が衝突しないようにする仕組みです。"
+  />
+  <LinkCard
+    title="スケジュール実行"
+    href="/claude-code-deep-dive/ja/parallel/scheduling/"
+    description="プロンプトを繰り返し、または決まった時刻に実行する 3 つの仕組みを扱います。"
+  />
+</CardGrid>

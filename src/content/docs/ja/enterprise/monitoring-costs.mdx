@@ -5,6 +5,8 @@ sidebar:
   order: 61
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 組織が Claude Code の利用を測る手段を扱います。OpenTelemetry のメトリクス・イベント・トレース（Beta）とプライバシー制御、Anthropic 向けテレメトリの止め方、`/usage` と `modelPricing`、組織の支出管理、analytics ダッシュボード、HIPAA 構成の要点を説明します。
 
 <span id="ch61-otel-setup" />
@@ -71,10 +73,10 @@ OTel のログとして送り、`prompt.id` で束ねます。
 `user_prompt` `assistant_response` `tool_result` `tool_decision` `api_request` `api_error` `api_refusal` `api_request_body` `api_response_body` `api_retries_exhausted` `permission_mode_changed` `auth` `mcp_server_connection` `internal_error` `plugin_installed` `plugin_loaded` `skill_activated` `at_mention` `hook_registered` `hook_execution_start` `hook_execution_complete` `hook_plugin_metrics` `compaction` `subagent_completed` `feedback_survey` `retention_sweep` `managed_settings_resolved`（いずれも接頭辞 `claude_code.`）
 
 :::danger[食い違い]
-`claude_code.safety_event` <span class="badge removed">Removed</span>: docs は v2.1.307 以降のイベントとして記載したまま。changelog 2.1.312 で送信を停止し、実機の deny ルール実行でも出なかった。
+`claude_code.safety_event` <Badge text="Removed" variant="danger" size="small" class="badge removed" />: docs は v2.1.307 以降のイベントとして記載したまま。changelog 2.1.312 で送信を停止し、実機の deny ルール実行でも出なかった。
 :::
 
-### トレース <span class="badge beta">Beta</span>
+### トレース <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - `CLAUDE_CODE_ENABLE_TELEMETRY=1`、`CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1`、`OTEL_TRACES_EXPORTER` を設定します。間隔の既定は 5000 ms です。
 - スパン: プロンプトごとの `claude_code.interaction` の下に `claude_code.llm_request`、`claude_code.tool`（その下に `claude_code.tool.blocked_on_user` と `claude_code.tool.execution`）、詳細トレース時の `claude_code.hook`。
@@ -146,7 +148,7 @@ Console の推奨レート（組織全体の上限として設定）。
 - Console は `platform.claude.com/claude-code`（UsageView 権限）で、支出と利用者別の表があります。
 - クラウドプロバイダの利用と、`DISABLE_TELEMETRY` を設定した開発者のデータは含みません。
 
-### contribution metrics <span class="badge beta">Beta</span>
+### contribution metrics <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
 - claude.ai 組織の利用だけを数えます。Owner が **GitHub analytics** を有効にし、GitHub 管理者が Claude GitHub app を入れます。約 24 時間後から日次更新です。
 - マージされた PR の追加行を、21 日前から 2 日後までのセッションと照合し、`claude-code-assisted` ラベルを付けます。ZDR の組織と GHES では使えません。

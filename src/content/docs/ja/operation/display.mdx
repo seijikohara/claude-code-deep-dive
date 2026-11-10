@@ -5,11 +5,13 @@ sidebar:
   order: 17
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 CLI の描画方式と端末まわりの設定です。この章では、フルスクリーン描画（Preview）の切り替えと操作、端末の設定とテーマ、音声入力、スクリーンリーダーモード、`claude-cli://` ディープリンクを扱います。
 
 <span id="ch17-fullscreen" />
 
-## フルスクリーン描画: 切り替えと既定の決まり方 <span class="badge preview">Preview</span>
+## フルスクリーン描画: 切り替えと既定の決まり方 <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 - vim や htop と同じく端末の代替画面に描き、見えているメッセージだけを描画します。ちらつきが消え、長い会話でもメモリが一定になり、マウスが使えます。
 - `/tui fullscreen` は設定 `tui` を保存し、会話を保ったまま再起動します。`/tui default` で戻り、`/tui` は現在の描画方式を表示します（v2.1.110 で追加）。
@@ -37,7 +39,7 @@ CLI の描画方式と端末まわりの設定です。この章では、フル�
 
 <span id="ch17-fullscreen-use" />
 
-## フルスクリーン描画: マウス・スクロール・検索・起動失敗 <span class="badge preview">Preview</span>
+## フルスクリーン描画: マウス・スクロール・検索・起動失敗 <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
 - クリックでカーソル移動、`/`・`@` の候補やメニュー・`/config` の値の選択、折りたたまれたツール結果の展開ができます。<kbd>Cmd</kbd>（macOS）/ <kbd>Ctrl</kbd>＋クリックで URL やパスを開きます。
 - ドラッグ・ダブルクリック・トリプルクリックで選択し、離すとコピーします（`/config` の Copy on select）。手動コピーは <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd>、選択中の <kbd>Ctrl</kbd>+<kbd>C</kbd> はコピーになります。

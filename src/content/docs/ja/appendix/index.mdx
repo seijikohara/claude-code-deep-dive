@@ -1,0 +1,39 @@
+---
+title: "全件付録"
+description: "設定キー 249・環境変数 402・CLI フラグとサブコマンド・Hook イベント 33・組み込みツール 46 の全件表です。公式ドキュメントのミラーから機械的に抽出し、説明を日本語の 1 文に要約しました。"
+sidebar:
+  label: 概要
+  order: 0
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+設定キー 249・環境変数 402・CLI フラグとサブコマンド・Hook イベント 33・組み込みツール 46 の全件表です。公式ドキュメントのミラーから機械的に抽出し、説明を日本語の 1 文に要約しました。
+
+<CardGrid>
+  <LinkCard
+    title="設定キー全件"
+    href="/claude-code-deep-dive/ja/appendix/settings/"
+    description="settings-reference に掲載された全キーを、ドキュメントの掲載順（カテゴリ順）に並べています。"
+  />
+  <LinkCard
+    title="環境変数全件"
+    href="/claude-code-deep-dive/ja/appendix/env/"
+    description="env-vars の Variables 表に掲載された全変数を、ドキュメントの掲載順（アルファベット順）に並べています。"
+  />
+  <LinkCard
+    title="CLI フラグとサブコマンド全件"
+    href="/claude-code-deep-dive/ja/appendix/cli/"
+    description="cli-reference の表と、実機の claude --help（各サブコマンドの --help を含む）を突き合わせた全件です。"
+  />
+  <LinkCard
+    title="Hook イベント全件"
+    href="/claude-code-deep-dive/ja/appendix/hooks/"
+    description="hooks の lifecycle 表に掲載された全イベントです。"
+  />
+  <LinkCard
+    title="組み込みツール全件"
+    href="/claude-code-deep-dive/ja/appendix/tools/"
+    description="tools-reference の表に掲載された全ツールです（現行 45 ＋削除済み TaskOutput）。"
+  />
+</CardGrid>

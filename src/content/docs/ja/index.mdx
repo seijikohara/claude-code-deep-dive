@@ -14,6 +14,8 @@ hero:
       variant: minimal
 ---
 
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
 ```console title="claude --version"
 $ claude --version
 2.1.321 (Claude Code)
@@ -21,17 +23,63 @@ $ claude --version
 
 ## 構成
 
-- **導入**: [この資料について](/claude-code-deep-dive/ja/intro/about/)、[全体像](/claude-code-deep-dive/ja/intro/overview/)
-- **基礎の深掘り**: [仕組み](/claude-code-deep-dive/ja/fundamentals/how-it-works/)、[モデル選択](/claude-code-deep-dive/ja/fundamentals/models/)、[Effort と思考](/claude-code-deep-dive/ja/fundamentals/effort/)、[Fast mode](/claude-code-deep-dive/ja/fundamentals/fast-mode/)、[Advisor](/claude-code-deep-dive/ja/fundamentals/advisor/)、[コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/)、[セッション](/claude-code-deep-dive/ja/fundamentals/sessions/)、[チェックポイント](/claude-code-deep-dive/ja/fundamentals/checkpoints/)、[メモリ](/claude-code-deep-dive/ja/fundamentals/memory/)、[.claude ディレクトリ](/claude-code-deep-dive/ja/fundamentals/claude-dir/)、[ベストプラクティスと大規模リポジトリ](/claude-code-deep-dive/ja/fundamentals/best-practices/)
-- **操作**: [スラッシュコマンド完全ガイド](/claude-code-deep-dive/ja/operation/commands/)、[キーボードと入力](/claude-code-deep-dive/ja/operation/keyboard/)、[キーバインド](/claude-code-deep-dive/ja/operation/keybindings/)、[ステータスライン](/claude-code-deep-dive/ja/operation/statusline/)、[出力スタイル](/claude-code-deep-dive/ja/operation/output-styles/)、[表示とアクセシビリティ](/claude-code-deep-dive/ja/operation/display/)
-- **設定と安全**: [設定ファイル](/claude-code-deep-dive/ja/settings/settings-files/)、[設定キー早見表](/claude-code-deep-dive/ja/settings/settings-keys/)、[環境変数](/claude-code-deep-dive/ja/settings/env-vars/)、[組み込みツール](/claude-code-deep-dive/ja/settings/tools/)、[権限ルール](/claude-code-deep-dive/ja/settings/permission-rules/)、[パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/)、[Auto mode](/claude-code-deep-dive/ja/settings/auto-mode/)、[サンドボックス](/claude-code-deep-dive/ja/settings/sandbox/)、[セキュリティ](/claude-code-deep-dive/ja/settings/security/)、[診断](/claude-code-deep-dive/ja/settings/diagnostics/)
-- **拡張**: [Hooks](/claude-code-deep-dive/ja/extensions/hooks/)、[Skills](/claude-code-deep-dive/ja/extensions/skills/)、[MCP](/claude-code-deep-dive/ja/extensions/mcp/)、[プラグイン](/claude-code-deep-dive/ja/extensions/plugins/)、[マーケットプレイス](/claude-code-deep-dive/ja/extensions/marketplaces/)、[Mods](/claude-code-deep-dive/ja/extensions/mods/)、[Channels](/claude-code-deep-dive/ja/extensions/channels/)、[Artifacts](/claude-code-deep-dive/ja/extensions/artifacts/)
-- **並列化**: [並列化の全体像](/claude-code-deep-dive/ja/parallel/parallel/)、[サブエージェント](/claude-code-deep-dive/ja/parallel/subagents/)、[Agent View とバックグラウンド](/claude-code-deep-dive/ja/parallel/agent-view/)、[Agent Teams](/claude-code-deep-dive/ja/parallel/agent-teams/)、[セッション間メッセージング](/claude-code-deep-dive/ja/parallel/messaging/)、[Dynamic Workflows](/claude-code-deep-dive/ja/parallel/workflows/)、[Worktree](/claude-code-deep-dive/ja/parallel/worktrees/)、[スケジュール実行](/claude-code-deep-dive/ja/parallel/scheduling/)
-- **自動化**: [ヘッドレス実行](/claude-code-deep-dive/ja/automation/headless/)、[Agent SDK](/claude-code-deep-dive/ja/automation/agent-sdk/)、[CI/CD](/claude-code-deep-dive/ja/automation/cicd/)、[コードレビュー](/claude-code-deep-dive/ja/automation/code-review/)
-- **プラットフォーム**: [サーフェス](/claude-code-deep-dive/ja/platforms/surfaces/)、[Remote Control とモバイル](/claude-code-deep-dive/ja/platforms/remote-control/)、[クラウドセッション](/claude-code-deep-dive/ja/platforms/cloud/)、[セルフホスト環境](/claude-code-deep-dive/ja/platforms/self-hosted/)、[Desktop](/claude-code-deep-dive/ja/platforms/desktop/)、[IDE](/claude-code-deep-dive/ja/platforms/ide/)、[Chrome と Computer use](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)、[Projects・Slack・Claude Tag](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)
-- **エンタープライズ**: [インストールと更新](/claude-code-deep-dive/ja/enterprise/install/)、[認証](/claude-code-deep-dive/ja/enterprise/auth/)、[管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/)、[クラウドプロバイダ](/claude-code-deep-dive/ja/enterprise/providers/)、[ネットワークとゲートウェイ](/claude-code-deep-dive/ja/enterprise/network-gateways/)、[監視・コスト・分析](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)
-- **まとめ**: [実験的・プレビュー機能一覧](/claude-code-deep-dive/ja/summary/status-board/)、[未公開の実験フラグ候補](/claude-code-deep-dive/ja/summary/candidates/)、[タイムライン](/claude-code-deep-dive/ja/summary/timeline/)、[直近 25 リリース](/claude-code-deep-dive/ja/summary/recent/)、[改名・廃止・削除](/claude-code-deep-dive/ja/summary/renames/)、[ドキュメントと実機の食い違い](/claude-code-deep-dive/ja/summary/conflicts/)、[アップグレードチェックリスト](/claude-code-deep-dive/ja/summary/upgrade/)、[参考資料](/claude-code-deep-dive/ja/summary/references/)
-- **全件付録**: [設定キー全件](/claude-code-deep-dive/ja/appendix/settings/)、[環境変数全件](/claude-code-deep-dive/ja/appendix/env/)、[CLI フラグとサブコマンド全件](/claude-code-deep-dive/ja/appendix/cli/)、[Hook イベント全件](/claude-code-deep-dive/ja/appendix/hooks/)、[組み込みツール全件](/claude-code-deep-dive/ja/appendix/tools/)
+<CardGrid>
+  <LinkCard
+    title="導入（2 章）"
+    href="/claude-code-deep-dive/ja/intro/"
+    description="この資料の読み方と、Claude Code 2.1.321 の全体像です。"
+  />
+  <LinkCard
+    title="基礎の深掘り（11 章）"
+    href="/claude-code-deep-dive/ja/fundamentals/"
+    description="エージェントループの仕組み、モデル選択、Effort と思考、Fast mode、Advisor、コンテキスト管理、セッション、チェックポイント、メモリ、.claude ディレクトリ、ベストプラクティスと大規模リポジトリを扱います。"
+  />
+  <LinkCard
+    title="操作（6 章）"
+    href="/claude-code-deep-dive/ja/operation/"
+    description="スラッシュコマンドの全件、キーボード操作と入力、キーバインド、ステータスライン、出力スタイル、表示とアクセシビリティを扱います。"
+  />
+  <LinkCard
+    title="設定と安全（10 章）"
+    href="/claude-code-deep-dive/ja/settings/"
+    description="設定ファイルの優先順位、設定キーと環境変数、組み込みツール、権限ルール、パーミッションモード、Auto mode、サンドボックス、セキュリティ、診断を扱います。"
+  />
+  <LinkCard
+    title="拡張（8 章）"
+    href="/claude-code-deep-dive/ja/extensions/"
+    description="Hooks、Skills、MCP、プラグインとマーケットプレイス、Mods、Channels、Artifacts を扱います。"
+  />
+  <LinkCard
+    title="並列化（8 章）"
+    href="/claude-code-deep-dive/ja/parallel/"
+    description="並列化の全体像、サブエージェント、Agent View とバックグラウンドセッション、Agent Teams、セッション間メッセージング、Dynamic Workflows、worktree、スケジュール実行を扱います。"
+  />
+  <LinkCard
+    title="自動化（4 章）"
+    href="/claude-code-deep-dive/ja/automation/"
+    description="ヘッドレス実行（-p）、Agent SDK、CI/CD、コードレビューを扱います。"
+  />
+  <LinkCard
+    title="プラットフォーム（8 章）"
+    href="/claude-code-deep-dive/ja/platforms/"
+    description="CLI 以外のサーフェス（Desktop、クラウドセッション、セルフホスト環境、IDE、Chrome と Computer use、Projects・Slack・Claude Tag）と、Remote Control とモバイルを扱います。"
+  />
+  <LinkCard
+    title="エンタープライズ（6 章）"
+    href="/claude-code-deep-dive/ja/enterprise/"
+    description="インストールと更新、認証、管理設定、クラウドプロバイダ、ネットワークとゲートウェイ、監視とコストを扱います。"
+  />
+  <LinkCard
+    title="まとめ（8 章）"
+    href="/claude-code-deep-dive/ja/summary/"
+    description="実験的機能とプレビューの一覧、未公開の実験フラグ候補、2.1.x のタイムラインと直近 25 リリース、改名と削除、ドキュメントと実機の食い違い、アップグレードチェックリスト、参考資料をまとめます。"
+  />
+  <LinkCard
+    title="全件付録"
+    href="/claude-code-deep-dive/ja/appendix/"
+    description="設定キー 249・環境変数 402・CLI フラグとサブコマンド・Hook イベント 33・組み込みツール 46 の全件表です。公式ドキュメントのミラーから機械的に抽出し、説明を日本語の 1 文に要約しました。"
+  />
+</CardGrid>
 
 ## 確認の方法
 

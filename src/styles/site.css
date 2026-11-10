@@ -138,3 +138,14 @@ kbd {
 .sl-markdown-content table code {
   overflow-wrap: anywhere;
 }
+
+/* Starlight <Badge> carries the status classes (class="badge <status>"); drop its pill styling
+   so status reads as the same colored square and word as in the generated tables. */
+.sl-badge.badge {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: var(--sl-font);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}

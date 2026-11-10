@@ -5,6 +5,8 @@ sidebar:
   order: 9
 ---
 
+import { Badge, FileTree } from "@astrojs/starlight/components";
+
 Claude Code は、自分で書く CLAUDE.md と Claude が書く auto memory の 2 系統で、セッションをまたいで知識を引き継ぎます。この章では、CLAUDE.md のスコープと読み込み順、オンデマンド読み込みとサイズ上限、`@path` インポート、`.claude/rules`、AGENTS.md、組織向けの制御、auto memory、`/memory` を扱います。読み込み順と条件は、2 階層のフィクスチャで `-p` を実行して確かめました。
 
 <span id="ch09-two-systems" />
@@ -124,7 +126,7 @@ $ cd mono/pkg && claude -p "/context all"
 * `~/.claude/CLAUDE.md`・`~/.claude/rules/` などユーザースコープの import は、ダイアログなしで読みます（Cowork セッションでは作業ディレクトリ外を飛ばす）。
 * `CLAUDE.local.md` は作った worktree にしか無いため、worktree 間で共有する個人指示はホームのファイルを import します。
 
-```markdown
+```markdown title="pkg/CLAUDE.md"
 - Import: @docs/extra.md
 - Literal: `@docs/not-imported.md`
 ```
@@ -139,15 +141,17 @@ $ cd mono/pkg && claude -p "/context all"
 
 ## `.claude/rules/` と `paths`: 読み込み条件とパターン
 
-```text
-your-project/
-├── .claude/
-│   ├── CLAUDE.md           # Main project instructions
-│   └── rules/
-│       ├── code-style.md   # Code style guidelines
-│       ├── testing.md      # Testing conventions
-│       └── security.md     # Security requirements
-```
+<FileTree>
+
+- your-project/
+  - .claude/
+    - CLAUDE.md Main project instructions
+    - rules/
+      - code-style.md Code style guidelines
+      - testing.md Testing conventions
+      - security.md Security requirements
+
+</FileTree>
 
 - `.claude/rules/` 配下の `.md` を再帰的に探します。`frontend/` などのサブディレクトリに分けられます。
 - `paths` の無い rule は、`.claude/CLAUDE.md` と同じ優先度で起動時に読みます。
@@ -280,7 +284,7 @@ $ cd mono/pkg && claude -p "Use the Read tool on src/a.ts, then reply with only 
 - その場合は隣の CLAUDE.md で import します（右上）。`ln -s AGENTS.md CLAUDE.md` でも読めますが、Edit・Write は symlink 越しに書かず、Windows では symlink がテキストとして checkout されることがあります。
 - `/init` は `.cursor/rules/`・`.github/copilot-instructions.md` などを取り込み、`/import` は AGENTS.md などを CLAUDE.md へ 1 回だけ複写します。
 
-```markdown
+```markdown title="CLAUDE.md"
 @AGENTS.md
 
 ## Claude Code
@@ -402,13 +406,15 @@ Claude は作業しながら 4 種類のメモを残し、種類を frontmatter 
 
 コードから導けること（構成、ファイルパス、デバッグの修正）と CLAUDE.md に書いてあることは保存しません。毎セッション保存するわけでもありません。
 
-```text
-~/.claude/projects/<project>/memory/
-├── MEMORY.md           # Index, one line per memory, …
-├── user_role.md        # One memory
-├── feedback_testing.md # One memory
-└── ...                 # Any other topic files Claude creates
-```
+<FileTree>
+
+- ~/.claude/projects/&lt;project&gt;/memory/
+  - MEMORY.md Index, one line per memory, …
+  - user_role.md One memory
+  - feedback_testing.md One memory
+  - ... Any other topic files Claude creates
+
+</FileTree>
 
 - `<project>` は git リポジトリから決まり、同じリポジトリの worktree とサブディレクトリで共有します。git の外ではプロジェクトのルートです。マシン間では共有しません。
 - 起動時に読むのは `MEMORY.md` の先頭 200 行または 25KB の早い方だけです。トピックファイルは、Claude が必要なときに通常のファイルツールで読みます。
@@ -441,7 +447,7 @@ Claude は作業しながら 4 種類のメモを残し、種類を frontmatter 
 * GUI エディタは別ウィンドウで開き、Vim などは終了まで端末を占有します。
 * 「always use pnpm, not npm」のように覚えるよう頼むと auto memory に保存します。CLAUDE.md に入れるなら「add this to CLAUDE.md」と頼むか、`/memory` から自分で編集します。
 * 読んだ AGENTS.md も一覧に出ます（2.1.280 以降）。
-* メモを素早く足す `#` ショートカットは 2.0.70 で削除されました <span class="badge removed">Removed</span>。CLAUDE.md の編集は Claude に頼みます。
+* メモを素早く足す `#` ショートカットは 2.0.70 で削除されました <Badge text="Removed" variant="danger" size="small" class="badge removed" />。CLAUDE.md の編集は Claude に頼みます。
 
 ```text title="実測 2.1.321" frame="terminal"
 $ claude -p "/memory" --setting-sources project,local

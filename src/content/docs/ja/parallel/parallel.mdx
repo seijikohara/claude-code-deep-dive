@@ -5,6 +5,8 @@ sidebar:
   order: 36
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 Claude Code が複数のタスクを同時に進める 5 つの手段を並べ、誰が調整するか、ワーカー同士がどう通信するか、同じファイルをどう扱うかで比較します。各手段の詳細は Ch37 以降の章にあります。
 
 <span id="ch36-approaches" />
@@ -14,9 +16,9 @@ Claude Code が複数のタスクを同時に進める 5 つの手段を並べ�
 | 手段                                                             | 得られるもの                                                                                                                             | 向く場面                                                                                     | 章                                                            |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | サブエージェント                                                 | 1 セッション内の委譲先。自分のコンテキストで脇の作業をし、要約だけを返す                                                                 | 検索結果・ログ・ファイル内容で、メイン会話が二度と見ない出力に埋まりそうなとき               | [37](/claude-code-deep-dive/ja/parallel/subagents/)           |
-| Agent View <span class="badge preview">Preview</span>            | `claude agents` で開く 1 画面。バックグラウンドセッションを起動し、状態を監視する                                                        | 独立したタスクを複数渡し、状態を一覧し、必要なときだけ介入したいとき                         | [38](/claude-code-deep-dive/ja/parallel/agent-view/)          |
-| Agent Teams <span class="badge experimental">Experimental</span> | lead が管理する複数セッション。共有タスクリストとエージェント間メッセージを持つ。既定で無効                                              | Claude にプロジェクトを分割・割り当てさせ、ワーカーを同期させたいとき                        | [39](/claude-code-deep-dive/ja/parallel/agent-teams/)         |
-| Projects <span class="badge beta">Beta</span>                    | claude.ai/code かデスクトップアプリの継続会話。thread と呼ぶ並列セッションをクラウドで、頼めば Remote Control 経由で手元の PC で起動する | 数日〜数週間に及ぶ多数のタスクを、マシンが止まっていても進めたいとき                         | [55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/) |
+| Agent View <Badge text="Preview" variant="tip" size="small" class="badge preview" />            | `claude agents` で開く 1 画面。バックグラウンドセッションを起動し、状態を監視する                                                        | 独立したタスクを複数渡し、状態を一覧し、必要なときだけ介入したいとき                         | [38](/claude-code-deep-dive/ja/parallel/agent-view/)          |
+| Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> | lead が管理する複数セッション。共有タスクリストとエージェント間メッセージを持つ。既定で無効                                              | Claude にプロジェクトを分割・割り当てさせ、ワーカーを同期させたいとき                        | [39](/claude-code-deep-dive/ja/parallel/agent-teams/)         |
+| Projects <Badge text="Beta" variant="note" size="small" class="badge beta" />                    | claude.ai/code かデスクトップアプリの継続会話。thread と呼ぶ並列セッションをクラウドで、頼めば Remote Control 経由で手元の PC で起動する | 数日〜数週間に及ぶ多数のタスクを、マシンが止まっていても進めたいとき                         | [55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/) |
 | Dynamic Workflows                                                | 多数のサブエージェントを動かし、結果を突き合わせるスクリプト                                                                             | サブエージェント数個に収まらない作業や相互検証。リポジトリ全体の監査、500 ファイルの移行など | [41](/claude-code-deep-dive/ja/parallel/workflows/)           |
 
 - どの手段でもワーカーは Claude セッションです。別のツールを使わせるには MCP サーバーとして公開します。
@@ -36,8 +38,8 @@ Claude Code が複数のタスクを同時に進める 5 つの手段を並べ�
 | 手段                                                             | 調整役                                                    | 通信と結果の届け先                                                        | 同じファイルを触るとき                                        |
 | ---------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | サブエージェント                                                 | 1 つの会話の中で Claude が委譲し、結果を集める            | 起動した会話に結果を返す。名前を付けたサブエージェント同士は送信もできる  | サブエージェントごとに worktree を使える                      |
-| Agent View <span class="badge preview">Preview</span>            | あなた。独立したタスクを渡し、あとで確認する              | 結果はあなたにだけ届く。セッション間メッセージングで相互に送信できる      | セッションは編集前に専用の worktree へ移る                    |
-| Agent Teams <span class="badge experimental">Experimental</span> | Claude（lead）が計画・割り当て・監督する                  | チームメイト同士が直接送信する。Task ツールがあればタスクリストも共有する | worktree で分離しない。チームメイトごとに担当ファイルを分ける |
+| Agent View <Badge text="Preview" variant="tip" size="small" class="badge preview" />            | あなた。独立したタスクを渡し、あとで確認する              | 結果はあなたにだけ届く。セッション間メッセージングで相互に送信できる      | セッションは編集前に専用の worktree へ移る                    |
+| Agent Teams <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> | Claude（lead）が計画・割り当て・監督する                  | チームメイト同士が直接送信する。Task ツールがあればタスクリストも共有する | worktree で分離しない。チームメイトごとに担当ファイルを分ける |
 | Workflows                                                        | スクリプトが計画を持つ。Claude のターンごとの判断ではない | 途中結果はスクリプトの変数に置き、最終結果だけが会話に入る                | —                                                             |
 
 ### 規模と中断時の挙動

@@ -5,6 +5,8 @@ sidebar:
   order: 57
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 Claude Code が受け付けるアカウントと資格情報、その優先順位を扱います。`claude auth` サブコマンド、Anthropic プロファイル、`apiKeyHelper`、`claude setup-token`、管理者がログイン方法と API プロバイダを絞るキーまでを説明します。プロバイダ固有の設定は [Ch59](/claude-code-deep-dive/ja/enterprise/providers/) で扱います。
 
 <span id="ch57-accounts" />
@@ -53,7 +55,7 @@ Commands:
 - `status` は既定で JSON（`--text` で人向け）。ログイン済みなら終了コード 0、未ログインなら 1 です。
 - `authMethod` は `none`・`claude.ai`・`oauth_token`・`api_key`・`api_key_helper`・`third_party`。`configDirectory` は v2.1.268 以降、`loginExpiresAt` は 2.1.318 以降です。
 
-* <span class="undocumented">JSON には docs に無いキーもあります: `apiProvider`、`loggedIn`、`planTier`、`subscriptionType`、`storedClaudeAiLogin` など</span> <span class="badge undocumented">Undocumented</span>
+* <span class="undocumented">JSON には docs に無いキーもあります: `apiProvider`、`loggedIn`、`planTier`、`subscriptionType`、`storedClaudeAiLogin` など</span> <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" />
 * 実機の `authMethod`: `ANTHROPIC_API_KEY` は `api_key`、`ANTHROPIC_AUTH_TOKEN`（API キーと併用でも）は `oauth_token`、`CLAUDE_CODE_USE_*` は `third_party`。
 
 ### 保存先と期限

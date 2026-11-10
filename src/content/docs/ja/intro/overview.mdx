@@ -4,6 +4,8 @@ sidebar:
   order: 1
 ---
 
+import { Badge } from "@astrojs/starlight/components";
+
 <span id="ch00-year" />
 
 ## 2.1.x の 1 年: 2.1.0 → 2.1.321、260 リリース
@@ -38,7 +40,7 @@ sidebar:
 | 既定モデル           | `claude-opus-5-5`（Anthropic API・サブスクリプションの場合）                                                                                               | Foundry では Sonnet 4.5。組織の既定モデルがあればそちらが優先（[Ch2](/claude-code-deep-dive/ja/fundamentals/models/)）                                                           |
 | 組み込みツール       | init 24 / docs 46（現行 45＋削除済み `TaskOutput`）                                                                                                        | ツール名は `Agent`（旧名 `Task`。`-p` の init は `Task` と表示）（[Ch21](/claude-code-deep-dive/ja/settings/tools/)）                                                            |
 | スラッシュコマンド   | `-p` の init: 55（コマンド 36＋Skill 19）                                                                                                                  | 公式一覧の現行コマンド名は 116（組み込み 95＋バンドル 21）。init はその `-p` セッションで実行できる正式名だけを列挙する（[Ch12](/claude-code-deep-dive/ja/operation/commands/)） |
-| 組み込みエージェント | init 5: `claude`、`Explore`、`general-purpose`、`Plan`、<span class="undocumented">`web-fetch`</span> <span class="badge undocumented">Undocumented</span> | docs は 6 種（`statusline-setup`、`claude-code-guide` を含む）（[Ch37](/claude-code-deep-dive/ja/parallel/subagents/)）                                                          |
+| 組み込みエージェント | init 5: `claude`、`Explore`、`general-purpose`、`Plan`、<span class="undocumented">`web-fetch`</span> <Badge text="Undocumented" variant="default" size="small" class="badge undocumented" /> | docs は 6 種（`statusline-setup`、`claude-code-guide` を含む）（[Ch37](/claude-code-deep-dive/ja/parallel/subagents/)）                                                          |
 | 権限モード           | init: `default`（表示名は Manual）                                                                                                                         | `-p` と SDK は `default` で始まる。対話ターミナルと VS Code は 2.1.284 以降 auto で始まる（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)）                        |
 
 init の値は、ユーザー設定を読まない `--safe-mode --setting-sources project` の `-p` 実行（stream-json の `system/init` イベント）から取りました。このときモデルは `--model haiku` で指定したため、既定モデルは docs と `--model default` の解決結果で確認しています。init の読み方は [Ch44](/claude-code-deep-dive/ja/automation/headless/) にあります。
