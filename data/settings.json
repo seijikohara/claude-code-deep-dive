@@ -1313,7 +1313,7 @@
   },
   {
     "name": "strictPluginOnlyCustomization.mcp",
-    "desc_ja": "`mcp` をロックし、`~/.claude.json` と `.mcp.json` の MCP サーバーを読まず、管理設定と大半のプラグイン分は残す。",
+    "desc_ja": "`mcp` をロックし、`~/.claude.json` と `.mcp.json` のサーバーを読まず、管理設定と一部を除くプラグイン分は残す。",
     "status": "ga",
     "anchor": "https://code.claude.com/docs/en/settings-reference#strictpluginonlycustomization-mcp",
     "category": "Plugins and skills",

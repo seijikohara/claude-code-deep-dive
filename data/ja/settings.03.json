@@ -37,7 +37,7 @@
   "strictPluginOnlyCustomization.skills": "`skills` をロックし、ユーザー・プロジェクト・`--add-dir` のスキルとコマンド、claude.ai 同期スキルを読み込まない。",
   "strictPluginOnlyCustomization.agents": "`agents` をロックし、ユーザー・プロジェクト・`--add-dir` のディレクトリからエージェントを読み込まない。",
   "strictPluginOnlyCustomization.hooks": "`hooks` をロックし、ユーザー・プロジェクト・ローカル設定のフックを止め、管理設定とプラグインのフックは実行する。",
-  "strictPluginOnlyCustomization.mcp": "`mcp` をロックし、`~/.claude.json` と `.mcp.json` の MCP サーバーを読まず、管理設定と大半のプラグイン分は残す。",
+  "strictPluginOnlyCustomization.mcp": "`mcp` をロックし、`~/.claude.json` と `.mcp.json` のサーバーを読まず、管理設定と一部を除くプラグイン分は残す。",
   "enabledPlugins": "`plugin-name@marketplace-name` で各プラグインを有効・無効にし、未記載なら `defaultEnabled` に従う。",
   "extraKnownMarketplaces": "追加のプラグインマーケットプレイスを名前で登録し、リポジトリを開いた人や管理設定の対象者が自分で追加せずに使えるようにする。",
   "pluginConfigs": "プラグインの `userConfig` ダイアログの機密でない回答をプラグイン ID ごとに保存し、機密値はキーチェーンなどに入れる。",
