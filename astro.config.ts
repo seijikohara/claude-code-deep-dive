@@ -61,6 +61,10 @@ export default defineConfig({
         collapsed: true,
         items: [{ autogenerate: { directory: dir } }],
       })),
+      // Round code frames to match the other surfaces in src/styles/site.css.
+      expressiveCode: {
+        styleOverrides: { borderRadius: "0.75rem" },
+      },
       // Each page links to its MDX source so readers can report or fix an error in place.
       editLink: {
         baseUrl: "https://github.com/seijikohara/claude-code-deep-dive/edit/main/",
