@@ -2,8 +2,8 @@
   "name": "claude-code-deep-dive",
   "version": "0.0.1",
   "private": true,
-  "license": "MIT",
   "description": "A reference on every feature of Claude Code 2.1.321, checked against the official docs and the installed binary.",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "astro dev",
