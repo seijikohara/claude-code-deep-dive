@@ -40,7 +40,7 @@ Claude Code をライブラリとして TypeScript と Python から使う SDK �
 
 <span id="ch45-minimal-py" />
 
-## 最小例 (1/2): Python
+## 最小例: Python
 
 ```python
 import asyncio
@@ -76,7 +76,7 @@ asyncio.run(main())
 
 <span id="ch45-minimal-ts" />
 
-## 最小例 (2/2): TypeScript
+## 最小例: TypeScript
 
 ```typescript
 import { query } from "@anthropic-ai/claude-agent-sdk";
@@ -308,7 +308,7 @@ Python の docs の例は、ストリーミングの `prompt` と、`{"continue_
 
 <span id="ch45-hooks-1" />
 
-## フック (1/2): 登録・入出力・判定
+## フック: 登録・入出力・判定
 
 - `hooks` にイベント名をキー、matcher の配列を値として渡します。matcher は `matcher`・`hooks`（必須）・`timeout`（秒）・`onFailure` を持ちます。
 - コールバックは TS で `(input, toolUseID, { signal })`、Python で `(input_data, tool_use_id, context)` です。
@@ -341,7 +341,7 @@ docs の登録例（TypeScript）です。`myCallback` は別途定義したコ�
 
 <span id="ch45-hooks-2" />
 
-## フック (2/2): TS と Python の違い・失敗時の扱い
+## フック: TS と Python の違い・失敗時の扱い
 
 ```python
 options = ClaudeAgentOptions(

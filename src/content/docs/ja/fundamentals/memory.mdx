@@ -137,7 +137,7 @@ $ cd mono/pkg && claude -p "/context all"
 
 <span id="ch09-rules" />
 
-## `.claude/rules/` と `paths`（1/2）: 読み込み条件とパターン
+## `.claude/rules/` と `paths`: 読み込み条件とパターン
 
 ```text
 your-project/
@@ -179,7 +179,7 @@ paths:
 
 <span id="ch09-rules-edge" />
 
-## `.claude/rules/`（2/2）: 境界条件・ユーザー rule・symlink
+## `.claude/rules/`: 境界条件・ユーザー rule・symlink
 
 - **frontmatter**: rule で読むのは `paths` だけです。他のフィールドはエラーなしで無視し、frontmatter は読み込む前に取り除きます。`paths` は YAML のリストでもカンマ区切りの文字列でも書けます。
 - YAML が解析できないと frontmatter を無視し、`paths` の無い rule として起動時に読みます。解析エラーは `claude --debug` で見えます。
@@ -231,7 +231,7 @@ $ cd mono/pkg && claude -p "Use the Read tool on src/a.ts, then reply with only 
 
 <span id="ch09-agents-md" />
 
-## AGENTS.md（1/2）: 読まれる条件と Project instructions
+## AGENTS.md: 読まれる条件と Project instructions
 
 | リポジトリの状態                                                                     | Claude が読むもの                           |
 | ------------------------------------------------------------------------------------ | ------------------------------------------- |
@@ -268,7 +268,7 @@ $ cd mono/pkg && claude -p "Use the Read tool on src/a.ts, then reply with only 
 
 <span id="ch09-agents-md-2" />
 
-## AGENTS.md（2/2）: CLAUDE.md との違い・共有の方法（実測）
+## AGENTS.md: CLAUDE.md との違い・共有の方法（実測）
 
 |                                            | `CLAUDE.md`  | 設定経由で読む `AGENTS.md`                 |
 | ------------------------------------------ | ------------ | ------------------------------------------ |
@@ -389,7 +389,7 @@ managed settings の配布方法は [Ch58](/claude-code-deep-dive/ja/enterprise/
 
 <span id="ch09-auto-memory" />
 
-## auto memory（1/2）: 保存するもの・場所・読み込み
+## auto memory: 保存するもの・場所・読み込み
 
 Claude は作業しながら 4 種類のメモを残し、種類を frontmatter の `type` に記録します。
 
@@ -423,7 +423,7 @@ Claude は作業しながら 4 種類のメモを残し、種類を frontmatter 
 
 <span id="ch09-memory-command" />
 
-## auto memory（2/2）: 有効・無効と保存先、`/memory`、廃止された `#`
+## auto memory: 有効・無効と保存先、`/memory`、廃止された `#`
 
 | 手段                              | 効果                                                                 |
 | --------------------------------- | -------------------------------------------------------------------- |

@@ -262,7 +262,7 @@ claude mcp add --transport http shared-server \
 
 <span id="ch30-oauth" />
 
-## OAuth (1/2): 認証が必要と判定される条件とサインイン
+## OAuth: 認証が必要と判定される条件とサインイン
 
 - リモートサーバーが `401 Unauthorized` か `403 Forbidden` を返すと、`/mcp` で「認証が必要」と表示します。例外は次の 3 つです。
 
@@ -292,7 +292,7 @@ claude mcp logout sentry
 
 <span id="ch30-oauth-config" />
 
-## OAuth (2/2): コールバックポート・事前登録クライアント・メタデータ・スコープ
+## OAuth: コールバックポート・事前登録クライアント・メタデータ・スコープ
 
 | 指定                 | 書き方                                                                                       | 挙動                                                                                                                                                                                                                           |
 | -------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -452,7 +452,7 @@ flag 取得は新しい changelog を採用します。追加バージョンは�
 
 <span id="ch30-toolsearch" />
 
-## Tool search (1/2): 遅延読み込みと `ENABLE_TOOL_SEARCH`
+## Tool search: 遅延読み込みと `ENABLE_TOOL_SEARCH`
 
 - 既定で有効です。起動時に読むのはツール名とサーバーの instructions だけで、定義は Claude が `ToolSearch` で必要なときに読み込みます。
 - サーバーごとのツール数に固定の上限はありません。実質の上限はコンテキストウィンドウです。
@@ -494,7 +494,7 @@ ENABLE_TOOL_SEARCH=auto:5 claude
 
 <span id="ch30-toolsearch-limits" />
 
-## Tool search (2/2): 使われない条件・ゲートウェイ・説明文の上限
+## Tool search: 使われない条件・ゲートウェイ・説明文の上限
 
 ### tool search が使われない場合
 
@@ -626,7 +626,7 @@ MCP config file not found: <cwd>/Reply with OK
 
 <span id="ch30-managed" />
 
-## Managed MCP (1/3): パターンと `managed-mcp.json`
+## Managed MCP: パターンと `managed-mcp.json`
 
 | パターン         | 設定                                                      |
 | ---------------- | --------------------------------------------------------- |
@@ -659,7 +659,7 @@ MCP config file not found: <cwd>/Reply with OK
 
 <span id="ch30-managed-provided" />
 
-## Managed MCP (2/3): `managedMcpServers` で追加提供する
+## Managed MCP: `managedMcpServers` で追加提供する
 
 ```json
 {
@@ -695,7 +695,7 @@ MCP config file not found: <cwd>/Reply with OK
 
 <span id="ch30-managed-lists" />
 
-## Managed MCP (3/3): allowlist と denylist の評価
+## Managed MCP: allowlist と denylist の評価
 
 | キー            | 一致の規則                                                                                                                                        |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
