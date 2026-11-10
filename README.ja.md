@@ -5,7 +5,7 @@
 Claude Code **2.1.321** の全機能を解説するリファレンスサイトです。コマンド、設定、拡張ポイント、マルチエージェント機能、各プラットフォーム、エンタープライズ運用、実験的なオプションまで扱います。
 記述はすべて、公式ドキュメント、changelog、インストール済みのバイナリでの実行結果に基づきます。
 
-<https://seijikohara.github.io/claude-code-deep-dive/> で公開する予定です。
+<https://seijikohara.github.io/claude-code-deep-dive/> で公開しています。
 
 ## 版
 
@@ -73,6 +73,13 @@ CCDD_RESEARCH=/path/to/research node tools/lint.mjs --site dist   # 識別子の
 
 `.github/workflows/deploy.yml` が Astro でビルドし、GitHub Pages にデプロイします。
 リポジトリ変数 `DEPLOY_PAGES` を `true` にするまで、デプロイは動きません。
+
+## ライセンス
+
+本リポジトリは用途ごとに 2 つのライセンスを適用します。
+
+- ソースコード（コンポーネント・スクリプト・設定）: [MIT License](LICENSE)
+- 文章コンテンツ（リファレンス本文・付録のデータ・ドキュメント）: [CC BY 4.0](LICENSE-content)。本文には、Anthropic が公開している Claude Code のドキュメントの要約・翻訳・引用を含みます。その部分には Anthropic の条件が適用されます。
 
 ## 免責
 

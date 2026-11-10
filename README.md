@@ -5,7 +5,7 @@
 A reference site on every feature of Claude Code **2.1.321**: commands, settings, extension points, multi-agent features, platforms, enterprise operation, and experimental options.
 Each fact comes from the official documentation, the changelog, or a run of the installed binary.
 
-The site will be published at <https://seijikohara.github.io/claude-code-deep-dive/>.
+The site is published at <https://seijikohara.github.io/claude-code-deep-dive/>.
 
 ## Editions
 
@@ -73,6 +73,13 @@ The identifier check (`--only=ids`) and data extraction (`tools/extract.mjs`) ne
 
 `.github/workflows/deploy.yml` builds the site with Astro and deploys it to GitHub Pages.
 Deployment stays off until the repository variable `DEPLOY_PAGES` is set to `true`.
+
+## License
+
+The repository uses two licenses:
+
+- Source code (components, scripts, configuration): [MIT License](LICENSE)
+- Written content (reference pages, appendix data, documents): [CC BY 4.0](LICENSE-content). The content summarizes, translates, and quotes parts of Anthropic's public Claude Code documentation; that material remains subject to Anthropic's terms.
 
 ## Disclaimer
 
