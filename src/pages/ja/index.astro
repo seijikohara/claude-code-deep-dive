@@ -1,0 +1,38 @@
+---
+import { getRelativeLocaleUrl } from "astro:i18n";
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { useTranslations } from "../../i18n/ui";
+
+const lang = "ja";
+const t = useTranslations(lang);
+const deckUrl = getRelativeLocaleUrl("ja", "deck/");
+const withCode = (s: string) => s.replace(/`([^`]+)`/g, "<code>$1</code>");
+---
+
+<SiteLayout lang={lang}>
+  <h1>Claude Code<br />Deep Dive</h1>
+  <p class="lead">{t("home.lead")}</p>
+  <pre class="term"><span class="dim">$ </span>claude --version
+<span class="dim">2.1.321 (Claude Code)</span></pre>
+
+  <h2>{t("home.editions")}</h2>
+  <div class="editions">
+    <div lang="ja">
+      <h3>{t("home.ja.title")}</h3>
+      <p>{t("home.ja.body")}</p>
+      <p><a class="open" href={deckUrl}>{t("home.ja.open")}</a></p>
+    </div>
+    <div lang="en">
+      <h3>{t("home.en.title")}</h3>
+      <p>{t("home.en.body")}</p>
+    </div>
+  </div>
+
+  <h2>{t("home.method")}</h2>
+  <ul>
+    <li set:html={withCode(t("home.method.1"))} />
+    <li>{t("home.method.2")}</li>
+    <li>{t("home.method.3")}</li>
+  </ul>
+  <p class="keys">{t("home.keys")}</p>
+</SiteLayout>

@@ -1,0 +1,324 @@
+[
+  {
+    "name": "Agent",
+    "desc_ja": "独自のコンテキストウィンドウを持つサブエージェントを起動し、エージェントチーム有効時は `name` 付きでチームメイトを起動できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#agent-tool-behavior",
+    "permission": "No"
+  },
+  {
+    "name": "Artifact",
+    "desc_ja": "HTML や Markdown ファイルを非公開のインタラクティブなページ（artifact）として claude.ai に公開する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "Yes"
+  },
+  {
+    "name": "AskUserQuestion",
+    "desc_ja": "要件の収集や曖昧さの解消のために選択式の質問を行い、既定では回答するまで質問は開いたままになる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#askuserquestion-tool-behavior",
+    "permission": "No"
+  },
+  {
+    "name": "Bash",
+    "desc_ja": "ユーザーの環境でシェルコマンドを実行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#bash-tool-behavior",
+    "permission": "Yes"
+  },
+  {
+    "name": "CronCreate",
+    "desc_ja": "現在のセッション内で定期または単発のプロンプトをスケジュールし、期限切れでなければ `--resume`・`--continue` 時に復元する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "CronDelete",
+    "desc_ja": "セッションスコープのスケジュール済みタスクを ID で取り消す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "CronList",
+    "desc_ja": "セッションスコープのスケジュール済みタスクをすべて一覧表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "Edit",
+    "desc_ja": "特定のファイルに対象を絞った編集を行う。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#edit-tool-behavior",
+    "permission": "Yes"
+  },
+  {
+    "name": "EndConversation",
+    "desc_ja": "悪質な入力が続く稀なケースや、ユーザーが終了を依頼して確認した場合にセッションを終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#endconversation-tool-behavior",
+    "permission": "No"
+  },
+  {
+    "name": "EnterPlanMode",
+    "desc_ja": "コーディング前に方針を設計するためプランモードに切り替える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "EnterWorktree",
+    "desc_ja": "隔離された git worktree を作成して切り替えるか、既存の worktree に切り替える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#enterworktree-tool-behavior",
+    "permission": "Yes"
+  },
+  {
+    "name": "ExitPlanMode",
+    "desc_ja": "計画を提示して承認を求め、プランモードを終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "Yes"
+  },
+  {
+    "name": "ExitWorktree",
+    "desc_ja": "worktree セッションを終了して元のディレクトリに戻り、独自の作業ディレクトリで動くサブエージェントでは使えない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "Glob",
+    "desc_ja": "パターンマッチでファイルを検索し、macOS・Linux・WSL では既定で提供されない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#glob-tool-behavior",
+    "permission": "No"
+  },
+  {
+    "name": "Grep",
+    "desc_ja": "ファイルの内容からパターンを検索し、macOS・Linux・WSL では既定で提供されない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#grep-tool-behavior",
+    "permission": "No"
+  },
+  {
+    "name": "ListAgents",
+    "desc_ja": "`SendMessage` で送信できるサブエージェント・チームメイト・他のセッションなどを一覧表示し、`/list-agents` の実体となる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "ListMcpResourcesTool",
+    "desc_ja": "接続中の MCP サーバーが公開するリソースを、ホストアプリが描画する MCP Apps UI リソースを除いて一覧表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "LSP",
+    "desc_ja": "言語サーバーを通じて、定義へのジャンプ・参照の検索・型エラーと警告の報告などのコードインテリジェンスを提供する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#lsp-tool-behavior",
+    "permission": "No"
+  },
+  {
+    "name": "Monitor",
+    "desc_ja": "コマンドをバックグラウンドで実行して出力を 1 行ずつ Claude に渡し、会話中にログやファイル変更などへ反応できるようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#monitor-tool",
+    "permission": "Yes"
+  },
+  {
+    "name": "NotebookEdit",
+    "desc_ja": "Jupyter notebook のセルを変更する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#notebookedit-tool-behavior",
+    "permission": "Yes"
+  },
+  {
+    "name": "PowerShell",
+    "desc_ja": "ネイティブに PowerShell コマンドを実行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#powershell-tool",
+    "permission": "Yes"
+  },
+  {
+    "name": "PushNotification",
+    "desc_ja": "ローカルセッションではデスクトップ通知を、Remote Control やクラウドセッションではスマートフォンへのプッシュ通知を送る。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "Read",
+    "desc_ja": "ファイルの内容を読み取る。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#read-tool-behavior",
+    "permission": "No"
+  },
+  {
+    "name": "ReadMcpResourceTool",
+    "desc_ja": "特定の MCP リソースを URI で読み取る。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "RemoteTrigger",
+    "desc_ja": "claude.ai のクラウドスケジュールタスク（旧 routines）を作成・更新・実行・一覧表示し、`/schedule` の実体となる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "ReportFindings",
+    "desc_ja": "コードレビューの指摘をファイル・要約・失敗シナリオ付きの構造化リストで報告し、Claude Code が描画できるようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "ScheduleWakeup",
+    "desc_ja": "自己ペースの `/loop` の次の反復を 1 分から 1 時間後の範囲で再スケジュールし、`stop: true` で呼ぶとループを終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "SendFeedback",
+    "desc_ja": "Claude Code に関するフィードバックの下書きを作成して手元に保留し、ユーザーが送信を選ぶまで何も送らない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#sendfeedback-tool-behavior",
+    "permission": "No"
+  },
+  {
+    "name": "SendMessage",
+    "desc_ja": "チームメイト・ID や名前で再開するサブエージェント・他の Claude Code セッションなど、別のエージェントにメッセージを送る。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "SendUserFile",
+    "desc_ja": "生成したレポートや図などのファイルを任意のキャプション付きでユーザーのデバイスへ送り、`display` で表示方法を指定できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "ShareOnboardingGuide",
+    "desc_ja": "`ONBOARDING.md` をアップロードし、チームメンバーが Claude Code で開ける共有リンクを返す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "Yes"
+  },
+  {
+    "name": "Skill",
+    "desc_ja": "メインの会話内でスキルを実行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "Yes"
+  },
+  {
+    "name": "SubagentHandback",
+    "desc_ja": "サブエージェントの最終レポートを結果の受け取り先の会話へ届け、auto モードでのみ提供される。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "TaskCreate",
+    "desc_ja": "タスクリストに新しいタスクを作成し、既定では対象モデルでのみ提供され、他のモデルではオプトインで使える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#task-tool-availability",
+    "permission": "No"
+  },
+  {
+    "name": "TaskGet",
+    "desc_ja": "特定のタスクの詳細をすべて取得し、既定では対象モデルでのみ提供され、他のモデルではオプトインで使える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#task-tool-availability",
+    "permission": "No"
+  },
+  {
+    "name": "TaskList",
+    "desc_ja": "すべてのタスクを現在の状態とともに一覧表示し、既定では対象モデルでのみ提供され、他のモデルではオプトインで使える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#task-tool-availability",
+    "permission": "No"
+  },
+  {
+    "name": "TaskOutput",
+    "desc_ja": "v2.1.277 で削除され、以前はバックグラウンドタスクの出力を取得していたが、現在は `Read` で出力ファイルを読む。",
+    "status": "removed",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "TaskStop",
+    "desc_ja": "実行中のバックグラウンドタスクを ID で停止し、チームメイトや名前付きのバックグラウンドエージェントも ID か名前で指定できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "TaskUpdate",
+    "desc_ja": "タスクの状態・依存関係・詳細を更新するかタスクを削除し、既定では対象モデルでのみ提供され、他のモデルではオプトインで使える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#task-tool-availability",
+    "permission": "No"
+  },
+  {
+    "name": "TodoWrite",
+    "desc_ja": "セッションのタスクチェックリストを管理し、既定では無効で、`CLAUDE_CODE_ENABLE_TASKS=0` で再有効化できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#task-tool-availability",
+    "permission": "No"
+  },
+  {
+    "name": "ToolSearch",
+    "desc_ja": "ツール検索が有効なときに遅延ツールを検索して読み込む。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "WaitForMcpServers",
+    "desc_ja": "バックグラウンドで接続中の MCP サーバーを待ち、セッションを再起動せずにそのツールを使えるようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "No"
+  },
+  {
+    "name": "WebFetch",
+    "desc_ja": "指定した URL からコンテンツを取得する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#webfetch-tool-behavior",
+    "permission": "Yes"
+  },
+  {
+    "name": "WebSearch",
+    "desc_ja": "Web 検索を実行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#websearch-tool-behavior",
+    "permission": "Yes"
+  },
+  {
+    "name": "Workflow",
+    "desc_ja": "多数のサブエージェントをバックグラウンドで統率し 1 つの結果にまとめるスクリプトである、動的ワークフローを実行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference",
+    "permission": "Yes"
+  },
+  {
+    "name": "Write",
+    "desc_ja": "ファイルを作成または上書きする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/tools-reference#write-tool-behavior",
+    "permission": "Yes"
+  }
+]

@@ -1,0 +1,160 @@
+<section id="ch21" data-part="Part III 設定と安全" data-chapter="Ch21" data-title="組み込みツール">
+
+<section id="ch21-title" class="chapter-title">
+  <p class="chapter-label">21</p>
+  <h1>組み込みツール</h1>
+  <p class="chapter-summary">tools-reference に載る 46 ツール（現行 45 ＋削除済み <code>TaskOutput</code>）を用途別に並べ、主な上限、<code>-p</code> の init に出る 24 ツールとの差、起動モードとフラグによるツールセットの違いを扱います。ツール名は権限ルール、サブエージェントの <code>tools</code>、フックの <code>matcher</code> にそのまま書く文字列です。全件の説明は <a href="#/apx-tools">付録 E</a> にあります。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch21-list-1">
+  <h2>一覧 (1/2): ファイル・シェル・Web・エージェント</h2>
+  <div class="cols-2">
+    <table class="dense">
+      <thead><tr><th style="width:32%">ツール</th><th>用途</th><th style="width:10%">権限</th><th style="width:11%">init</th></tr></thead>
+      <tbody>
+        <tr><td><code>Read</code></td><td>読み取り（画像・PDF も）</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>Edit</code></td><td>ファイルの部分編集</td><td>要</td><td>あり</td></tr>
+        <tr><td><code>Write</code></td><td>作成・上書き</td><td>要</td><td>あり</td></tr>
+        <tr><td><code>NotebookEdit</code></td><td>Jupyter のセル編集</td><td>要</td><td>あり</td></tr>
+        <tr><td><code>Glob</code></td><td>ファイル名の検索</td><td>不要</td><td>—</td></tr>
+        <tr><td><code>Grep</code></td><td>ファイル内容の検索</td><td>不要</td><td>—</td></tr>
+        <tr><td><code>Bash</code></td><td>シェルコマンド</td><td>要</td><td>あり</td></tr>
+        <tr><td><code>PowerShell</code></td><td>PowerShell <span class="badge preview">Preview</span></td><td>要</td><td>—</td></tr>
+        <tr><td><code>Monitor</code></td><td>背景コマンドの出力を監視</td><td>要</td><td>あり</td></tr>
+        <tr><td><code>LSP</code></td><td>定義・参照・型エラー</td><td>不要</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <table class="dense">
+      <thead><tr><th style="width:40%">ツール</th><th>用途</th><th style="width:10%">権限</th><th style="width:11%">init</th></tr></thead>
+      <tbody>
+        <tr><td><code>WebFetch</code></td><td>URL の取得と抽出</td><td>要</td><td>—</td></tr>
+        <tr><td><code>WebSearch</code></td><td>Web 検索</td><td>要</td><td>あり</td></tr>
+        <tr><td><code>Agent</code></td><td>サブエージェントの起動</td><td>不要</td><td><code>Task</code></td></tr>
+        <tr><td><code>SendMessage</code></td><td>他エージェントへ送信</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>ListAgents</code></td><td>送信できる相手の一覧</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>TaskStop</code></td><td>背景タスクの停止</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>SubagentHandback</code></td><td>最終報告（auto mode）</td><td>不要</td><td>—</td></tr>
+        <tr><td><code>Workflow</code></td><td>workflow の実行</td><td>要</td><td>あり</td></tr>
+        <tr><td><code>TaskCreate</code>・<code>TaskGet</code>・<code>TaskList</code>・<code>TaskUpdate</code></td><td>タスクリスト</td><td>不要</td><td>—</td></tr>
+        <tr><td><code>TodoWrite</code></td><td>旧チェックリスト</td><td>不要</td><td>—</td></tr>
+        <tr><td><code>TaskOutput</code></td><td><span class="badge removed">Removed</span> 2.1.277</td><td>—</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">権限: Manual モードで作業ディレクトリ内のパスに確認が出るか。init: <code>-p</code> の init の <code>tools</code> に出たか。</p>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/tools-reference">tools-reference</a> · <a href="https://code.claude.com/docs/en/sub-agents">sub-agents</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch21-list-2">
+  <h2>一覧 (2/2): 対話・モード・スケジュール・通知・MCP</h2>
+  <div class="cols-2">
+    <table class="dense">
+      <thead><tr><th style="width:34%">ツール</th><th>用途</th><th style="width:11%">権限</th><th style="width:11%">init</th></tr></thead>
+      <tbody>
+        <tr><td><code>AskUserQuestion</code></td><td>選択式の質問</td><td>不要</td><td>—</td></tr>
+        <tr><td><code>EnterPlanMode</code></td><td>plan mode に入る</td><td>不要</td><td>—</td></tr>
+        <tr><td><code>ExitPlanMode</code></td><td>計画を提示して終了</td><td>要</td><td>—</td></tr>
+        <tr><td><code>EnterWorktree</code></td><td>worktree の作成・移動</td><td>要</td><td>あり</td></tr>
+        <tr><td><code>ExitWorktree</code></td><td>worktree から戻る</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>EndConversation</code></td><td>セッションを終える</td><td>不要</td><td>—</td></tr>
+        <tr><td><code>Skill</code></td><td>Skill の実行</td><td>要</td><td>あり</td></tr>
+        <tr><td><code>ToolSearch</code></td><td>遅延ツールの読み込み</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>Artifact</code></td><td>claude.ai に公開</td><td>要</td><td>—</td></tr>
+        <tr><td><code>ReportFindings</code></td><td>レビュー指摘の構造化</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>SendFeedback</code></td><td>フィードバックの下書き</td><td>不要</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <table class="dense">
+      <thead><tr><th style="width:42%">ツール</th><th>用途</th><th style="width:11%">権限</th><th style="width:11%">init</th></tr></thead>
+      <tbody>
+        <tr><td><code>CronCreate</code>・<code>CronDelete</code>・<code>CronList</code></td><td>セッション内の定期実行</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>ScheduleWakeup</code></td><td><code>/loop</code> の次回を決める</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>RemoteTrigger</code></td><td>クラウドの定期タスク</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>PushNotification</code></td><td>通知とプッシュ</td><td>不要</td><td>あり</td></tr>
+        <tr><td><code>SendUserFile</code></td><td>ファイルをユーザーへ送る</td><td>不要</td><td>—</td></tr>
+        <tr><td><code>ShareOnboardingGuide</code></td><td><code>ONBOARDING.md</code> の共有</td><td>要</td><td>—</td></tr>
+        <tr><td><code>ListMcpResourcesTool</code></td><td>MCP リソースの一覧</td><td>不要</td><td>—</td></tr>
+        <tr><td><code>ReadMcpResourceTool</code></td><td>MCP リソースを読む</td><td>不要</td><td>—</td></tr>
+        <tr><td><code>WaitForMcpServers</code></td><td>MCP の接続を待つ</td><td>不要</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small">「不要」のツールも、作業ディレクトリの外では確認が出ます。<code>Bash</code> は読み取り専用コマンドの組み込みセットを確認なしで実行します。advisor はサーバー側のツールで、権限ルールやフックの <code>matcher</code> に書ける名前を持ちません（<a href="#/ch05">Ch5</a>）。スケジュール系の詳細は <a href="#/ch43">Ch43</a> です。</p>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/tools-reference">tools-reference</a> · <a href="https://code.claude.com/docs/en/tools-reference#check-which-tools-are-available">#check-which-tools-are-available</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch21-limits">
+  <h2>主なツールの上限</h2>
+  <table class="dense">
+    <thead><tr><th style="width:14%">ツール</th><th>上限と挙動</th></tr></thead>
+    <tbody>
+      <tr><td><code>Bash</code></td><td>タイムアウトは既定 2 分、上限 10 分（<code>BASH_DEFAULT_TIMEOUT_MS</code>・<code>BASH_MAX_TIMEOUT_MS</code>）。タイムアウトしたコマンドは止めずに背景へ移す（<code>sleep</code> で始まるものを除く）。出力が 5 GB を超えると停止</td></tr>
+      <tr><td><code>Bash</code> の出力</td><td>成功は約 30,000 文字までインライン。超えるとファイルのパスと先頭 2,000 文字のプレビュー。失敗は約 10,000 文字の先頭と末尾の抜粋。読み戻しは <code>BASH_MAX_OUTPUT_LENGTH</code>（最大 150,000）、インライン上限は <code>bashOutputMaxChars</code>（最大 128,000、2.1.261 以降）</td></tr>
+      <tr><td><code>Bash</code> の背景</td><td><code>-p</code>・SDK・CI・クラウドでは 30 分、<code>timeout</code> 指定で最大 2 時間。プロンプトを文字列で渡す <code>-p</code> は 10 分。手元の対話セッションは無制限（2.1.288 から）</td></tr>
+      <tr><td><code>Read</code></td><td>1 回 25,000 トークン。256 KB を超えるファイルの全体読み取りは拒否。<code>allow_large: true</code> でコンテキストの残りまで読める（2.1.296 以降）。PDF は 10 ページ超で範囲指定（1 回 20 ページ）、画像は 128 MB まで</td></tr>
+      <tr><td><code>Glob</code></td><td>100 件まで、更新時刻順。<code>.gitignore</code> を無視する（<code>CLAUDE_CODE_GLOB_NO_IGNORE=false</code> で尊重）</td></tr>
+      <tr><td><code>WebFetch</code></td><td>1 回 100,000 文字。キャッシュ 15 分、期限 5 分。<code>localhost</code> とドットの無いホストは拒否。別ホストへのリダイレクトは追わず、Claude に返す</td></tr>
+      <tr><td><code>WebSearch</code></td><td>1 回の呼び出しで最大 8 回の検索。対話セッションは 200 回まで（1 時間に約 100 回ずつ回復、2.1.290 以降）。<code>-p</code> と SDK はターンごとに数える</td></tr>
+    </tbody>
+  </table>
+  <p class="small">Linux と WSL では <code>CLAUDE_CODE_TOOL_MEMORY_LIMIT</code>（例 <code>4G</code>）で <code>Bash</code>・<code>PowerShell</code>・<code>Monitor</code> のメモリをまとめて制限できます。</p>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/tools-reference#bash-tool-behavior">tools-reference#bash-tool-behavior</a> · <a href="https://code.claude.com/docs/en/tools-reference#read-tool-behavior">#read-tool-behavior</a> · <a href="https://code.claude.com/docs/en/tools-reference#glob-tool-behavior">#glob-tool-behavior</a> · <a href="https://code.claude.com/docs/en/tools-reference#webfetch-tool-behavior">#webfetch-tool-behavior</a> · <a href="https://code.claude.com/docs/en/tools-reference#websearch-tool-behavior">#websearch-tool-behavior</a></footer>
+</section>
+
+<section id="ch21-init-diff">
+  <h2><code>-p</code> の init（24）と docs（46）の差</h2>
+  <ul class="small">
+    <li>init の 24 は、docs の現行 45 のうち 23 と、docs に無い <code>DesignSync</code> <span class="badge undocumented">Undocumented</span> です。docs の 22 ツールが init に出ません。</li>
+    <li>MCP サーバーが接続されたセッションでは、<code>ReadMcpResourceDirTool</code> も出ました。このツールは tools-reference に無く、SDK リファレンスのみ記載です。</li>
+    <li>ツール名は <code>Agent</code> です。2.1.63 で <code>Task</code> から改名され、<code>Task(...)</code> は別名として今も効きます。<code>-p</code> の init は <code>Task</code> と表示します。</li>
+  </ul>
+  <table class="dense">
+    <thead><tr><th style="width:36%">init に無いツール</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr><td><code>Glob</code>・<code>Grep</code></td><td>macOS・Linux・WSL では既定セットから外れる。検索は <code>Bash</code> の <code>find</code>・<code>grep</code>（組み込みの bfs・ugrep）で行う</td></tr>
+      <tr><td><code>TaskCreate</code>・<code>TaskGet</code>・<code>TaskList</code>・<code>TaskUpdate</code>・<code>TodoWrite</code></td><td>既定で出るのは Opus 4.7・Sonnet 4.6・Haiku 4.5 以前だけ。<code>CLAUDE_CODE_ENABLE_TODO_TOOLS=1</code> で 4 つの Task ツールが加わった（実測）</td></tr>
+      <tr><td><code>LSP</code>・<code>PowerShell</code></td><td>コードインテリジェンスのプラグインを入れるまで無効 / macOS・Linux・WSL では opt-in</td></tr>
+      <tr><td><code>SendUserFile</code>・<code>ShareOnboardingGuide</code></td><td>Remote Control 接続中かクラウドセッションだけ / Team・Enterprise の claude.ai 契約だけ</td></tr>
+      <tr><td><code>SubagentHandback</code>・<code>WaitForMcpServers</code></td><td>auto mode のサブエージェントにだけ渡す / tool search が無効のときだけ</td></tr>
+      <tr><td><code>SendFeedback</code>・<code>EndConversation</code></td><td>docs が <code>-p</code> では出さないと明記している</td></tr>
+      <tr><td><code>ListMcpResourcesTool</code>・<code>ReadMcpResourceTool</code></td><td>MCP サーバーが 0 のときは出なかった（実測）。docs に条件の記載は無い</td></tr>
+      <tr><td><code>WebFetch</code>・<code>Artifact</code>・<code>AskUserQuestion</code>・<code>EnterPlanMode</code>・<code>ExitPlanMode</code></td><td>理由はドキュメントに記載なし。<code>WebFetch</code> には Team・Enterprise 向けの組織ポリシーの待ちがあるが、この環境に当てはまる説明は無い</td></tr>
+    </tbody>
+  </table>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/tools-reference">tools-reference</a> · <a href="https://code.claude.com/docs/en/tools-reference#task-tool-availability">#task-tool-availability</a> · <a href="https://code.claude.com/docs/en/tools-reference#sessions-without-claude-drafted-feedback">#sessions-without-claude-drafted-feedback</a> · <a href="https://code.claude.com/docs/en/tools-reference#endconversation-tool-behavior">#endconversation-tool-behavior</a> · <a href="https://code.claude.com/docs/en/sub-agents">sub-agents</a> · <a href="https://code.claude.com/docs/en/agent-sdk/typescript">agent-sdk/typescript</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch21-modes">
+  <h2>起動モードとフラグによるツールセット（実測）</h2>
+  <div class="cols-2">
+    <table class="dense">
+      <thead><tr><th>起動オプション</th><th style="width:12%">数</th><th style="width:44%">既定の 24 との差</th></tr></thead>
+      <tbody>
+        <tr><td>なし（既定）</td><td>24</td><td>—</td></tr>
+        <tr><td><code>--safe-mode</code></td><td>24</td><td>差なし</td></tr>
+        <tr><td><code>--restricted</code></td><td>21</td><td><code>Bash</code>・<code>Monitor</code>・<code>CronCreate</code>・<code>RemoteTrigger</code>・<code>Workflow</code> が消え、<code>Glob</code>・<code>Grep</code> が加わる</td></tr>
+        <tr><td><code>--restricted --tools 'Bash'</code></td><td>1</td><td><code>Bash</code> だけ</td></tr>
+        <tr><td><code>--bare</code></td><td>3</td><td><code>Bash</code>・<code>Edit</code>・<code>Read</code> だけ</td></tr>
+        <tr><td><code>--tools 'Bash,Edit,Read'</code></td><td>3</td><td>列挙したものだけ</td></tr>
+        <tr><td><code>--tools ''</code></td><td>0</td><td>組み込みツールなし</td></tr>
+        <tr><td><code>--tools default</code></td><td>24</td><td>差なし</td></tr>
+        <tr><td><code>--allowedTools Grep</code></td><td>26</td><td><code>Glob</code>・<code>Grep</code> の両方が戻る</td></tr>
+        <tr><td><code>--disallowedTools Bash</code></td><td>24</td><td><code>Bash</code>・<code>Monitor</code> が消え、<code>Glob</code>・<code>Grep</code> が加わる</td></tr>
+      </tbody>
+    </table>
+    <div>
+      <ul class="small">
+        <li>空のディレクトリで <code>--setting-sources project</code> を付け、<code>ENABLE_CLAUDEAI_MCP_SERVERS=false</code> で実行し、init の <code>tools</code> を数えました。プロンプトはローカルコマンドで、モデルへのリクエストは送っていません。</li>
+        <li><code>--restricted</code> は、コマンドやコードを実行するツールと <code>WebFetch</code> を外します。<code>--tools</code> で個別に名前を挙げたものだけが戻り、<code>default</code> では戻りません。</li>
+        <li><code>Bash</code> を外すと <code>Glob</code>・<code>Grep</code> が戻るのは docs どおりです。<code>Monitor</code> も一緒に消えました。docs のルール形式の表では、<code>Bash(...)</code> は <code>Bash</code> と <code>Monitor</code> の両方に適用されます。</li>
+        <li>settings の allow ルールに <code>Glob</code> を書いても戻りません。戻すのは <code>--tools</code> と <code>--allowedTools</code> です。</li>
+        <li><code>--tools</code> は MCP ツールに効きません。MCP も外すには <code>--disallowedTools "mcp__*"</code> を使います。</li>
+        <li>3 つの起動モードの全体の違いは <a href="#/ch44">Ch44</a> で扱います。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/cli-reference#cli-flags">cli-reference#cli-flags</a> · <a href="https://code.claude.com/docs/en/tools-reference#glob-tool-behavior">tools-reference#glob-tool-behavior</a> · <a href="https://code.claude.com/docs/en/tools-reference#configure-tools-with-permission-rules-and-hooks">#configure-tools-with-permission-rules-and-hooks</a> · 実機確認 2.1.321</footer>
+</section>
+
+</section>

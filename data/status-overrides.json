@@ -1,0 +1,24 @@
+{
+  "_comment": "Feature-level status from docs/ledger.md §2, applied by tools/build.mjs on top of the per-row status that tools/extract.mjs derives from each row's own text.",
+  "commands": {
+    "/advisor": "experimental",
+    "/schedule": "preview",
+    "/ultrareview": "preview",
+    "/background": "preview",
+    "/stop": "preview",
+    "/focus": "preview",
+    "/scroll-speed": "preview",
+    "/fork": "preview"
+  },
+  "env": {
+    "CLAUDE_CODE_DISABLE_ADVISOR_TOOL": "experimental",
+    "ENABLE_BETA_TRACING_DETAILED": "beta",
+    "BETA_TRACING_ENDPOINT": "beta"
+  },
+  "settings": {
+    "advisorModel": "experimental"
+  },
+  "tools": {
+    "PowerShell": "preview"
+  }
+}

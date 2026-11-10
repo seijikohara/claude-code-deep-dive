@@ -1,0 +1,5 @@
+{
+  "enableArtifact": "`false` にすると、セッション出力を claude.ai に公開する Artifact ツールを無効にし、他のファイルで再有効化できない。",
+  "idleCompaction": "離席中の長い会話をコンパクションし、次のメッセージで要約を送るアイドルコンパクションを止められる。",
+  "terminalProgressBarEnabled": "対応ターミナルのタブやタスクバーに出る、Claude 作業中を示す進捗インジケーターを非表示にできる。"
+}

@@ -1,0 +1,233 @@
+[
+  {
+    "name": "SessionStart",
+    "desc_ja": "セッションの開始時または再開時に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#sessionstart",
+    "can_block": false
+  },
+  {
+    "name": "Setup",
+    "desc_ja": "CI などの一度きりの準備用で、`--init-only` 起動時か `-p` での `--init`・`--maintenance` 起動時に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#setup",
+    "can_block": false
+  },
+  {
+    "name": "UserPromptSubmit",
+    "desc_ja": "プロンプト送信後、Claude が処理する前に発火し、Claude Code が自ら始めるターンでも発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#userpromptsubmit",
+    "can_block": true
+  },
+  {
+    "name": "UserPromptExpansion",
+    "desc_ja": "ユーザーが入力したコマンドがプロンプトに展開され、Claude に届く前に発火し、展開をブロックできる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#userpromptexpansion",
+    "can_block": true
+  },
+  {
+    "name": "PreToolUse",
+    "desc_ja": "ツール呼び出しの実行前に発火し、その呼び出しをブロックできる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#pretooluse",
+    "can_block": true
+  },
+  {
+    "name": "PermissionRequest",
+    "desc_ja": "ツール呼び出しに権限の判断が必要なときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#permissionrequest",
+    "can_block": false
+  },
+  {
+    "name": "PermissionDenied",
+    "desc_ja": "auto モードがツール呼び出しを拒否したときに発火し、`hookSpecificOutput.retry: true` で再試行を許可できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#permissiondenied",
+    "can_block": false
+  },
+  {
+    "name": "PostToolUse",
+    "desc_ja": "ツール呼び出しが成功した後に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#posttooluse",
+    "can_block": false
+  },
+  {
+    "name": "PostToolUseFailure",
+    "desc_ja": "ツール呼び出しが失敗した後に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#posttoolusefailure",
+    "can_block": false
+  },
+  {
+    "name": "PostToolBatch",
+    "desc_ja": "並列ツール呼び出しの一式がすべて完了した後、次のモデル呼び出しの前に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#posttoolbatch",
+    "can_block": true
+  },
+  {
+    "name": "Notification",
+    "desc_ja": "Claude Code が通知を送るときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#notification",
+    "can_block": false
+  },
+  {
+    "name": "MessageDisplay",
+    "desc_ja": "アシスタントのメッセージ本文を表示している間に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#messagedisplay",
+    "can_block": false
+  },
+  {
+    "name": "SubagentStart",
+    "desc_ja": "サブエージェントが起動されたときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#subagentstart",
+    "can_block": false
+  },
+  {
+    "name": "SubagentStop",
+    "desc_ja": "サブエージェントが終了したときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#subagentstop",
+    "can_block": true
+  },
+  {
+    "name": "TaskCreated",
+    "desc_ja": "`TaskCreate` でタスクが作成されるときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#taskcreated",
+    "can_block": true
+  },
+  {
+    "name": "TaskCompleted",
+    "desc_ja": "タスクが完了済みにされるときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#taskcompleted",
+    "can_block": true
+  },
+  {
+    "name": "Stop",
+    "desc_ja": "Claude が応答を終えたときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#stop",
+    "can_block": true
+  },
+  {
+    "name": "StopFailure",
+    "desc_ja": "API エラーでターンが終了したときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#stopfailure",
+    "can_block": false
+  },
+  {
+    "name": "TeammateIdle",
+    "desc_ja": "エージェントチームのチームメイトがアイドル状態になる直前に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#teammateidle",
+    "can_block": true
+  },
+  {
+    "name": "InstructionsLoaded",
+    "desc_ja": "`CLAUDE.md` や `.claude/rules/*.md` がコンテキストに読み込まれたとき（開始時と遅延読み込み時）に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#instructionsloaded",
+    "can_block": false
+  },
+  {
+    "name": "ConfigChange",
+    "desc_ja": "セッション中に設定ファイルが変更されたときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#configchange",
+    "can_block": true
+  },
+  {
+    "name": "CwdChanged",
+    "desc_ja": "Claude が `cd` を実行したときなど作業ディレクトリが変わると発火し、direnv などによる環境管理に使える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#cwdchanged",
+    "can_block": false
+  },
+  {
+    "name": "DirectoryAdded",
+    "desc_ja": "`/add-dir` や SDK の `register_repo_root` 制御リクエストで作業ディレクトリが追加されたときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#directoryadded",
+    "can_block": false
+  },
+  {
+    "name": "FileChanged",
+    "desc_ja": "監視対象のファイルがディスク上で変更されたときに発火し、監視するファイル名は `matcher` で指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#filechanged",
+    "can_block": false
+  },
+  {
+    "name": "WorktreeCreate",
+    "desc_ja": "`--worktree` やバックグラウンドセッションなどで worktree を作成するときに発火し、既定の git 動作を置き換える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#worktreecreate",
+    "can_block": true
+  },
+  {
+    "name": "WorktreeRemove",
+    "desc_ja": "`WorktreeCreate` フックが作成した worktree を削除するときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#worktreeremove",
+    "can_block": true
+  },
+  {
+    "name": "PreCompact",
+    "desc_ja": "コンテキストのコンパクション前に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#precompact",
+    "can_block": true
+  },
+  {
+    "name": "PostCompact",
+    "desc_ja": "コンテキストのコンパクション完了後に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#postcompact",
+    "can_block": false
+  },
+  {
+    "name": "PreModelSwitch",
+    "desc_ja": "ユーザーやクライアントが要求したモデル切り替えを適用する前に発火し、切り替えをブロックできる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#premodelswitch",
+    "can_block": true
+  },
+  {
+    "name": "PostModelSwitch",
+    "desc_ja": "再開時のモデル復元など Claude Code 自身の変更も含め、セッションのモデルが変わった後に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#postmodelswitch",
+    "can_block": false
+  },
+  {
+    "name": "Elicitation",
+    "desc_ja": "ツール呼び出し中に MCP サーバーがユーザー入力を求めたときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#elicitation",
+    "can_block": true
+  },
+  {
+    "name": "ElicitationResult",
+    "desc_ja": "MCP の入力要求にユーザーが応答した後、その応答をサーバーへ返す前に発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#elicitationresult",
+    "can_block": true
+  },
+  {
+    "name": "SessionEnd",
+    "desc_ja": "セッションが終了したときに発火する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/hooks#sessionend",
+    "can_block": false
+  }
+]

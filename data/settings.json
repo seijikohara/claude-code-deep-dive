@@ -1,0 +1,1994 @@
+[
+  {
+    "name": "advisorModel",
+    "desc_ja": "アドバイザーツールに応答させるモデルを指定し、未設定ならアドバイザーは無効になる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#advisormodel",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "alwaysThinkingEnabled",
+    "desc_ja": "`false` で全セッションの拡張思考を無効にし、思考は既定で有効なので `true` では何も変わらない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#alwaysthinkingenabled",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "availableModels",
+    "desc_ja": "メインセッション・サブエージェント・スキル・アドバイザーで選択できるモデルを制限する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#availablemodels",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "availableModelsMatch",
+    "desc_ja": "`availableModels` のエントリとモデル ID の照合方法を選び、`\"exact\"` では記載したバージョンだけを許可する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#availablemodelsmatch",
+    "category": "Model and responses",
+    "scope": "Managed"
+  },
+  {
+    "name": "deniedModels",
+    "desc_ja": "特定のモデルを、`availableModels` の許可リストが許可している場合も含めてブロックする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#deniedmodels",
+    "category": "Model and responses",
+    "scope": "Managed"
+  },
+  {
+    "name": "effortLevel",
+    "desc_ja": "レベルを保存していないモデルに使う既定の effort レベルを設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#effortlevel",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "enforceAvailableModels",
+    "desc_ja": "`/model` の Default オプションが `availableModels` の許可リスト外のモデルに解決されないようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#enforceavailablemodels",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "fallbackModel",
+    "desc_ja": "プライマリモデルが過負荷または利用不可のときに順に試すバックアップモデルを指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#fallbackmodel",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "fastMode",
+    "desc_ja": "利用可能なセッションで fast モードを有効にし、通常は `/fast` の実行でこのキーが書き込まれる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#fastmode",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "fastModePerSessionOptIn",
+    "desc_ja": "`true` にすると、fast モードを使いたいセッションごとに各ユーザーが `/fast` を実行する必要がある。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#fastmodepersessionoptin",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "language",
+    "desc_ja": "Claude の既定の応答言語を英語以外にし、音声入力と自動生成のセッションタイトルの言語にも使う。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#language",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "maxEffortLevel",
+    "desc_ja": "セッションが使える effort レベルに上限を設け、より高いレベルの指定も上限で実行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#maxeffortlevel",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "model",
+    "desc_ja": "新しいセッションが使うモデルを設定し、毎回 `/model` で選ぶ手間を省く。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#model",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "modelOverrides",
+    "desc_ja": "Anthropic のモデル ID を、Amazon Bedrock の推論プロファイル ARN などプロバイダー固有 ID に対応付ける。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#modeloverrides",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "modelPicker",
+    "desc_ja": "`/model` ピッカーに出すモデルを記述順と任意のラベルで定義し、組み込みの一覧の後に追加するか置き換える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#modelpicker",
+    "category": "Model and responses",
+    "scope": "User or managed"
+  },
+  {
+    "name": "modelPricing",
+    "desc_ja": "定価ではなく組織の契約単価で利用額を算出し、`/usage` やステータスラインなどに反映する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#modelpricing",
+    "category": "Model and responses",
+    "scope": "Managed"
+  },
+  {
+    "name": "modelSettings",
+    "desc_ja": "使用するモデルごとに effort レベルを保存する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#modelsettings",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "outputStyle",
+    "desc_ja": "Claude の役割・口調・出力形式を変える出力スタイルを名前で選択する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#outputstyle",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "promptCacheTtl",
+    "desc_ja": "メイン会話のプロンプトキャッシュ保持期間を選び、1 時間にするとキャッシュ書き込みは 5 分より割高になる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#promptcachettl",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "showThinkingSummaries",
+    "desc_ja": "対話セッションで拡張思考の要約を表示し、未設定または `false` では折りたたまれたスタブだけを表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#showthinkingsummaries",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "subagentPromptCacheTtl",
+    "desc_ja": "サブエージェントやワークフローなど、メイン会話以外のリクエストのプロンプトキャッシュ保持期間を選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#subagentpromptcachettl",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "switchModelsOnFlag",
+    "desc_ja": "安全性分類器がリクエストにフラグを立てたとき、フォールバックモデルで続行するか一時停止するかを選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#switchmodelsonflag",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "ultracode",
+    "desc_ja": "セッションを ultracode 有効の状態で開始し、Claude が実質的なタスクごとに頼まれずともワークフローを計画する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#ultracode",
+    "category": "Model and responses",
+    "scope": "Any file"
+  },
+  {
+    "name": "allowManagedPermissionRulesOnly",
+    "desc_ja": "権限ルールの設定元を管理設定だけにし、ユーザー・プロジェクト・ローカルなどの `allow`・`ask`・`deny` ルールを無視する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#allowmanagedpermissionrulesonly",
+    "category": "Permission settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "autoMode",
+    "desc_ja": "auto モード分類器がブロック・許可する対象に、組織独自のルールを追加する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#automode",
+    "category": "Permission settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "autoMode.classifyAllShell",
+    "desc_ja": "auto モードの有効中、すべての Bash・PowerShell コマンドを auto モード分類器に通す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#automode-classifyallshell",
+    "category": "Permission settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "disableAutoMode",
+    "desc_ja": "`Shift+Tab` の切り替えから auto モードを外し、auto モードで始まるはずのセッションは `default` で開始する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disableautomode",
+    "category": "Permission settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "permissions",
+    "desc_ja": "確認なしで使えるツール・確認するツール・ブロックするツールと、新規セッションの既定の権限モードを設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#permissions",
+    "category": "Permission settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "useAutoModeDuringPlan",
+    "desc_ja": "プランモードでシェルコマンドを auto モード分類器に審査させるかを選び、`false` では権限プロンプトを出す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#useautomodeduringplan",
+    "category": "Permission settings",
+    "scope": "User, local, or managed"
+  },
+  {
+    "name": "permissions.allow",
+    "desc_ja": "確認なしで承認するツール使用を列挙し、MCP ルールの `*` は `mcp__<server>__` 以降のツール名にだけ使える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#permissions-allow",
+    "category": "Permission settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "permissions.ask",
+    "desc_ja": "`acceptEdits` や `bypassPermissions` など本来は承認される権限モードでも確認を求めるツール使用を列挙する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#permissions-ask",
+    "category": "Permission settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "permissions.deny",
+    "desc_ja": "ブロックするツール使用を列挙し、API キーや秘密情報を含むファイルの読み取りや編集を防ぐのに使う。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#permissions-deny",
+    "category": "Permission settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "permissions.additionalDirectories",
+    "desc_ja": "起動したディレクトリ以外のディレクトリを追加の作業ディレクトリとし、Claude にファイルアクセスを与える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#permissions-additionaldirectories",
+    "category": "Permission settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "permissions.blockReadsOutsideWorkingDirectories",
+    "desc_ja": "`bypassPermissions` を含むすべての権限モードで、作業ディレクトリ外の読み取りをファイルツールに拒否させる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#permissions-blockreadsoutsideworkingdirectories",
+    "category": "Permission settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "permissions.blockWritesOutsideWorkingDirectories",
+    "desc_ja": "すべての権限モードで `Write`・`Edit`・`NotebookEdit` ツールに作業ディレクトリ外のパスを拒否させる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#permissions-blockwritesoutsideworkingdirectories",
+    "category": "Permission settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "permissions.defaultMode",
+    "desc_ja": "新規セッションの既定の権限モードを設定し、未設定なら利用環境の組み込み既定値が適用される。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#permissions-defaultmode",
+    "category": "Permission settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "permissions.denyInsteadOfPrompting",
+    "desc_ja": "`true` にすると権限プロンプトを待つツール呼び出しを拒否し、応答者がいなくてもセッションを継続させる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#permissions-denyinsteadofprompting",
+    "category": "Permission settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "permissions.disableBypassPermissionsMode",
+    "desc_ja": "`bypassPermissions` モードを禁止し、`--dangerously-skip-permissions` フラグを拒否する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#permissions-disablebypasspermissionsmode",
+    "category": "Permission settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "skipAutoPermissionPrompt",
+    "desc_ja": "自分で初めて auto モードに入ったときに表示される、一度きりの説明通知をスキップする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#skipautopermissionprompt",
+    "category": "Permission settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "skipDangerousModePermissionPrompt",
+    "desc_ja": "セッションが `bypassPermissions` モードに入る前の確認ダイアログをスキップする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#skipdangerousmodepermissionprompt",
+    "category": "Permission settings",
+    "scope": "User, local, or managed"
+  },
+  {
+    "name": "sandbox",
+    "desc_ja": "Claude が実行する Bash コマンドを、サンドボックスでファイルシステムとネットワークから隔離する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.enabled",
+    "desc_ja": "Bash コマンドのサンドボックスを有効にし、`/sandbox` パネルでモードを選ぶとこのキーが書き込まれる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-enabled",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.failIfUnavailable",
+    "desc_ja": "`sandbox.enabled` が `true` でもサンドボックスを起動できない場合に、起動時にエラーで終了させる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-failifunavailable",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.autoAllowBashIfSandboxed",
+    "desc_ja": "サンドボックス内の Bash コマンドを権限プロンプトなしで実行させ、`deny` ルールは引き続き適用する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-autoallowbashifsandboxed",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.excludedCommands",
+    "desc_ja": "サンドボックス外で実行するコマンドを、`Bash(...)` 権限ルールと同じ構文で指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-excludedcommands",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.allowUnsandboxedCommands",
+    "desc_ja": "サンドボックスがブロックしたコマンドを、サンドボックス外で再試行させるか禁止するかを設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-allowunsandboxedcommands",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.filesystem",
+    "desc_ja": "サンドボックス内のコマンドが読み書きできるパスを制御し、4 つのパスリストで範囲を広げたり狭めたりする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-filesystem",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.filesystem.allowWrite",
+    "desc_ja": "サンドボックス内のコマンドが書き込めるパスを、作業ディレクトリや一時ディレクトリ以外にも追加する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-filesystem-allowwrite",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.filesystem.denyWrite",
+    "desc_ja": "書き込み可能なディレクトリ内も含め、サンドボックス内のコマンドによる特定パスへの書き込みをブロックする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-filesystem-denywrite",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.filesystem.denyRead",
+    "desc_ja": "サンドボックス内のコマンドが、既定では読める認証情報ファイルなど特定のパスを読めないようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-filesystem-denyread",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.filesystem.allowRead",
+    "desc_ja": "`denyRead` がブロックする範囲内の特定パスの読み取りを再び許可し、ワークスペース限定の読み取りを構成する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-filesystem-allowread",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.filesystem.allowManagedReadPathsOnly",
+    "desc_ja": "管理設定由来の `allowRead` エントリだけを有効にし、組織がブロックしたパスを開発者が再び読めないようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-filesystem-allowmanagedreadpathsonly",
+    "category": "Sandbox settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "sandbox.filesystem.disabled",
+    "desc_ja": "ネットワークの隔離を維持したまま、ファイルシステムの隔離をスキップする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-filesystem-disabled",
+    "category": "Sandbox settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "sandbox.ignoreViolations",
+    "desc_ja": "想定内のアクセス拒否についてサンドボックス違反の報告だけを抑止し、アクセス自体は引き続きブロックする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-ignoreviolations",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.enableWeakerNestedSandbox",
+    "desc_ja": "非特権 Docker コンテナ内で Linux サンドボックスを動かすが、既存の `/proc` を使うため安全性が下がる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-enableweakernestedsandbox",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.enableWeakerNetworkIsolation",
+    "desc_ja": "macOS のサンドボックス内コマンドに TLS 信頼サービス `com.apple.trustd.agent` への接続を許可する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-enableweakernetworkisolation",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.allowAppleEvents",
+    "desc_ja": "macOS のサンドボックス内コマンドに Apple Events の送信を許可するが、コード実行の隔離は失われる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-allowappleevents",
+    "category": "Sandbox settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "sandbox.allowNestedUserNamespaces",
+    "desc_ja": "Linux と WSL2 のサンドボックス内コマンドにユーザー名前空間の作成を許可するが、セキュリティ境界は無効になる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-allownestedusernamespaces",
+    "category": "Sandbox settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "sandbox.ripgrep",
+    "desc_ja": "Claude Code が使うものの代わりに、独自の ripgrep バイナリをサンドボックスに使わせる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-ripgrep",
+    "category": "Sandbox settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "sandbox.bwrapPath",
+    "desc_ja": "`PATH` 外にインストールした bubblewrap バイナリをサンドボックスで使うよう指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-bwrappath",
+    "category": "Sandbox settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "sandbox.socatPath",
+    "desc_ja": "サンドボックスのネットワークプロキシに `PATH` 外の `socat` バイナリを使わせる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-socatpath",
+    "category": "Sandbox settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "sandbox.credentials",
+    "desc_ja": "サンドボックス内のコマンドから保護する認証情報ファイルと環境変数を宣言し、`deny` か `mask` で扱いを決める。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-credentials",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.credentials.files",
+    "desc_ja": "認証情報のファイルやディレクトリをサンドボックス内のコマンドから保護し、読み取りを禁止またはマスクする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-credentials-files",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.credentials.envVars",
+    "desc_ja": "サンドボックス内のコマンドから環境変数を保護し、`deny` で除去、`mask` でセンチネル値に置き換える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-credentials-envvars",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.credentials.allowPlaintextInject",
+    "desc_ja": "TLS 終端した HTTPS に加え、平文の HTTP リクエストでも `mask` による置換を許可する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-credentials-allowplaintextinject",
+    "category": "Sandbox settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "sandbox.credentials.awsPairs",
+    "desc_ja": "マスクした非標準名の環境変数を、SigV4 再署名用の 1 つの AWS 認証情報としてまとめる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-credentials-awspairs",
+    "category": "Sandbox settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "sandbox.credentials.sigv4",
+    "desc_ja": "サンドボックスプロキシが再署名できない AWS リクエスト（`streaming`・`presigned`・`sigv4a`）の扱いを選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-credentials-sigv4",
+    "category": "Sandbox settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "sandbox.network",
+    "desc_ja": "サンドボックス内のコマンドが接続できるホスト・ポート・ソケットを制御する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.network.allowUnixSockets",
+    "desc_ja": "macOS でサンドボックス内のコマンドが接続できる Unix ソケットのパスを列挙し、Linux と WSL2 では無視される。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network-allowunixsockets",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.network.allowAllUnixSockets",
+    "desc_ja": "サンドボックス内のコマンドにすべての Unix ソケットへの接続を許可し、Linux と WSL2 ではこれが唯一の許可手段になる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network-allowallunixsockets",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.network.allowLocalBinding",
+    "desc_ja": "macOS でサンドボックス内のコマンドにポートでの待ち受けと localhost への接続を許可する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network-allowlocalbinding",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.network.allowMachLookup",
+    "desc_ja": "macOS サンドボックスが参照できる XPC・Mach サービス名を追加で列挙する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network-allowmachlookup",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.network.allowedDomains",
+    "desc_ja": "サンドボックス内のコマンドの外向き通信先ドメインを事前に許可し、確認を出さないようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network-alloweddomains",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.network.deniedDomains",
+    "desc_ja": "サンドボックス内のコマンドの外向き通信先ドメインをブロックし、`allowedDomains` に一致しても拒否を優先する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network-denieddomains",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.network.strictAllowlist",
+    "desc_ja": "サンドボックス内のコマンドによる許可リスト外ホストへのアクセスを、確認せずに拒否する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network-strictallowlist",
+    "category": "Sandbox settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "sandbox.network.allowManagedDomainsOnly",
+    "desc_ja": "ネットワーク許可リストを管理設定の定義だけに固定し、許可外のドメインは確認せずにブロックする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network-allowmanageddomainsonly",
+    "category": "Sandbox settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "sandbox.network.httpProxyPort",
+    "desc_ja": "サンドボックスに Claude Code のプロキシではなく独自の HTTP プロキシを使わせ、フィルタリングを委ねる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network-httpproxyport",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.network.socksProxyPort",
+    "desc_ja": "サンドボックスに Claude Code のプロキシではなく独自の SOCKS5 プロキシを使わせ、フィルタリングを委ねる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network-socksproxyport",
+    "category": "Sandbox settings",
+    "scope": "Any file"
+  },
+  {
+    "name": "sandbox.network.tlsTerminate",
+    "desc_ja": "実験的機能で、サンドボックスプロキシに TLS を終端させて HTTPS の中身を読めるようにし、`mask` 置換に必要となる。",
+    "status": "experimental",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sandbox-network-tlsterminate",
+    "category": "Sandbox settings",
+    "scope": "User or managed"
+  },
+  {
+    "name": "autoCompactEnabled",
+    "desc_ja": "コンテキストが上限に近づいたときに、会話を自動でコンパクションする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#autocompactenabled",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "autoCompactWindow",
+    "desc_ja": "自動コンパクションが始まるまでに、コンテキストウィンドウをどこまで使うかを設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#autocompactwindow",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "autoMemoryDirectory",
+    "desc_ja": "自動メモリをプロジェクトごとの既定ではなく、任意のディレクトリに保存する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#automemorydirectory",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "autoMemoryEnabled",
+    "desc_ja": "自動メモリのオン・オフを切り替え、`false` では自動メモリのディレクトリを読み書きしない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#automemoryenabled",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "bashOutputMaxChars",
+    "desc_ja": "成功した Bash・PowerShell コマンドの出力を Claude がインラインで受け取る最大文字数を設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#bashoutputmaxchars",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "claudeMd",
+    "desc_ja": "別ファイルを配布せずに、`CLAUDE.md` 形式の指示を組織管理のメモリとして注入する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#claudemd",
+    "category": "Memory and context",
+    "scope": "Managed"
+  },
+  {
+    "name": "claudeMdExcludes",
+    "desc_ja": "メモリ読み込み時に特定の `CLAUDE.md` ファイルを除外し、パターンは絶対パスに対して照合する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#claudemdexcludes",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "env",
+    "desc_ja": "すべてのセッションと、セッションから起動するサブプロセスに環境変数を設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#env",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "fileCheckpointingEnabled",
+    "desc_ja": "各編集の前にファイルのスナップショットを取り、`/rewind` で復元できるようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#filecheckpointingenabled",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "idleCompaction",
+    "desc_ja": "離席中の長い会話をコンパクションし、次のメッセージで要約を送るアイドルコンパクションを止められる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#idlecompaction",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "plansDirectory",
+    "desc_ja": "プランモードで書くプランファイルの保存先を選び、パスはプロジェクトルートからの相対で解決する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#plansdirectory",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "skillListingBudgetFraction",
+    "desc_ja": "毎ターン Claude に渡すスキル一覧の上限を、コンテキストウィンドウに対する割合で設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#skilllistingbudgetfraction",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "skillListingMaxDescChars",
+    "desc_ja": "スキル一覧で各スキルの `description` と `when_to_use` に表示する文字数の上限を設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#skilllistingmaxdescchars",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "taskOutputMaxChars",
+    "desc_ja": "v2.1.277 で `TaskOutput` ツールとともに削除され、現行バージョンでは設定しても効果がない。",
+    "status": "removed",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#taskoutputmaxchars",
+    "category": "Memory and context",
+    "scope": "Any file"
+  },
+  {
+    "name": "askUserQuestionTimeout",
+    "desc_ja": "未回答の `AskUserQuestion` ダイアログを、一定の無操作時間の後に選択済みの項目で自動的に進める。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#askuserquestiontimeout",
+    "category": "Interface and terminal",
+    "scope": "User or managed"
+  },
+  {
+    "name": "autoContinueAtUsageLimit",
+    "desc_ja": "claude.ai の利用上限でセッションが止まったとき、開いたまま待機してリセット後にタスクを自動で再開する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#autocontinueatusagelimit",
+    "category": "Interface and terminal",
+    "scope": "User or managed"
+  },
+  {
+    "name": "autoScrollEnabled",
+    "desc_ja": "フルスクリーン描画で、新しい出力に合わせて会話の末尾まで自動スクロールする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#autoscrollenabled",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "axScreenReader",
+    "desc_ja": "装飾的な枠線やアニメーションのない平坦なテキストで、スクリーンリーダー向けの出力を描画する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#axscreenreader",
+    "category": "Interface and terminal",
+    "scope": "User or managed"
+  },
+  {
+    "name": "bashEditDiffEnabled",
+    "desc_ja": "Bash コマンドの実行中に Git リポジトリ内で変更されたファイルを記録するかを選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#basheditdiffenabled",
+    "category": "Interface and terminal",
+    "scope": "User or managed"
+  },
+  {
+    "name": "companyAnnouncements",
+    "desc_ja": "起動時に組織のお知らせを表示し、複数ある場合はセッションごとにランダムに 1 つ選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#companyannouncements",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "defaultShell",
+    "desc_ja": "入力欄で `!` プレフィックス付きで入力したシェルコマンドを、Bash と PowerShell のどちらで実行するかを選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#defaultshell",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "dialogExpiry",
+    "desc_ja": "Remote Control や SDK ホストなどリモートクライアントに転送したダイアログの期限を設定し、期限切れで取り消す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#dialogexpiry",
+    "category": "Interface and terminal",
+    "scope": "User or managed"
+  },
+  {
+    "name": "editorMode",
+    "desc_ja": "入力プロンプトのキーバインドモードを選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#editormode",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "emojiCompletionEnabled",
+    "desc_ja": "入力欄で `:` とショートコードを入力したときに絵文字を候補表示し、完成したショートコードを絵文字に置き換える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#emojicompletionenabled",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "fileSuggestion",
+    "desc_ja": "組み込みのファイル候補の代わりに、独自コマンドで `@` のファイルパス補完を提供する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#filesuggestion",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "footerLinksRegexes",
+    "desc_ja": "ターンの出力が正規表現に一致したとき、入力欄下のフッターにクリック可能なバッジを追加表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#footerlinksregexes",
+    "category": "Interface and terminal",
+    "scope": "User or managed"
+  },
+  {
+    "name": "keybindingFlavor",
+    "desc_ja": "v2.1.261 から非推奨で効果がなく、プロンプトの単語編集キーは常に readline の慣例に従う。",
+    "status": "deprecated",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#keybindingflavor",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "maxProseWidth",
+    "desc_ja": "広いターミナルでも読みやすいよう、Claude の応答の文章部分の幅を桁数で制限する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#maxprosewidth",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "prefersReducedMotion",
+    "desc_ja": "スピナーやシマー、フラッシュなどのインターフェースのアニメーションを抑えるか無効にする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#prefersreducedmotion",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "promptSuggestionEnabled",
+    "desc_ja": "入力欄にグレーで表示されるプロンプト候補の表示・非表示を切り替える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#promptsuggestionenabled",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "respectGitignore",
+    "desc_ja": "`@` ファイルピッカーで `.gitignore` のパターンに一致するファイルを除外するかを制御する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#respectgitignore",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "respondToBashCommands",
+    "desc_ja": "入力欄の `!` シェルコマンド実行後に Claude が応答するかを選び、`false` では出力をコンテキストに追加するだけにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#respondtobashcommands",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "showClearContextOnPlanAccept",
+    "desc_ja": "プランモードの承認メニューに、プランを承認してコンテキストを消去し実装を始める選択肢を追加する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#showclearcontextonplanaccept",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "showTurnDuration",
+    "desc_ja": "各応答の後に表示するターン所要時間のメッセージを、表示するか非表示にするかを切り替える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#showturnduration",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "spellcheck",
+    "desc_ja": "インストールしたスペルチェッカーを使い、入力中のプロンプトのスペルミスに下線を引く。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#spellcheck",
+    "category": "Interface and terminal",
+    "scope": "User or managed"
+  },
+  {
+    "name": "spinnerTipsEnabled",
+    "desc_ja": "Claude の作業中にスピナー行に出る Claude Code の機能のヒントを、`false` で非表示にする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#spinnertipsenabled",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "spinnerTipsOverride",
+    "desc_ja": "スピナーに表示するヒントに独自のヒントを追加するか、組み込みのヒントを置き換える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#spinnertipsoverride",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "spinnerVerbs",
+    "desc_ja": "ターン実行中にスピナーが表示する動詞に独自の動詞を追加するか、組み込みの一覧を置き換える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#spinnerverbs",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "statusLine",
+    "desc_ja": "独自コマンドを実行して、モデル・コスト・git ブランチなどを示すステータスラインをプロンプト下に表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#statusline",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "subagentStatusLine",
+    "desc_ja": "プロンプト下のタスク表示に並ぶサブエージェントの各行を、独自コマンドで書き換える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#subagentstatusline",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "syntaxHighlightingDisabled",
+    "desc_ja": "`true` にすると、差分・コードブロック・ファイルプレビューのシンタックスハイライトをやめてプレーンテキストで表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#syntaxhighlightingdisabled",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "terminalProgressBarEnabled",
+    "desc_ja": "対応ターミナルのタブやタスクバーに出る、Claude 作業中を示す進捗インジケーターを非表示にできる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#terminalprogressbarenabled",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "terminalTitleFromRename",
+    "desc_ja": "`false` にすると、`/rename` や `--name` でセッション名を付けてもタブには生成されたタイトルを残す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#terminaltitlefromrename",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "theme",
+    "desc_ja": "インターフェースの配色テーマを選び、`/config` では Theme として表示される。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#theme",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "timeFormat",
+    "desc_ja": "ターン所要時間の `done 6:05 PM` やトランスクリプトビューアのタイムスタンプなど、画面上の時刻の表記を選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#timeformat",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "timeZone",
+    "desc_ja": "システムとは別のタイムゾーンで画面上の時刻を表示し、`\"UTC\"` などの IANA タイムゾーン名で指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#timezone",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "tui",
+    "desc_ja": "ターミナル UI のレンダラーを選び、`\"fullscreen\"` でちらつきのない代替画面、`\"default\"` で従来の描画にする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#tui",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "verbose",
+    "desc_ja": "`true` にすると、各ツール呼び出しの入力と出力を要約せずにすべてトランスクリプトへインライン表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#verbose",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "viewMode",
+    "desc_ja": "起動時の表示を `\"default\"`・`\"verbose\"`・`\"focus\"` から選び、`/focus` の選択と `verbose` 設定より優先する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#viewmode",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "vimInsertModeRemaps",
+    "desc_ja": "vim 編集モードで INSERT モード中の 2 文字の連続入力を Escape に割り当て、割り当て先は `\"<Esc>\"` のみ対応する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#viminsertmoderemaps",
+    "category": "Interface and terminal",
+    "scope": "User or managed"
+  },
+  {
+    "name": "voice",
+    "desc_ja": "音声入力を有効にして入力キーの動作を選ぶオブジェクトで、`/voice` を実行すると Claude Code が書き込む。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#voice",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "voiceEnabled",
+    "desc_ja": "v2.1.92 から非推奨で、`voice` 以前の真偽値形式で音声入力を有効にし、両方あれば `voice.enabled` が優先される。",
+    "status": "deprecated",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#voiceenabled",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "wheelScrollAccelerationEnabled",
+    "desc_ja": "フルスクリーン描画で高速スクロール時にマウスホイールの速度を加速し、`false` でノッチごとの一定速度にする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#wheelscrollaccelerationenabled",
+    "category": "Interface and terminal",
+    "scope": "Any file"
+  },
+  {
+    "name": "attribution",
+    "desc_ja": "Claude Code が git コミットとプルリクエストに付ける帰属表示をカスタマイズし、各部分はサブキーで個別に設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#attribution",
+    "category": "Git and attribution",
+    "scope": "Any file"
+  },
+  {
+    "name": "includeCoAuthoredBy",
+    "desc_ja": "v2.0.62 から非推奨で、コミットと PR の帰属表示は後継の `attribution` で変更・非表示にする。",
+    "status": "deprecated",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#includecoauthoredby",
+    "category": "Git and attribution",
+    "scope": "Any file"
+  },
+  {
+    "name": "includeGitInstructions",
+    "desc_ja": "`Bash` ツールの説明に含まれる組み込みのコミット・PR 作成手順を、Claude のコンテキストに含めるかを制御する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#includegitinstructions",
+    "category": "Git and attribution",
+    "scope": "Any file"
+  },
+  {
+    "name": "prUrlTemplate",
+    "desc_ja": "フッターのバッジやツール結果に表示する PR リンクを、`github.com` ではなく社内のコードレビューツールに向ける。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#prurltemplate",
+    "category": "Git and attribution",
+    "scope": "Any file"
+  },
+  {
+    "name": "attribution.commit",
+    "desc_ja": "Claude Code が git コミットに付ける帰属テキストをトレーラーも含めて指定し、空文字列にすると表示しない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#attribution-commit",
+    "category": "Git and attribution",
+    "scope": "Any file"
+  },
+  {
+    "name": "attribution.pr",
+    "desc_ja": "Claude Code がプルリクエストの説明に付ける帰属テキストを指定し、空文字列にすると表示しない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#attribution-pr",
+    "category": "Git and attribution",
+    "scope": "Any file"
+  },
+  {
+    "name": "attribution.sessionUrl",
+    "desc_ja": "クラウド・Remote Control セッションでのコミットや PR に claude.ai のセッションリンクを付けるかを選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#attribution-sessionurl",
+    "category": "Git and attribution",
+    "scope": "Any file"
+  },
+  {
+    "name": "allowedHttpHookUrls",
+    "desc_ja": "HTTP フックの送信先 URL をパターンで制限し、一致しないフックは実行せずブロックし、空配列ならすべてをブロックする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#allowedhttphookurls",
+    "category": "Hooks and automation",
+    "scope": "Any file"
+  },
+  {
+    "name": "allowManagedHooksOnly",
+    "desc_ja": "フックの実行を、組織が配布したフックだけに制限する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#allowmanagedhooksonly",
+    "category": "Hooks and automation",
+    "scope": "Managed"
+  },
+  {
+    "name": "disableAllHooks",
+    "desc_ja": "フック・カスタムステータスライン・カスタムのファイル候補コマンドを、設定から消さずにまとめて一時的に無効化する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disableallhooks",
+    "category": "Hooks and automation",
+    "scope": "Any file"
+  },
+  {
+    "name": "disableWorkflows",
+    "desc_ja": "設定が及ぶ全員を対象に動的ワークフローと同梱のワークフローコマンドを無効化し、自分だけなら `enableWorkflows` を使う。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disableworkflows",
+    "category": "Hooks and automation",
+    "scope": "Any file"
+  },
+  {
+    "name": "enableWorkflows",
+    "desc_ja": "プランの既定と異なる場合に自分だけ動的ワークフローを有効・無効にし、全員向けには管理設定の `disableWorkflows` を使う。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#enableworkflows",
+    "category": "Hooks and automation",
+    "scope": "Any file"
+  },
+  {
+    "name": "hooks",
+    "desc_ja": "ツール呼び出し前やセッション開始時など、ライフサイクルの各時点で独自のコマンドや HTTP リクエストなどをフックとして実行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#hooks",
+    "category": "Hooks and automation",
+    "scope": "Any file"
+  },
+  {
+    "name": "httpHookAllowedEnvVars",
+    "desc_ja": "全 HTTP フック共通で、ヘッダーに使える環境変数を各フックの `allowedEnvVars` と本キーの両方に載るものに限定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#httphookallowedenvvars",
+    "category": "Hooks and automation",
+    "scope": "Any file"
+  },
+  {
+    "name": "workflowKeywordTriggerEnabled",
+    "desc_ja": "プロンプト中のキーワード `ultracode` で動的ワークフローを起動するかを選び、`false` なら起動せずにその語を入力できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#workflowkeywordtriggerenabled",
+    "category": "Hooks and automation",
+    "scope": "Any file"
+  },
+  {
+    "name": "workflowSizeGuideline",
+    "desc_ja": "Claude が動的ワークフローで目指すエージェント数の目安を指定し、`\"small\"` は 5 未満、`\"large\"` は 50 未満を求める。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#workflowsizeguideline",
+    "category": "Hooks and automation",
+    "scope": "Any file"
+  },
+  {
+    "name": "disableBundledSkills",
+    "desc_ja": "Claude Code 同梱のスキルとワークフローを無効化し、`/init` などの組み込みコマンドは入力できるがモデルからは隠す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disablebundledskills",
+    "category": "Plugins and skills",
+    "scope": "Any file"
+  },
+  {
+    "name": "disableSkillShellExecution",
+    "desc_ja": "ユーザー・プロジェクト・プラグインなど由来のスキルとカスタムコマンドでインラインシェル実行を無効化し、各コマンドを定型文に置き換える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disableskillshellexecution",
+    "category": "Plugins and skills",
+    "scope": "Any file"
+  },
+  {
+    "name": "skillOverrides",
+    "desc_ja": "`SKILL.md` を編集せずにスキルを非表示または折りたたみにし、Claude が見るスキル一覧と `/` 補完に反映する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#skilloverrides",
+    "category": "Plugins and skills",
+    "scope": "Any file"
+  },
+  {
+    "name": "syncClaudeAiSkills",
+    "desc_ja": "`false` で claude.ai アカウントで有効なスキルのダウンロードと同期済み分の読み込みを止め、`true` は未設定と同じ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#syncclaudeaiskills",
+    "category": "Plugins and skills",
+    "scope": "User, local, or managed"
+  },
+  {
+    "name": "syncClaudeAiPlugins",
+    "desc_ja": "`false` で claude.ai アカウントで有効なプラグインのダウンロードと同期済み分の読み込みを止める（v2.1.273 以降）。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#syncclaudeaiplugins",
+    "category": "Plugins and skills",
+    "scope": "User, local, or managed"
+  },
+  {
+    "name": "allowedChannelPlugins",
+    "desc_ja": "組織内のセッションにメッセージを送れるチャンネルプラグインを指定し、既定の Anthropic 許可リストを置き換える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#allowedchannelplugins",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "blockedMarketplaces",
+    "desc_ja": "組織のプラグインマーケットプレイスのソースをブロックし、ポリシー設定前に追加されたマーケットプレイスからの取得も防ぐ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#blockedmarketplaces",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "channelsEnabled",
+    "desc_ja": "組織でチャンネルを許可し、claude.ai の Team・Enterprise プランでは `true` にするまでブロックされる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#channelsenabled",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "disableCommandPluginSources",
+    "desc_ja": "マーケットプレイスが宣言したコマンドを実行してインストールする `command` プラグインソースをブロックし、導入済みのものも読み込まない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disablecommandpluginsources",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "pluginSuggestionMarketplaces",
+    "desc_ja": "スピナーのヒントや `/plugin` の Discover タブで、プラグインをインストール候補として提示できるマーケットプレイスを指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#pluginsuggestionmarketplaces",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "pluginTrustMessage",
+    "desc_ja": "インストール前に表示するプラグインの信頼性警告に、社内マーケットプレイスが審査済みである旨など組織独自の文言を加える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#plugintrustmessage",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "strictKnownMarketplaces",
+    "desc_ja": "組織のメンバーが追加・インストール元にできるプラグインマーケットプレイスのソースを許可リストで制限する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#strictknownmarketplaces",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "strictPluginOnlyCustomization",
+    "desc_ja": "ユーザー・プロジェクト由来のスキル・エージェント・フック・MCP サーバーをブロックし、プラグインか管理設定からのみ読み込む。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#strictpluginonlycustomization",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "strictPluginOnlyCustomization.skills",
+    "desc_ja": "`skills` をロックし、ユーザー・プロジェクト・`--add-dir` のスキルとコマンド、claude.ai 同期スキルを読み込まない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#strictpluginonlycustomization-skills",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "strictPluginOnlyCustomization.agents",
+    "desc_ja": "`agents` をロックし、ユーザー・プロジェクト・`--add-dir` のディレクトリからエージェントを読み込まない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#strictpluginonlycustomization-agents",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "strictPluginOnlyCustomization.hooks",
+    "desc_ja": "`hooks` をロックし、ユーザー・プロジェクト・ローカル設定のフックを止め、管理設定とプラグインのフックは実行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#strictpluginonlycustomization-hooks",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "strictPluginOnlyCustomization.mcp",
+    "desc_ja": "`mcp` をロックし、`~/.claude.json` と `.mcp.json` の MCP サーバーを読み込まず、管理設定・プラグイン由来は残す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#strictpluginonlycustomization-mcp",
+    "category": "Plugins and skills",
+    "scope": "Managed"
+  },
+  {
+    "name": "enabledPlugins",
+    "desc_ja": "`plugin-name@marketplace-name` で各プラグインを有効・無効にし、未記載なら `defaultEnabled` に従う。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#enabledplugins",
+    "category": "Plugins and skills",
+    "scope": "Any file"
+  },
+  {
+    "name": "extraKnownMarketplaces",
+    "desc_ja": "追加のプラグインマーケットプレイスを名前で登録し、リポジトリを開いた人や管理設定の対象者が自分で追加せずに使えるようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#extraknownmarketplaces",
+    "category": "Plugins and skills",
+    "scope": "Any file"
+  },
+  {
+    "name": "pluginConfigs",
+    "desc_ja": "プラグインの `userConfig` ダイアログの機密でない回答をプラグイン ID ごとに保存し、機密値は macOS キーチェーンに入れる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#pluginconfigs",
+    "category": "Plugins and skills",
+    "scope": "User or managed"
+  },
+  {
+    "name": "prependPlugins",
+    "desc_ja": "ユーザーの全 mod より前に実行する管理プラグインを順に並べ、組み込みガードを残すには `sec-default@builtin` を含める。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#prependplugins",
+    "category": "Plugins and skills",
+    "scope": "User or managed"
+  },
+  {
+    "name": "appendPlugins",
+    "desc_ja": "ユーザーが導入した全 mod の後に実行する管理プラグインを順に列挙し、`prependPlugins` にもある ID は前に実行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#appendplugins",
+    "category": "Plugins and skills",
+    "scope": "User or managed"
+  },
+  {
+    "name": "allowAllClaudeAiMcps",
+    "desc_ja": "`managed-mcp.json` を配布していても、Claude Code が自ら取得する claude.ai コネクタを併せて読み込む。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#allowallclaudeaimcps",
+    "category": "MCP",
+    "scope": "Managed"
+  },
+  {
+    "name": "allowClaudeInChromeWithManagedMcp",
+    "desc_ja": "`managed-mcp.json` の配布時も、組み込みの Claude in Chrome サーバーを併用できるようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#allowclaudeinchromewithmanagedmcp",
+    "category": "MCP",
+    "scope": "Managed"
+  },
+  {
+    "name": "allowedMcpServers",
+    "desc_ja": "ユーザーが追加できる MCP サーバーを許可リストで制限し、プラグインや `--mcp-config` 由来を含め一致しないものをブロックする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#allowedmcpservers",
+    "category": "MCP",
+    "scope": "Any file"
+  },
+  {
+    "name": "allowManagedMcpServersOnly",
+    "desc_ja": "管理設定の `allowedMcpServers` だけを許可リストとして適用し、ユーザー・プロジェクト・ローカル設定の許可リストを無視する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#allowmanagedmcpserversonly",
+    "category": "MCP",
+    "scope": "Managed"
+  },
+  {
+    "name": "deniedMcpServers",
+    "desc_ja": "特定の MCP サーバーを、プラグインや `--mcp-config`・`managed-mcp.json` など定義元を問わずブロックする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#deniedmcpservers",
+    "category": "MCP",
+    "scope": "Any file"
+  },
+  {
+    "name": "disableClaudeAiConnectors",
+    "desc_ja": "Claude Code が自ら取得する claude.ai コネクタを無効化し、いずれかの設定ファイルで `true` なら適用される。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disableclaudeaiconnectors",
+    "category": "MCP",
+    "scope": "Any file"
+  },
+  {
+    "name": "disabledMcpjsonServers",
+    "desc_ja": "プロジェクトの `.mcp.json` で定義された特定のサーバーを拒否し、接続も承認の確認もしないようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disabledmcpjsonservers",
+    "category": "MCP",
+    "scope": "Any file"
+  },
+  {
+    "name": "enableAllProjectMcpServers",
+    "desc_ja": "プロジェクトの `.mcp.json` で定義されたすべての MCP サーバーを確認なしで承認する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#enableallprojectmcpservers",
+    "category": "MCP",
+    "scope": "Any file"
+  },
+  {
+    "name": "enabledMcpjsonServers",
+    "desc_ja": "プロジェクトの `.mcp.json` で定義された特定のサーバーを承認し、確認なしで接続させる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#enabledmcpjsonservers",
+    "category": "MCP",
+    "scope": "Any file"
+  },
+  {
+    "name": "managedMcpServers",
+    "desc_ja": "管理設定から全ユーザーにリモート MCP サーバーを提供し、ユーザーはそれらを編集・削除できない（v2.1.259 以降）。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#managedmcpservers",
+    "category": "MCP",
+    "scope": "Managed"
+  },
+  {
+    "name": "agent",
+    "desc_ja": "メインスレッドを名前付きサブエージェントとして実行し、そのシステムプロンプト・ツール制限・モデルをセッションに適用する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#agent",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "Any file"
+  },
+  {
+    "name": "crossSessionInbound",
+    "desc_ja": "自分の他の Claude Code セッションから届くメッセージを、このセッションでどう扱うかを選ぶ（v2.1.224 以降）。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#crosssessioninbound",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "Any file"
+  },
+  {
+    "name": "disableAgentView",
+    "desc_ja": "`claude agents`・`--bg`・`/background` などのバックグラウンドエージェントとエージェントビューを無効化する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disableagentview",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "Any file"
+  },
+  {
+    "name": "isolatePeerMachines",
+    "desc_ja": "`SendMessage` が別マシンの自分のセッションへ届く前に承認を求め、`bypassPermissions` モードでも確認する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#isolatepeermachines",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "Any file"
+  },
+  {
+    "name": "processWrapper",
+    "desc_ja": "macOS と Linux で、Claude Code が起動するバックグラウンドプロセスの前に企業のランチャーコマンドを挟む。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#processwrapper",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "User or managed"
+  },
+  {
+    "name": "teammateMode",
+    "desc_ja": "エージェントチームのチームメイトをメインのターミナルペイン内に表示するか、分割ペインに表示するかを選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#teammatemode",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "Any file"
+  },
+  {
+    "name": "worktree",
+    "desc_ja": "`--worktree`・`EnterWorktree` ツールなどで使う git worktree の作成・管理方法を設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#worktree",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "Any file"
+  },
+  {
+    "name": "worktree.baseRef",
+    "desc_ja": "新しい worktree の分岐元を選び、`\"fresh\"` はリモートの既定ブランチ、`\"head\"` はローカルの `HEAD` から分岐する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#worktree-baseref",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "Any file"
+  },
+  {
+    "name": "worktree.symlinkDirectories",
+    "desc_ja": "メインリポジトリのディレクトリを各 worktree にシンボリックリンクし、大きなディレクトリのディスク上での重複を避ける。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#worktree-symlinkdirectories",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "Any file"
+  },
+  {
+    "name": "worktree.sparsePaths",
+    "desc_ja": "git sparse-checkout で各 worktree に指定したディレクトリだけをチェックアウトし、大規模なモノレポで高速化する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#worktree-sparsepaths",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "Any file"
+  },
+  {
+    "name": "worktree.bgIsolation",
+    "desc_ja": "バックグラウンドセッションの分離を選び、`\"worktree\"` は worktree 移行まで本体編集を止め、`\"none\"` は直接編集する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#worktree-bgisolation",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "Any file"
+  },
+  {
+    "name": "worktree.location",
+    "desc_ja": "Desktop の SSH セッションがリモートマシン上で worktree を作るフォルダーを指定し、デスクトップアプリだけが読む。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#worktree-location",
+    "category": "Agents, sessions, and worktrees",
+    "scope": "User"
+  },
+  {
+    "name": "agentPushNotifEnabled",
+    "desc_ja": "長いタスクの完了時など、Claude が必要と判断したときにスマートフォンへプッシュ通知を送れるようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#agentpushnotifenabled",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Any file"
+  },
+  {
+    "name": "awaySummaryEnabled",
+    "desc_ja": "数分離れてターミナルに戻ったときに 1 行のセッション要約を表示し、`false` で表示しない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#awaysummaryenabled",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Any file"
+  },
+  {
+    "name": "disableArtifact",
+    "desc_ja": "非推奨で `enableArtifact` に置き換えられ、`Artifact` ツールを無効化するには `enableArtifact` を使う。",
+    "status": "deprecated",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disableartifact",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Any file"
+  },
+  {
+    "name": "disableDeepLinkRegistration",
+    "desc_ja": "Claude Code が `claude-cli://` プロトコルハンドラーを OS に登録しないようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disabledeeplinkregistration",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Any file"
+  },
+  {
+    "name": "disableDesktopLocalSessions",
+    "desc_ja": "SSH でリモートマシン上で作業させる環境向けに、デスクトップアプリでデバイス上で動く Code セッションを無効化する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disabledesktoplocalsessions",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Managed"
+  },
+  {
+    "name": "disableRemoteControl",
+    "desc_ja": "Remote Control を無効化し、`claude remote-control` や自動起動などのあらゆる開始手段を拒否する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disableremotecontrol",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Any file"
+  },
+  {
+    "name": "enableArtifact",
+    "desc_ja": "`false` にすると、セッション出力を claude.ai に公開する Artifact ツールを無効にし、他のファイルで再有効化できない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#enableartifact",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Any file"
+  },
+  {
+    "name": "inputNeededNotifEnabled",
+    "desc_ja": "権限プロンプトや質問が入力待ちのときスマートフォンでプッシュ通知を受け取り、ローカルでは Remote Control 接続中のみ届く。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#inputneedednotifenabled",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Any file"
+  },
+  {
+    "name": "preferredNotifChannel",
+    "desc_ja": "タスク完了時や権限プロンプトの待機時に Claude Code が通知する方法を選び、mod の通知にも適用される。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#preferrednotifchannel",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Any file"
+  },
+  {
+    "name": "remote.defaultEnvironmentId",
+    "desc_ja": "`claude --cloud` など CLI から作るクラウドセッションの既定のクラウド環境を選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#remote-defaultenvironmentid",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Any file"
+  },
+  {
+    "name": "remoteControlAtStartup",
+    "desc_ja": "`/remote-control` を待たず、対話セッションの開始ごとに Remote Control へ自動接続する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#remotecontrolatstartup",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Any file"
+  },
+  {
+    "name": "sshConfigs",
+    "desc_ja": "Desktop の環境セレクターに SSH 接続を追加し、管理者はチームに共有の接続を配布できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sshconfigs",
+    "category": "Remote, desktop, and notifications",
+    "scope": "User or managed"
+  },
+  {
+    "name": "sshHostAllowlist",
+    "desc_ja": "Desktop の SSH セッションが接続できるホストをパターンで制限し、空配列なら SSH セッションを無効化する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sshhostallowlist",
+    "category": "Remote, desktop, and notifications",
+    "scope": "Managed"
+  },
+  {
+    "name": "sshHostCommands",
+    "desc_ja": "コマンドが出力したホストに接続する SSH 接続を、Desktop の環境セレクターに追加する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#sshhostcommands",
+    "category": "Remote, desktop, and notifications",
+    "scope": "User or managed"
+  },
+  {
+    "name": "allowedProviders",
+    "desc_ja": "マシンが Claude に接続できるサービス（Anthropic API・Amazon Bedrock など）を列挙し、他は拒否する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#allowedproviders",
+    "category": "Authentication and providers",
+    "scope": "Managed"
+  },
+  {
+    "name": "apiKeyHelper",
+    "desc_ja": "モデル呼び出しの認証情報を独自コマンドで生成し、`X-Api-Key` と `Authorization: Bearer` ヘッダーで送る。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#apikeyhelper",
+    "category": "Authentication and providers",
+    "scope": "Any file"
+  },
+  {
+    "name": "awsAuthRefresh",
+    "desc_ja": "Amazon Bedrock の認証情報が切れたとき、`aws sso login` などの独自コマンドで `.aws` の認証情報を更新する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#awsauthrefresh",
+    "category": "Authentication and providers",
+    "scope": "Any file"
+  },
+  {
+    "name": "awsCredentialExport",
+    "desc_ja": "AWS 認証情報を JSON で出力する独自コマンドで、`.aws` 外の認証情報を使って Amazon Bedrock を呼び出す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#awscredentialexport",
+    "category": "Authentication and providers",
+    "scope": "Any file"
+  },
+  {
+    "name": "forceLoginMethod",
+    "desc_ja": "ログインできるアカウント種別を `\"claudeai\"`・`\"console\"`・`\"gateway\"` のいずれかに制限する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#forceloginmethod",
+    "category": "Authentication and providers",
+    "scope": "Any file"
+  },
+  {
+    "name": "forceLoginGatewayUrl",
+    "desc_ja": "`/login` の Cloud gateway 画面が接続するゲートウェイ URL を設定し、アドレスを入力せずに接続できるようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#forcelogingatewayurl",
+    "category": "Authentication and providers",
+    "scope": "User or managed"
+  },
+  {
+    "name": "forceLoginOrgUUID",
+    "desc_ja": "管理ソースから設定すると、claude.ai アカウントのログインを単一の UUID または配列で指定した組織に限定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#forceloginorguuid",
+    "category": "Authentication and providers",
+    "scope": "Any file"
+  },
+  {
+    "name": "gatewayInternalNetworks",
+    "desc_ja": "組織が内部ネットワークに使う公開 IPv4 ブロックを宣言し、そこにあるクラウドゲートウェイを `/login` で受け付ける。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#gatewayinternalnetworks",
+    "category": "Authentication and providers",
+    "scope": "Managed"
+  },
+  {
+    "name": "gcpAuthRefresh",
+    "desc_ja": "Google Cloud のアプリケーションデフォルト認証情報が期限切れか読み込めないとき、独自コマンドで更新する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#gcpauthrefresh",
+    "category": "Authentication and providers",
+    "scope": "Any file"
+  },
+  {
+    "name": "otelHeadersHelper",
+    "desc_ja": "トークンがローテーションするバックエンド向けに、OpenTelemetry エクスポートで送るヘッダーを独自コマンドで生成する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#otelheadershelper",
+    "category": "Authentication and providers",
+    "scope": "Any file"
+  },
+  {
+    "name": "autoUpdatesChannel",
+    "desc_ja": "バックグラウンド自動更新と `claude update` が従うリリースチャンネルを `\"stable\"` か `\"latest\"` から選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#autoupdateschannel",
+    "category": "Updates and versioning",
+    "scope": "Any file"
+  },
+  {
+    "name": "minimumVersion",
+    "desc_ja": "自動更新と `claude update` が指定バージョン未満をインストールしないようにし、チャンネル切り替え時のダウングレードを防ぐ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#minimumversion",
+    "category": "Updates and versioning",
+    "scope": "Any file"
+  },
+  {
+    "name": "requiredMaximumVersion",
+    "desc_ja": "組織が起動を許可する Claude Code の上限バージョンを設定し、実行中のバージョンがそれより新しければ起動時に終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#requiredmaximumversion",
+    "category": "Updates and versioning",
+    "scope": "Managed"
+  },
+  {
+    "name": "requiredMinimumVersion",
+    "desc_ja": "組織が起動を許可する Claude Code の下限バージョンを設定し、実行中のバージョンがそれより古ければ起動時に終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#requiredminimumversion",
+    "category": "Updates and versioning",
+    "scope": "Managed"
+  },
+  {
+    "name": "browserExternalPageTools",
+    "desc_ja": "デスクトップアプリの Browser ペインで、Claude がツールで外部ページを読んだり操作したりするのを止める。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#browserexternalpagetools",
+    "category": "Tools",
+    "scope": "Managed"
+  },
+  {
+    "name": "disableBrowserExternalNavigation",
+    "desc_ja": "デスクトップアプリの Browser ペインで人と Claude の外部閲覧を無効化し、localhost のプレビューは動作する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disablebrowserexternalnavigation",
+    "category": "Tools",
+    "scope": "Managed"
+  },
+  {
+    "name": "disableMobileSimulatorTools",
+    "desc_ja": "デスクトップアプリの iOS Simulator ペイン向けの Claude のツールをブロックし、人による手動操作は引き続き可能にする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disablemobilesimulatortools",
+    "category": "Tools",
+    "scope": "Managed"
+  },
+  {
+    "name": "cleanupPeriodDays",
+    "desc_ja": "Claude Code がセッションのトランスクリプトなどのアプリケーションデータを削除するまで保持する日数を設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#cleanupperioddays",
+    "category": "Privacy and telemetry",
+    "scope": "Any file"
+  },
+  {
+    "name": "desktopSessionCleanupPeriodDays",
+    "desc_ja": "Claude Desktop や Cowork で開始・継続したセッションのトランスクリプトの保持上限を日数で設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#desktopsessioncleanupperioddays",
+    "category": "Privacy and telemetry",
+    "scope": "User or managed"
+  },
+  {
+    "name": "feedbackDrafts",
+    "desc_ja": "Claude が下書きしたフィードバックをレビュー用にキューへ入れられるかと、そのときカードを表示するかを制御する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#feedbackdrafts",
+    "category": "Privacy and telemetry",
+    "scope": "User or managed"
+  },
+  {
+    "name": "feedbackSurveyRate",
+    "desc_ja": "対象のセッションでセッション品質アンケートを表示する確率を設定し、`0` で表示しない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#feedbacksurveyrate",
+    "category": "Privacy and telemetry",
+    "scope": "Any file"
+  },
+  {
+    "name": "skipWebFetchPreflight",
+    "desc_ja": "要求されたホスト名を取得前に `api.anthropic.com` へ送る `WebFetch` のドメイン安全確認をスキップする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#skipwebfetchpreflight",
+    "category": "Privacy and telemetry",
+    "scope": "Any file"
+  },
+  {
+    "name": "disableSideloadFlags",
+    "desc_ja": "`--plugin-dir`・`--plugin-url`・`--agents`・`--mcp-config` フラグを起動時に拒否する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#disablesideloadflags",
+    "category": "Enterprise and managed settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "forceRemoteSettingsRefresh",
+    "desc_ja": "サーバー管理設定を新たに取得するまで CLI の起動をブロックし、取得に失敗すると終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#forceremotesettingsrefresh",
+    "category": "Enterprise and managed settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "managedSourcesBehavior",
+    "desc_ja": "組織が配布する管理ソースのうち最優先のものだけを適用するか、`\"merge\"` ですべての管理ソースを結合するかを選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#managedsourcesbehavior",
+    "category": "Enterprise and managed settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "parentSettingsBehavior",
+    "desc_ja": "SDK・IDE などのホストが渡す管理設定を `\"first-wins\"` で破棄するか、`\"merge\"` で管理者層の下に適用するかを選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#parentsettingsbehavior",
+    "category": "Enterprise and managed settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "policyHelper",
+    "desc_ja": "起動時に管理設定を計算する実行ファイルを実行し、静的ファイルではなくデバイスの状態や ID などからポリシーを導出する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#policyhelper",
+    "category": "Enterprise and managed settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "policyHelper.path",
+    "desc_ja": "Claude Code が実行するヘルパーの実行ファイルを指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#policyhelper-path",
+    "category": "Enterprise and managed settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "policyHelper.timeoutMs",
+    "desc_ja": "ヘルパーの実行を失敗とみなすまでの待機時間を設定し、起動時にタイムアウトすると Claude Code は起動を拒否する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#policyhelper-timeoutms",
+    "category": "Enterprise and managed settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "policyHelper.refreshIntervalMs",
+    "desc_ja": "ヘルパーを一定間隔でバックグラウンド再実行し、成功すれば再起動なしで管理設定を置き換え、失敗時は既存のポリシーを保つ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#policyhelper-refreshintervalms",
+    "category": "Enterprise and managed settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "wslInheritsWindowsSettings",
+    "desc_ja": "WSL 上の Claude Code が Windows のポリシーチェーンから管理設定を読み、Windows と同じポリシーを適用する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#wslinheritswindowssettings",
+    "category": "Enterprise and managed settings",
+    "scope": "Managed"
+  },
+  {
+    "name": "autoConnectIde",
+    "desc_ja": "外部ターミナルから Claude Code を起動したとき、実行中の IDE に自動接続する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#autoconnectide",
+    "category": "Global config settings",
+    "scope": "Global config"
+  },
+  {
+    "name": "autoInstallIdeExtension",
+    "desc_ja": "外部ターミナルからの `/ide` で、起動中の VS Code・Cursor・Devin Desktop に IDE 拡張を導入させる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#autoinstallideextension",
+    "category": "Global config settings",
+    "scope": "Global config"
+  },
+  {
+    "name": "claudeInChromeDefaultEnabled",
+    "desc_ja": "`--chrome` を毎回渡さずに、すべての対話 CLI セッションを Chrome 連携を有効にした状態で開始する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#claudeinchromedefaultenabled",
+    "category": "Global config settings",
+    "scope": "Global config"
+  },
+  {
+    "name": "copyFullResponse",
+    "desc_ja": "`/copy` でピッカーを表示せず、毎回応答全体をコピーする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#copyfullresponse",
+    "category": "Global config settings",
+    "scope": "Global config"
+  },
+  {
+    "name": "copyOnSelect",
+    "desc_ja": "フルスクリーン描画やエージェントビューでマウス選択を終えたとき、テキストを自動でクリップボードにコピーする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#copyonselect",
+    "category": "Global config settings",
+    "scope": "Global config"
+  },
+  {
+    "name": "defaultToAgentsView",
+    "desc_ja": "引数なしで `claude` を実行したとき、新しい会話ではなくエージェントビューを開く。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#defaulttoagentsview",
+    "category": "Global config settings",
+    "scope": "Global config"
+  },
+  {
+    "name": "diffTool",
+    "desc_ja": "IDE 接続時の `Edit`・`Write` の差分を、`\"auto\"` は IDE の差分ビューアー、`\"terminal\"` はターミナルに表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#difftool",
+    "category": "Global config settings",
+    "scope": "Global config"
+  },
+  {
+    "name": "externalEditorContext",
+    "desc_ja": "`Ctrl+G` で開く外部エディターのバッファ先頭に Claude の直前の応答を `#` コメント行として入れ、保存時に取り除く。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#externaleditorcontext",
+    "category": "Global config settings",
+    "scope": "Global config"
+  },
+  {
+    "name": "leftArrowOpensAgents",
+    "desc_ja": "空のプロンプトで `←` を押すとセッションをバックグラウンドに移してエージェントビューを開き、`false` で無効にする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#leftarrowopensagents",
+    "category": "Global config settings",
+    "scope": "Global config"
+  },
+  {
+    "name": "permissionExplainerEnabled",
+    "desc_ja": "v2.1.257 で権限プロンプトの `Ctrl+E` によるコマンド説明とともに削除され、現行バージョンでは効果なし。",
+    "status": "removed",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#permissionexplainerenabled",
+    "category": "Global config settings",
+    "scope": "Global config"
+  },
+  {
+    "name": "prStatusFooterEnabled",
+    "desc_ja": "現在のブランチで開いている PR・マージリクエストのバッジを、状態を色付き下線で示してプロンプトのフッターに表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#prstatusfooterenabled",
+    "category": "Global config settings",
+    "scope": "Global config"
+  },
+  {
+    "name": "teammateDefaultModel",
+    "desc_ja": "v2.1.234 で `/config` の「Default teammate model」行とともに削除され、現行バージョンでは効果なし。",
+    "status": "removed",
+    "anchor": "https://code.claude.com/docs/en/settings-reference#teammatedefaultmodel",
+    "category": "Global config settings",
+    "scope": "Global config"
+  }
+]

@@ -1,0 +1,63 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting (oxfmt)
+        run: pnpm run format:check
+
+      # Type-aware lint via oxlint + oxlint-tsgolint.
+      - name: Lint JS/TS (oxlint)
+        run: pnpm run lint
+
+      - name: Type check (tsc)
+        run: pnpm run typecheck
+
+      # Unit tests for the deck build, lint, and data tools.
+      # Tests that need the local research corpus (data/full/) are skipped here.
+      - name: Unit tests (node:test)
+        run: pnpm run test
+
+      # Renovate merges dependency updates after CI passes, and deploy.yml builds only after a push to main,
+      # so make sure the site builds before merging.
+      - name: Build the site (astro build)
+        run: pnpm run build
+
+      # The identifier check needs the local research corpus, so CI runs the other deck checks.
+      - name: Check the deck (privacy, coverage, sources)
+        run: node tools/lint.mjs --html dist/ja/deck/index.html --only=privacy,coverage,sources
+
+      # Measure every slide in headless Chrome: content clipped by the slide edge,
+      # boxes that scroll internally, and slides without a source line.
+      - name: Check the slide layout
+        run: |
+          pnpm run preview --port 4321 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:4321/claude-code-deep-dive/ja/deck/ > /dev/null && break
+            sleep 1
+          done
+          node tools/check.mjs --url=http://localhost:4321/claude-code-deep-dive/ja/deck/

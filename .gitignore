@@ -1,0 +1,31 @@
+# build output
+dist/
+build/
+index.html
+
+# generated from node_modules by scripts/vendor-reveal-css.mjs
+vendor/
+
+# generated types
+.astro/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+pnpm-debug.log*
+
+# environment variables
+.env
+.env.production
+
+# macOS
+.DS_Store
+
+# Playwright MCP output (local verification artifacts)
+.playwright-mcp/
+
+# Private strings for the privacy lint; never commit or publish.
+tools/privacy-patterns.local.json
+data/full/

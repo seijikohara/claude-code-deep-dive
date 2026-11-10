@@ -1,0 +1,12 @@
+# Dependency build-script policy (pnpm `allowBuilds`).
+# esbuild ships prebuilt binaries, so its install script is not needed.
+# Listing it as reviewed keeps `pnpm install` deterministic in CI, where
+# `strictDepBuilds` defaults to true and would otherwise fail the install.
+# lefthook needs its install script to wire the Git hooks into `.git/hooks`.
+allowBuilds:
+  esbuild: false
+  lefthook: true
+
+# Cooldown: resolve only versions published at least 3 days ago (in minutes),
+# matching the release-age policy of the shared Renovate preset.
+minimumReleaseAge: 4320

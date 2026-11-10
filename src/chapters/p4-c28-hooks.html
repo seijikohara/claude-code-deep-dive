@@ -1,0 +1,1182 @@
+<section id="ch28" data-part="Part IV 拡張" data-chapter="Ch28" data-title="Hooks">
+
+<section id="ch28-title" class="chapter-title">
+  <p class="chapter-label">28</p>
+  <h1>Hooks</h1>
+  <p class="chapter-summary">33 イベントの設定・入出力・決定制御・非同期実行・安全性を扱います（全件表は <a href="#/apx-hooks">付録 D</a>）。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<!-- ============ 全体像 ============ -->
+<section id="ch28-overview">
+  <h2>全体像: イベント・matcher グループ・ハンドラの 3 階層</h2>
+  <div class="cols-2" style="grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr)">
+    <div>
+      <ul class="small">
+        <li>フックは、ライフサイクルの決まった時点で自動実行される処理です。ターミナル・IDE 拡張・Desktop・クラウドセッションで、同じイベントが発火します。</li>
+        <li>設定は 3 階層です。<strong>hook event</strong>（発火点）の下に <strong>matcher group</strong>（絞り込み）を置き、その下に <strong>hook handler</strong>（実行内容）を並べます。</li>
+        <li>ハンドラの型は 5 種類です: <code>command</code>・<code>http</code>・<code>mcp_tool</code>・<code>prompt</code>・<code>agent</code>。<code>agent</code> だけが Experimental です。</li>
+        <li>解決の順序は、イベント発火、<code>matcher</code> の照合、ハンドラごとの <code>if</code> の照合、ハンドラの起動、結果の適用です。</li>
+        <li>exit 0 で何も出力しないフックは「判断なし」で、通常の権限フローに進みます。黙っていても承認にはなりません。</li>
+        <li>プラグインの JavaScript 関数フック（mod）は別の仕組みで、本章のフックと併用できます（<a href="#/ch33">Ch33</a>）。</li>
+      </ul>
+    </div>
+    <div>
+<pre data-lang="json" class="compact">{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(rm *)",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/block-rm.sh",
+            "args": []
+          }
+        ]
+      }
+    ]
+  }
+}</pre>
+      <p class="small muted">matcher で Bash に絞り、<code>if</code> で <code>rm</code> のサブコマンドにさらに絞る例です。<code>block-rm.sh</code> は <code>rm -rf</code> を含むときだけ deny の JSON を返し、それ以外は <code>exit 0</code> で判断を返しません。</p>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks">hooks</a> · <a href="https://code.claude.com/docs/en/hooks#how-a-hook-resolves">hooks#how-a-hook-resolves</a> · <a href="https://code.claude.com/docs/en/hooks#configuration">#configuration</a></footer>
+</section>
+
+<!-- ============ ライフサイクル ============ -->
+<section id="ch28-lifecycle">
+  <h2>ライフサイクル: 発火の順序と 3 つの周期</h2>
+  <div class="cols-2">
+    <div>
+      <h3>セッション内の順序</h3>
+      <ol class="small">
+        <li><code>Setup</code>（<code>--init-only</code>、または <code>-p</code> で <code>--init</code>・<code>--maintenance</code> のときだけ）</li>
+        <li><code>SessionStart</code></li>
+        <li>ターン開始: <code>UserPromptSubmit</code>、コマンド入力なら <code>UserPromptExpansion</code></li>
+        <li>ツール呼び出しごと: <code>PreToolUse</code>、<code>PermissionRequest</code>、<code>PostToolUse</code> または <code>PostToolUseFailure</code>。並列バッチの後に <code>PostToolBatch</code></li>
+        <li>ループの中: <code>SubagentStart</code>/<code>SubagentStop</code>、<code>TaskCreated</code>/<code>TaskCompleted</code>、MCP ツール実行中の <code>Elicitation</code>/<code>ElicitationResult</code>、auto mode の拒否で <code>PermissionDenied</code></li>
+        <li>ターン終了: <code>Stop</code>（API エラーなら <code>StopFailure</code>）、<code>TeammateIdle</code></li>
+        <li><code>PreCompact</code>、<code>PostCompact</code>、最後に <code>SessionEnd</code></li>
+      </ol>
+    </div>
+    <div>
+      <h3>流れの外で発火するもの</h3>
+      <table class="dense">
+        <thead><tr><th>種類</th><th>イベント</th></tr></thead>
+        <tbody>
+          <tr><td>単独・非同期</td><td><code>Notification</code> <code>ConfigChange</code> <code>InstructionsLoaded</code> <code>CwdChanged</code> <code>FileChanged</code> <code>DirectoryAdded</code> <code>WorktreeCreate</code> <code>WorktreeRemove</code></td></tr>
+          <tr><td>単独・逐次</td><td><code>PreModelSwitch</code>（要求されたモデル切替の適用前）</td></tr>
+          <tr><td>単独・非同期</td><td><code>PostModelSwitch</code>（モデルが変わった後）</td></tr>
+          <tr><td>表示専用</td><td><code>MessageDisplay</code>（アシスタント本文の表示中）</td></tr>
+        </tbody>
+      </table>
+      <h3>3 つの周期</h3>
+      <ul class="small">
+        <li>セッションごと: <code>SessionStart</code>、<code>SessionEnd</code></li>
+        <li>ターンごと: <code>UserPromptSubmit</code>、<code>Stop</code>、<code>StopFailure</code></li>
+        <li>ツール呼び出しごと: <code>PreToolUse</code>、<code>PostToolUse</code>。<code>EndConversation</code> の呼び出しはどちらも発火しません。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#hook-lifecycle">hooks#hook-lifecycle</a>（ライフサイクル図の説明文）</footer>
+</section>
+
+<!-- ============ イベント一覧 ============ -->
+<section id="ch28-events-session">
+  <h2>イベント一覧 (1/3): セッション・環境</h2>
+  <table class="dense">
+    <thead><tr><th style="width:17%">イベント</th><th style="width:33%">発火のタイミング</th><th style="width:18%">matcher の対象</th><th style="width:4%">型</th><th>exit 2 の効果</th></tr></thead>
+    <tbody>
+      <tr><td><code>Setup</code></td><td><code>--init-only</code>、<code>-p --init</code>・<code>--maintenance</code> の起動時のみ</td><td>起動フラグ</td><td>2</td><td>無視される</td></tr>
+      <tr><td><code>SessionStart</code></td><td>セッションの開始・再開</td><td>開始の経路</td><td>2</td><td>stderr をユーザーにだけ表示</td></tr>
+      <tr><td><code>InstructionsLoaded</code></td><td>CLAUDE.md・<code>.claude/rules/*.md</code> の読み込み</td><td>読み込みの理由</td><td>3</td><td>無視される</td></tr>
+      <tr><td><code>ConfigChange</code></td><td>セッション中に設定ファイル・skill ファイルが変わった</td><td>設定の出どころ</td><td>3</td><td>変更を適用しない（<code>policy_settings</code> を除く）</td></tr>
+      <tr><td><code>CwdChanged</code></td><td><code>cd</code> などで作業ディレクトリが変わった</td><td>なし</td><td>3</td><td>stderr をユーザーにだけ表示</td></tr>
+      <tr><td><code>DirectoryAdded</code></td><td><code>/add-dir</code>・SDK の <code>register_repo_root</code> の後</td><td>追加の経路</td><td>3</td><td>stderr はデバッグログへ</td></tr>
+      <tr><td><code>FileChanged</code></td><td>監視中のファイルがディスク上で変わった</td><td>監視するファイル名</td><td>3</td><td>stderr をユーザーにだけ表示</td></tr>
+      <tr><td><code>WorktreeCreate</code></td><td>worktree の作成。git の既定処理を置き換える</td><td>なし</td><td>3</td><td>非 0 なら作成が失敗</td></tr>
+      <tr><td><code>WorktreeRemove</code></td><td>フックが作った worktree の削除</td><td>なし</td><td>3</td><td>非 0 かつディレクトリが残れば失敗</td></tr>
+      <tr><td><code>PreModelSwitch</code></td><td>要求されたモデル切替の適用前</td><td>切替先モデルの正規名</td><td>3</td><td>切替を止め、stderr をユーザーに表示</td></tr>
+      <tr><td><code>PostModelSwitch</code></td><td>セッションのモデルが変わった後</td><td>同上</td><td>3</td><td>stderr をユーザーにだけ表示</td></tr>
+      <tr><td><code>SessionEnd</code></td><td>セッションの終了</td><td>終了の理由</td><td>3</td><td>stderr をユーザーにだけ表示</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">型 = 使えるハンドラの型。5 は全種、4 は <code>agent</code> 以外、3 は <code>command</code>・<code>http</code>・<code>mcp_tool</code>、2 は <code>command</code>・<code>mcp_tool</code>。</p>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#hook-lifecycle">hooks#hook-lifecycle</a> · <a href="https://code.claude.com/docs/en/hooks#matcher-patterns">#matcher-patterns</a> · <a href="https://code.claude.com/docs/en/hooks#exit-code-2-behavior-per-event">#exit-code-2-behavior-per-event</a> · <a href="https://code.claude.com/docs/en/hooks#prompt-based-hooks">#prompt-based-hooks</a></footer>
+</section>
+
+<section id="ch28-events-turn">
+  <h2>イベント一覧 (2/3): プロンプト・応答・圧縮・MCP</h2>
+  <table class="dense">
+    <thead><tr><th style="width:17%">イベント</th><th style="width:33%">発火のタイミング</th><th style="width:18%">matcher の対象</th><th style="width:4%">型</th><th>exit 2 の効果</th></tr></thead>
+    <tbody>
+      <tr><td><code>UserPromptSubmit</code></td><td>プロンプトの送信後、Claude の処理前。Claude Code が自分で始めるターンでも発火</td><td>なし</td><td>5</td><td>プロンプトを止める（Claude に届かない）</td></tr>
+      <tr><td><code>UserPromptExpansion</code></td><td>入力したコマンドがプロンプトに展開される前</td><td>コマンド名</td><td>5</td><td>展開を止める</td></tr>
+      <tr><td><code>MessageDisplay</code></td><td>アシスタント本文の表示中</td><td>なし</td><td>3</td><td>元の本文を表示</td></tr>
+      <tr><td><code>Notification</code></td><td>Claude Code が通知を出す</td><td>通知の種類</td><td>3</td><td>無視される</td></tr>
+      <tr><td><code>Stop</code></td><td>メインエージェントの応答完了。ユーザーの割り込みでは発火しない</td><td>なし</td><td>5</td><td>停止させず、会話を続ける</td></tr>
+      <tr><td><code>StopFailure</code></td><td>API エラーでターンが終わった（<code>Stop</code> の代わり）</td><td>エラーの種別</td><td>3</td><td>無視される（<code>terminalSequence</code> だけ有効）</td></tr>
+      <tr><td><code>PreCompact</code></td><td>コンテキスト圧縮の前</td><td><code>manual</code>・<code>auto</code></td><td>3</td><td>圧縮を止める</td></tr>
+      <tr><td><code>PostCompact</code></td><td>コンテキスト圧縮の後</td><td><code>manual</code>・<code>auto</code></td><td>3</td><td>stderr をユーザーにだけ表示</td></tr>
+      <tr><td><code>Elicitation</code></td><td>MCP サーバーがツール呼び出し中に入力を求めた</td><td>MCP サーバー名</td><td>3</td><td>要求を辞退し、ダイアログを出さない</td></tr>
+      <tr><td><code>ElicitationResult</code></td><td>ユーザーの応答をサーバーに返す前</td><td>MCP サーバー名</td><td>3</td><td>応答を止める（decline になる）</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">型 = 使えるハンドラの型。5 は全種、4 は <code>agent</code> 以外、3 は <code>command</code>・<code>http</code>・<code>mcp_tool</code>、2 は <code>command</code>・<code>mcp_tool</code>。</p>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#hook-lifecycle">hooks#hook-lifecycle</a> · <a href="https://code.claude.com/docs/en/hooks#matcher-patterns">#matcher-patterns</a> · <a href="https://code.claude.com/docs/en/hooks#exit-code-2-behavior-per-event">#exit-code-2-behavior-per-event</a> · <a href="https://code.claude.com/docs/en/hooks#prompt-based-hooks">#prompt-based-hooks</a></footer>
+</section>
+
+<section id="ch28-events-tool">
+  <h2>イベント一覧 (3/3): ツールループ・サブエージェント・タスク</h2>
+  <table class="dense">
+    <thead><tr><th style="width:17%">イベント</th><th style="width:33%">発火のタイミング</th><th style="width:18%">matcher の対象</th><th style="width:4%">型</th><th>exit 2 の効果</th></tr></thead>
+    <tbody>
+      <tr><td><code>PreToolUse</code></td><td>ツールの実行前（<code>EndConversation</code> を除く）</td><td>ツール名</td><td>5</td><td>ツール呼び出しを止める</td></tr>
+      <tr><td><code>PermissionRequest</code></td><td>権限の確認を出す直前</td><td>ツール名</td><td>4</td><td>効かない。<code>decision</code> で deny する</td></tr>
+      <tr><td><code>PermissionDenied</code></td><td>auto mode がツール呼び出しを拒否した</td><td>ツール名</td><td>5</td><td>無視される。<code>retry</code> を使う</td></tr>
+      <tr><td><code>PostToolUse</code></td><td>ツール呼び出しの成功後</td><td>ツール名</td><td>5</td><td>stderr を Claude に見せる（実行済み）</td></tr>
+      <tr><td><code>PostToolUseFailure</code></td><td>実行を始めたツールの失敗後</td><td>ツール名</td><td>5</td><td>stderr を Claude に見せる（失敗済み）</td></tr>
+      <tr><td><code>PostToolBatch</code></td><td>並列バッチの全呼び出しの解決後、次のモデル呼び出しの前</td><td>なし</td><td>5</td><td>エージェントループを止める</td></tr>
+      <tr><td><code>SubagentStart</code></td><td>サブエージェントの起動・再開、チームメイトの新規メッセージ処理</td><td>エージェント種別</td><td>3</td><td>stderr をユーザーにだけ表示</td></tr>
+      <tr><td><code>SubagentStop</code></td><td>サブエージェントの応答完了</td><td>エージェント種別</td><td>5</td><td>停止させない</td></tr>
+      <tr><td><code>TaskCreated</code></td><td><code>TaskCreate</code> でタスクを作るとき</td><td>なし</td><td>5</td><td>作成を取り消す</td></tr>
+      <tr><td><code>TaskCompleted</code></td><td>タスクを完了にするとき</td><td>なし</td><td>5</td><td>完了にしない</td></tr>
+      <tr><td><code>TeammateIdle</code></td><td>Agent Teams のチームメイトがアイドルになる直前</td><td>なし</td><td>5</td><td>アイドルにせず、作業を続けさせる</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">型 = 使えるハンドラの型（5 は全種、4 は <code>agent</code> 以外、3 は <code>command</code>・<code>http</code>・<code>mcp_tool</code>）。<code>TeammateIdle</code> とチームメイト経路の <code>TaskCompleted</code> は Agent Teams（Experimental、<a href="#/ch39">Ch39</a>）の機能です。</p>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#hook-lifecycle">hooks#hook-lifecycle</a> · <a href="https://code.claude.com/docs/en/hooks#matcher-patterns">#matcher-patterns</a> · <a href="https://code.claude.com/docs/en/hooks#exit-code-2-behavior-per-event">#exit-code-2-behavior-per-event</a> · <a href="https://code.claude.com/docs/en/hooks#prompt-based-hooks">#prompt-based-hooks</a></footer>
+</section>
+
+<!-- ============ 定義場所 ============ -->
+<section id="ch28-locations">
+  <h2>定義場所・マージ・重複排除</h2>
+  <div class="cols-2">
+    <table class="dense">
+      <thead><tr><th>場所</th><th>有効範囲</th><th>共有</th></tr></thead>
+      <tbody>
+        <tr><td><code>~/.claude/settings.json</code></td><td>自分の全プロジェクト</td><td>不可（ローカル）</td></tr>
+        <tr><td><code>.claude/settings.json</code></td><td>単一プロジェクト</td><td>可（コミットできる）</td></tr>
+        <tr><td><code>.claude/settings.local.json</code></td><td>単一プロジェクト</td><td>不可（保存時に gitignore）</td></tr>
+        <tr><td>managed policy settings</td><td>組織全体</td><td>可（管理者が配布）</td></tr>
+        <tr><td>プラグインの <code>hooks/hooks.json</code></td><td>プラグインが有効な間</td><td>可（同梱）</td></tr>
+        <tr><td>skill の frontmatter</td><td>skill の起動後、セッションの終わりまで</td><td>可（skill ファイル内）</td></tr>
+        <tr><td>サブエージェントの frontmatter</td><td>そのサブエージェントの実行中</td><td>可（定義ファイル内）</td></tr>
+      </tbody>
+    </table>
+    <ul class="small">
+      <li>各階層のフックは置き換えではなく<strong>マージ</strong>されます。user・project・local は、managed のフックを消さずに自分のフックを追加します。</li>
+      <li>同じハンドラを複数の settings ファイルに書いても、実行は 1 回です。プラグインや skill が持つ同じハンドラは別扱いで、それぞれ実行されます。</li>
+      <li>settings・managed・プラグインのフックは、サブエージェントの中でも動きます。ツールイベントの入力には <code>agent_id</code> と <code>agent_type</code> が付きます。</li>
+      <li>クラウドセッションは、ローカルの <code>~/.claude/settings.json</code> を読みません。</li>
+      <li>プラグインの <code>hooks/hooks.json</code> は、最上位に任意の <code>description</code> を書けます。有効化するとユーザーとプロジェクトのフックにマージされます。</li>
+      <li>settings ファイルを直接編集した変更は、通常はファイル監視で自動的に反映されます。</li>
+    </ul>
+  </div>
+  <p class="small muted">設定ファイルの優先順位とマージ全般は <a href="#/ch18">Ch18</a>、管理者向けの制限キーは本章の「セキュリティ・管理・デバッグ」と <a href="#/ch58">Ch58</a> で扱います。</p>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#hook-locations">hooks#hook-locations</a> · <a href="https://code.claude.com/docs/en/hooks#hook-handler-fields">#hook-handler-fields</a> · <a href="https://code.claude.com/docs/en/hooks#reference-scripts-by-path">#reference-scripts-by-path</a> · <a href="https://code.claude.com/docs/en/hooks#disable-or-remove-hooks">#disable-or-remove-hooks</a></footer>
+</section>
+
+<!-- ============ matcher ============ -->
+<section id="ch28-matcher">
+  <h2>matcher の評価規則と、MCP・Monitor の照合</h2>
+  <table class="dense">
+    <thead><tr><th style="width:30%">matcher の値</th><th style="width:30%">評価のしかた</th><th>例</th></tr></thead>
+    <tbody>
+      <tr><td><code>"*"</code>、<code>""</code>、省略</td><td>すべてに一致</td><td>そのイベントの発生ごとに発火</td></tr>
+      <tr><td>英数字・<code>_</code>・<code>-</code>・空白・<code>,</code>・<code>|</code> だけ</td><td>完全一致。<code>|</code> か <code>,</code> で複数指定（前後の空白は可）</td><td><code>Edit|Write</code> と <code>Edit, Write</code> はどちらも 2 つのツールに完全一致</td></tr>
+      <tr><td>それ以外の文字を含む</td><td>JavaScript の正規表現（アンカーなし）</td><td><code>^Notebook</code>、<code>mcp__memory__.*</code></td></tr>
+    </tbody>
+  </table>
+  <div class="cols-2">
+    <ul class="small">
+      <li>正規表現は <code>RegExp.prototype.test</code> で評価し、値のどこかに一致すれば成立します。<code>Edit.*</code> は <code>NotebookEdit</code> にも一致するので、完全一致には <code>^Edit$</code> と書きます。</li>
+      <li><code>FileChanged</code> と <code>StopFailure</code> は、完全一致とみなす文字が英数字・<code>_</code>・<code>|</code> だけです。<code>-</code>・空白・<code>,</code> を含むと正規表現扱いになります。</li>
+      <li>matcher に対応しないイベントに書いた <code>matcher</code> は、黙って無視されます。照合は大文字と小文字を区別します。</li>
+      <li>照合対象はイベント一覧に、値は各イベントのスライドにあります。</li>
+    </ul>
+    <ul class="small">
+      <li>MCP ツール名は <code>mcp__&lt;server&gt;__&lt;tool&gt;</code> です。サーバー単位で拾うには <code>.*</code> が必須です。<code>mcp__memory</code> は完全一致扱いになり、どのツールにも一致しません。</li>
+      <li>プラグイン同梱サーバーのツールは <code>mcp__plugin_&lt;plugin-name&gt;_&lt;server-name&gt;__&lt;tool&gt;</code> です。素のサーバーキーで書いた matcher は発火しません。</li>
+      <li>v2.1.314 以降、<code>PreToolUse</code>・<code>PermissionRequest</code> の <code>Bash</code> matcher（<code>Bash|PowerShell</code>、<code>^Bash$</code>、<code>Bash.*</code> を含む）は Monitor のシェルコマンドにも動きます。ただし <code>allow</code> と <code>updatedInput</code> は効きません。</li>
+      <li>Monitor を許可・書き換えするには、matcher を <code>Bash|Monitor</code>・<code>.*</code>・省略にし、<code>if</code> に <code>Monitor(tail *)</code> のように書きます。</li>
+    </ul>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#matcher-patterns">hooks#matcher-patterns</a> · <a href="https://code.claude.com/docs/en/hooks#match-mcp-tools">#match-mcp-tools</a> · <a href="https://code.claude.com/docs/en/hooks#match-monitor-commands">#match-monitor-commands</a> · <a href="https://code.claude.com/docs/en/hooks-guide#hook-not-firing">hooks-guide#hook-not-firing</a></footer>
+</section>
+
+<!-- ============ if ============ -->
+<section id="ch28-if">
+  <h2><code>if</code> フィールド: ハンドラ単位の権限ルール照合</h2>
+  <ul class="small">
+    <li><code>if</code> は権限ルール構文で、ツール名と引数をまとめて照合します（例: <code>"Bash(git *)"</code>、<code>"Edit(*.ts)"</code>）。一致しなければハンドラのプロセスを起動しません。</li>
+    <li>評価するのはツールイベント（<code>PreToolUse</code> <code>PostToolUse</code> <code>PostToolUseFailure</code> <code>PermissionRequest</code> <code>PermissionDenied</code>）だけです。他のイベントで <code>if</code> を書いたハンドラは<strong>一度も実行されません</strong>。</li>
+    <li>書けるルールは 1 つです。<code>&amp;&amp;</code>・<code>||</code>・リストはないので、条件ごとにハンドラを分けます。Bash と PowerShell も、<code>Bash(rm *)</code> と <code>PowerShell(Remove-Item *)</code> の 2 ハンドラに分けます。</li>
+    <li><code>"Edit(src/**)"</code> は作業ディレクトリ直下の <code>src</code> だけに一致します。どの深さにも一致させるなら <code>"Edit(**/src/**)"</code> です。</li>
+  </ul>
+  <table class="dense">
+    <thead><tr><th><code>if</code> のパターン</th><th>Bash コマンド</th><th>実行</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr><td><code>Bash(git *)</code></td><td><code>FOO=bar git push</code></td><td>する</td><td>先頭の代入は除いて照合する</td></tr>
+      <tr><td><code>Bash(git *)</code></td><td><code>npm test &amp;&amp; git push</code></td><td>する</td><td>サブコマンドごとに照合し、<code>git push</code> が一致</td></tr>
+      <tr><td><code>Bash(rm *)</code></td><td><code>echo $(rm -rf /)</code></td><td>する</td><td><code>$()</code> とバッククォートの中も照合する</td></tr>
+      <tr><td><code>Bash(rm *)</code></td><td><code>echo $(date)</code></td><td>しない</td><td><code>rm *</code> に一致するサブコマンドがない</td></tr>
+      <tr><td><code>Bash(git push *)</code></td><td><code>echo $(date)</code></td><td>する</td><td>コマンド名より詳しいパターンは、<code>$()</code>・バッククォート・<code>$VAR</code> があれば実行する</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn"><p class="small">Bash の入力が何を実行するか判定できないときは、パターンに関係なくフックを実行します。<code>if</code> はベストエフォートなので、確実な許可・拒否には<a href="#/ch22">権限ルール</a>を使います。</p></div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#common-fields">hooks#common-fields</a> · <a href="https://code.claude.com/docs/en/hooks#bash-if-matching">#bash-if-matching</a> · <a href="https://code.claude.com/docs/en/hooks#how-a-hook-resolves">#how-a-hook-resolves</a></footer>
+</section>
+
+<!-- ============ 共通フィールドとタイムアウト ============ -->
+<section id="ch28-common">
+  <h2>共通フィールドとタイムアウト</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th>フィールド</th><th>必須</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>type</code></td><td>必須</td><td><code>"command"</code> <code>"http"</code> <code>"mcp_tool"</code> <code>"prompt"</code> <code>"agent"</code></td></tr>
+          <tr><td><code>if</code></td><td>任意</td><td>権限ルール 1 つ。ツールイベントだけで評価</td></tr>
+          <tr><td><code>timeout</code></td><td>任意</td><td>秒。<code>async: true</code> の command には適用しない</td></tr>
+          <tr><td><code>statusMessage</code></td><td>任意</td><td>実行中に出すスピナーの文言</td></tr>
+          <tr><td><code>once</code></td><td>任意</td><td><code>true</code> なら最初の成功後に削除。失敗・exit 2・タイムアウトでは残る。skill の frontmatter でだけ有効で、settings と agent の frontmatter では無視</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th>対象</th><th>既定のタイムアウト</th></tr></thead>
+        <tbody>
+          <tr><td><code>command</code>・<code>http</code>・<code>mcp_tool</code></td><td>600 秒</td></tr>
+          <tr><td>同上、<code>UserPromptSubmit</code>・<code>PreModelSwitch</code>・<code>PostModelSwitch</code></td><td>30 秒</td></tr>
+          <tr><td>同上、<code>MessageDisplay</code></td><td>10 秒</td></tr>
+          <tr><td><code>prompt</code></td><td>30 秒</td></tr>
+          <tr><td><code>agent</code></td><td>60 秒</td></tr>
+          <tr><td><code>SessionEnd</code>（全フック共有）</td><td>1.5 秒。settings の per-hook <code>timeout</code> に合わせて最大 60 秒まで延長</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <ul class="small">
+    <li>タイムアウトした <code>command</code>・<code>http</code>・<code>mcp_tool</code> は取り消され、出力は捨てられます。多くのイベントでは「判断なし」になります。</li>
+    <li><code>PreToolUse</code> では、タイムアウトしてもツール呼び出しは止まりません（<code>onFailure: "block"</code> を除く）。<code>PreModelSwitch</code> では逆に、タイムアウトが切替を止めます。</li>
+    <li>Agent SDK のコールバックフックは、タイムアウトすると <code>PreToolUse</code> ではツール呼び出しを、<code>UserPromptSubmit</code> ではプロンプトを止めます。</li>
+  </ul>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#common-fields">hooks#common-fields</a> · <a href="https://code.claude.com/docs/en/hooks#timeouts">#timeouts</a> · <a href="https://code.claude.com/docs/en/hooks#userpromptsubmit">#userpromptsubmit</a> · <a href="https://code.claude.com/docs/en/hooks-guide#limitations">hooks-guide#limitations</a></footer>
+</section>
+
+<!-- ============ command ============ -->
+<section id="ch28-command">
+  <h2><code>command</code> フック: フィールドと exec form・shell form</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th>フィールド</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>command</code></td><td>必須。シェルに渡す文字列。<code>args</code> があるときは起動する実行ファイル</td></tr>
+          <tr><td><code>args</code></td><td>引数の配列。あればシェルを介さずに直接起動する（exec form）</td></tr>
+          <tr><td><code>async</code></td><td><code>true</code> でバックグラウンド実行</td></tr>
+          <tr><td><code>asyncRewake</code></td><td>バックグラウンド実行し、exit 2 で Claude を起こす。stderr（空なら stdout）を system reminder で渡す</td></tr>
+          <tr><td><code>shell</code></td><td><code>"bash"</code> か <code>"powershell"</code>。既定は bash（Git Bash のない Windows は powershell）。<code>args</code> があると無視</td></tr>
+          <tr><td><code>onFailure</code></td><td><code>"continue"</code> か <code>"block"</code>。v2.1.295 以降</td></tr>
+        </tbody>
+      </table>
+<pre data-lang="json" class="compact">{
+  "type": "command",
+  "command": "node",
+  "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/format.js", "--fix"]
+}</pre>
+    </div>
+    <ul class="small">
+      <li><strong>exec form</strong>（<code>args</code> あり）: <code>command</code> を <code>PATH</code> から解決して直接起動します。<code>args</code> の各要素がそのまま 1 引数になり、<code>$</code>・バッククォート・アポストロフィも解釈されません。</li>
+      <li><strong>shell form</strong>（<code>args</code> なし）: macOS と Linux は <code>sh -c</code>、Windows は Git Bash（なければ PowerShell）で実行します。パイプ・<code>&amp;&amp;</code>・リダイレクト・glob が使えます。</li>
+      <li>パスのプレースホルダを使うなら exec form を推奨します。shell form では二重引用符で囲みます。</li>
+      <li>どちらの形式も <code>CLAUDE_PROJECT_DIR</code>・<code>CLAUDE_PLUGIN_ROOT</code>・<code>CLAUDE_PLUGIN_DATA</code> を環境変数として渡します。</li>
+      <li>プラグインの <code>${user_config.*}</code> は exec form でだけ置換されます。shell form で参照するとエラーになり、実行されません（v2.1.207 より前は置換）。shell form では <code>$CLAUDE_PLUGIN_OPTION_&lt;KEY&gt;</code> を読みます。</li>
+      <li>Windows の exec form には実際の実行ファイルが必要です。<code>node_modules/.bin</code> の <code>.cmd</code>・<code>.bat</code> は起動できないので、<code>node</code> とスクリプトのパスで呼びます。</li>
+    </ul>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#command-hook-fields">hooks#command-hook-fields</a> · <a href="https://code.claude.com/docs/en/hooks#exec-form-and-shell-form">#exec-form-and-shell-form</a> · <a href="https://code.claude.com/docs/en/hooks#reference-scripts-by-path">#reference-scripts-by-path</a></footer>
+</section>
+
+<!-- ============ http ============ -->
+<section id="ch28-http">
+  <h2><code>http</code> フック: POST とレスポンスの扱い</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th>フィールド</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>url</code></td><td>必須。POST 先の URL</td></tr>
+          <tr><td><code>headers</code></td><td>追加ヘッダー。値に <code>$VAR_NAME</code>・<code>${VAR_NAME}</code> を展開できる</td></tr>
+          <tr><td><code>allowedEnvVars</code></td><td>ヘッダーに展開してよい環境変数名。載っていない変数は空文字になる</td></tr>
+          <tr><td><code>onFailure</code></td><td><code>"continue"</code>（既定）か <code>"block"</code>。v2.1.295 以降</td></tr>
+        </tbody>
+      </table>
+      <table class="dense">
+        <thead><tr><th>レスポンス</th><th>結果</th></tr></thead>
+        <tbody>
+          <tr><td>2xx・本文なし</td><td>成功（exit 0・出力なしと同じ）</td></tr>
+          <tr><td>2xx・JSON オブジェクト</td><td>command と同じスキーマで解析。検証失敗は非ブロッキングエラー</td></tr>
+          <tr><td>2xx・その他の本文</td><td>非ブロッキングエラー。本文は Claude に渡らない</td></tr>
+          <tr><td>非 2xx・接続失敗</td><td>非ブロッキングエラー</td></tr>
+          <tr><td>タイムアウト</td><td>取り消し</td></tr>
+        </tbody>
+      </table>
+      <p class="small">ブロックするには、2xx で決定の JSON を返すか <code>onFailure: "block"</code> を設定します。</p>
+    </div>
+    <div>
+<pre data-lang="json" class="compact">{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:8080/hooks/pre-tool-use",
+            "timeout": 30,
+            "headers": {
+              "Authorization": "Bearer $MY_TOKEN"
+            },
+            "allowedEnvVars": ["MY_TOKEN"]
+          }
+        ]
+      }
+    ]
+  }
+}</pre>
+      <p class="small">本文は入力 JSON（<code>Content-Type: application/json</code>）です。settings の <code>allowedHttpHookUrls</code>・<code>httpHookAllowedEnvVars</code> でさらに制限できます。</p>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#http-hook-fields">hooks#http-hook-fields</a> · <a href="https://code.claude.com/docs/en/hooks#http-response-handling">#http-response-handling</a> · <a href="https://code.claude.com/docs/en/settings-reference#httphookallowedenvvars">settings-reference#httphookallowedenvvars</a></footer>
+</section>
+
+<!-- ============ mcp_tool ============ -->
+<section id="ch28-mcp-tool">
+  <h2><code>mcp_tool</code> フック: 設定済み MCP サーバーのツールを呼ぶ</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th>フィールド</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>server</code></td><td>必須。設定済み MCP サーバー名。プラグイン同梱なら <code>plugin:&lt;plugin-name&gt;:&lt;server-name&gt;</code></td></tr>
+          <tr><td><code>tool</code></td><td>必須。呼び出すツール名</td></tr>
+          <tr><td><code>input</code></td><td>ツールの引数。文字列値でフック入力 JSON の <code>${path}</code> を置換できる</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>ツールのテキスト出力は、command の stdout と同じ規則で読みます。<code>isError: true</code> は非ブロッキングエラーです。</li>
+        <li>止める・変えるイベント（<code>PreToolUse</code>、<code>Stop</code> など）では、接続中のサーバーを <code>MCP_TIMEOUT</code> と <code>timeout</code> の範囲で待ちます。観測用のイベント（<code>Notification</code> など）では待ちません。</li>
+        <li>フックは OAuth フローを始めません。認証は <code>/mcp</code> で済ませます。</li>
+      </ul>
+    </div>
+    <div>
+<pre data-lang="json" class="compact">{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "my_server",
+            "tool": "security_scan",
+            "input": { "file_path": "${tool_input.file_path}" }
+          }
+        ]
+      }
+    ]
+  }
+}</pre>
+      <ul class="small">
+        <li>起動時の <code>SessionStart</code>（<code>--continue</code>・<code>--resume</code> を含む）とすべての <code>Setup</code> は MCP の接続前に発火するので、<code>mcp_tool</code> フックはスキップされます。<code>/clear</code> や圧縮の後の <code>SessionStart</code> では動きます。</li>
+        <li>v2.1.321 から、16 MiB を超える応答を返した <code>PreToolUse</code> の <code>mcp_tool</code> フックはツール呼び出しを拒否します。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#mcp-tool-hook-fields">hooks#mcp-tool-hook-fields</a> · changelog 2.1.321</footer>
+</section>
+
+<!-- ============ prompt ============ -->
+<section id="ch28-prompt">
+  <h2><code>prompt</code> フック: 1 回の LLM 判定</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th>フィールド</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>prompt</code></td><td>必須。<code>$ARGUMENTS</code> が入力 JSON に置き換わる。なければ末尾に追加。<code>\$1.00</code> で <code>$</code> をそのまま書く</td></tr>
+          <tr><td><code>model</code></td><td>既定はバックグラウンド処理用のモデル</td></tr>
+          <tr><td><code>timeout</code></td><td>既定 30 秒</td></tr>
+          <tr><td><code>continueOnBlock</code></td><td>既定 <code>false</code>。<code>true</code> なら <code>ok: false</code> の理由を Claude に返してターンを続ける</td></tr>
+        </tbody>
+      </table>
+      <p class="small">LLM は次の JSON を返します。<code>reason</code> は <code>ok: false</code> のとき必須です。<code>impossible</code> は <code>Stop</code>・<code>SubagentStop</code> でだけ有効で、条件が満たせないと判断したときにターンを終えさせます。</p>
+<pre data-lang="json" class="compact">{
+  "ok": true | false,
+  "reason": "Explanation for the decision",
+  "impossible": true | false
+}</pre>
+    </div>
+    <div>
+      <h3><code>ok: false</code> の効果</h3>
+      <ul class="small">
+        <li><code>Stop</code>・<code>SubagentStop</code>: 理由を次の指示として渡し、続行（<code>impossible: true</code> なら停止を許可）</li>
+        <li><code>PreToolUse</code>: 呼び出しを拒否し、既定ではターンを終えて警告行を出す。<code>continueOnBlock: true</code> なら理由をツールエラーとして返す</li>
+        <li><code>PostToolUse</code>: 既定ではターンを終える。<code>continueOnBlock: true</code> なら理由を返して続行</li>
+        <li><code>PostToolBatch</code>・<code>UserPromptSubmit</code>・<code>UserPromptExpansion</code>: ターンを終える</li>
+        <li><code>PostToolUseFailure</code>・<code>TaskCreated</code>: 理由をツールエラーとして返し、続行</li>
+        <li><code>TaskCompleted</code>: タスク完了の経路はツールエラーで続行。チームメイト停止の経路は <code>TeammateIdle</code> と同じ</li>
+        <li><code>TeammateIdle</code>: 既定でチームメイトを止める。<code>continueOnBlock: true</code> なら作業を続けさせる</li>
+        <li><code>PermissionRequest</code>・<code>PermissionDenied</code>: 効果なし</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#prompt-based-hooks">hooks#prompt-based-hooks</a> · <a href="https://code.claude.com/docs/en/hooks#response-schema">#response-schema</a> · <a href="https://code.claude.com/docs/en/hooks#prompt-and-agent-hook-fields">#prompt-and-agent-hook-fields</a></footer>
+</section>
+
+<!-- ============ agent ============ -->
+<section id="ch28-agent">
+  <h2><code>agent</code> フック: ツールで確かめる検証エージェント <span class="badge experimental">Experimental</span></h2>
+  <div class="cols-2">
+    <ul class="small">
+      <li>ドキュメントは「experimental で、挙動と設定は今後変わりうる。本番では command フックを推奨」と明記しています。</li>
+      <li>Read・Grep・Glob などのツールを使えるサブエージェントを起動し、最大 50 ターンで <code>{ "ok": true/false }</code> を返させます。</li>
+      <li>設定は prompt フックと同じです。既定のタイムアウトは 60 秒で、<code>continueOnBlock</code> と <code>impossible</code> はありません。</li>
+    </ul>
+    <ul class="small">
+      <li><code>ok: false</code> は、同じイベントで <code>continueOnBlock: true</code> を付けた prompt フックと同じに扱われます。</li>
+      <li><code>PermissionRequest</code> では使えず、置いてもスキップされます。使える型はイベント一覧の「型」列のとおりです。</li>
+      <li>v2.1.300 で、<code>model</code> の指定が効くようになりました。使えないモデルのときは、動作を許可せず呼び出し元のモデルで動きます。</li>
+    </ul>
+  </div>
+<pre data-lang="json" class="compact">{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "Verify that all unit tests pass. Run the test suite and check the results. $ARGUMENTS",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}</pre>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#agent-based-hooks">hooks#agent-based-hooks</a> · <a href="https://code.claude.com/docs/en/hooks#prompt-based-hooks">#prompt-based-hooks</a> · changelog 2.1.300</footer>
+</section>
+
+<!-- ============ 入力 JSON ============ -->
+<section id="ch28-input">
+  <h2>入力 JSON: 全イベント共通のフィールド</h2>
+  <div class="cols-2" style="grid-template-columns: minmax(0, 1fr) minmax(0, 1.14fr)">
+    <div>
+      <table class="dense">
+        <thead><tr><th>フィールド</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>session_id</code></td><td>現在のセッション ID</td></tr>
+          <tr><td><code>prompt_id</code></td><td>処理中のユーザープロンプトの UUID。OTel の <code>prompt.id</code> と一致。最初の入力までは無い</td></tr>
+          <tr><td><code>transcript_path</code></td><td>会話 JSON のパス。非同期に書かれるので最新ターンが無いことがある</td></tr>
+          <tr><td><code>cwd</code></td><td>フック起動時の作業ディレクトリ</td></tr>
+          <tr><td><code>scratchpad_dir</code></td><td>scratchpad のパス。無いセッションでは欠ける。v2.1.257 以降</td></tr>
+          <tr><td><code>permission_mode</code></td><td><code>"default"</code> <code>"plan"</code> <code>"acceptEdits"</code> <code>"auto"</code> <code>"dontAsk"</code> <code>"bypassPermissions"</code>。Manual は <code>"default"</code> で届く。届かないイベントもある</td></tr>
+          <tr><td><code>effort</code></td><td><code>{"level": …}</code>。ツール文脈のイベントで、effort 対応モデルのときだけ</td></tr>
+          <tr><td><code>hook_event_name</code></td><td>発火したイベント名</td></tr>
+          <tr><td><code>agent_id</code>・<code>agent_type</code></td><td>サブエージェント・in-process チームメイト内、または <code>--agent</code> 使用時。サブエージェントの種別が <code>--agent</code> より優先</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+<pre data-lang="json" class="compact">{
+  "session_id": "abc123",
+  "prompt_id": "…",
+  "transcript_path": "/home/user/.claude/projects/.../transcript.jsonl",
+  "cwd": "/home/user/my-project",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "npm test",
+    "description": "Run test suite",
+    "timeout": 120000,
+    "run_in_background": false
+  },
+  "tool_use_id": "toolu_01ABC123..."
+}</pre>
+      <p class="small muted">docs の例から <code>prompt_id</code> の UUID と <code>scratchpad_dir</code> の行を省略。</p>
+      <ul class="small">
+        <li><code>model</code> を受け取れるのは <code>SessionStart</code> だけです。モデルの変化は <code>from_model</code>・<code>to_model</code> で追います。<code>$CLAUDE_MODEL</code> はありません。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#common-input-fields">hooks#common-input-fields</a></footer>
+</section>
+
+<!-- ============ 終了コード ============ -->
+<section id="ch28-exit">
+  <h2>終了コード判定表と exit 2 の扱い</h2>
+  <table class="dense">
+    <thead><tr><th style="width:22%">stdout</th><th style="width:20%">exit 0</th><th style="width:26%">exit 2</th><th>その他の終了コード</th></tr></thead>
+    <tbody>
+      <tr><td>スキーマ検証を通る JSON</td><td>成功。フィールドを適用</td><td>ブロック。フィールドは読むがブロックは覆らない</td><td>成功。終了コードは無視し、フィールドだけで決まる（失敗でブロックするフックでは失敗扱い）</td></tr>
+      <tr><td>解析できない・検証に失敗した JSON</td><td>非ブロッキングエラー</td><td>ブロック。理由は stderr</td><td>非ブロッキングエラー</td></tr>
+      <tr><td>プレーンテキスト・出力なし</td><td>成功</td><td>ブロック。理由は stderr</td><td>非ブロッキングエラー。通知に stderr の 1 行目</td></tr>
+    </tbody>
+  </table>
+  <div class="cols-2">
+    <ul class="small">
+      <li>exit 2 の理由は stderr です。ブロックを決める JSON も出していれば、その理由が優先します。exit 2 の効果はイベントごとに違い、前出のイベント一覧の右列にまとめています。</li>
+      <li>exit 1 は慣例の失敗コードですが、有効な JSON がなければ<strong>ブロックしません</strong>。ポリシーを強制するなら exit 2 を使います。</li>
+      <li>exit 0 のプレーン stdout が Claude に届くのは <code>UserPromptSubmit</code>・<code>UserPromptExpansion</code>・<code>SessionStart</code>・<code>PostModelSwitch</code> だけです。<code>PreCompact</code> では要約への指示になり、他はデバッグログへ行きます。exit 0 の stderr を Claude は見ません。</li>
+    </ul>
+    <ul class="small">
+      <li><code>WorktreeCreate</code> は非 0 なら JSON に関係なく作成失敗、<code>WorktreeRemove</code> は非 0 でディレクトリが残れば削除失敗です。</li>
+      <li><code>Stop</code>・<code>SubagentStop</code>・<code>TaskCompleted</code>・プラグインの <code>UserPromptSubmit</code> は、stdout が空で stderr が <code>No such file or directory</code> のような exit 2 を非ブロッキングエラーとみなします。</li>
+      <li><code>Elicitation</code>・<code>ElicitationResult</code> は exit 0 のときだけ <code>hookSpecificOutput</code> を適用します。</li>
+      <li>出力を捨てるイベント（<code>StopFailure</code> など）は、どの終了コードでも JSON を無視します。<code>terminalSequence</code> だけは効きます。</li>
+    </ul>
+  </div>
+<pre data-lang="text" class="compact">PreToolUse:Bash hook error: [${CLAUDE_PROJECT_DIR}/.claude/hooks/no-rm.sh]: Blocked: rm commands are not allowed
+Failed with non-blocking status code: something broke</pre>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#exit-code-output">hooks#exit-code-output</a> · <a href="https://code.claude.com/docs/en/hooks#exit-code-0">#exit-code-0</a> · <a href="https://code.claude.com/docs/en/hooks#exit-code-2">#exit-code-2</a> · <a href="https://code.claude.com/docs/en/hooks#exit-code-2-behavior-per-event">#exit-code-2-behavior-per-event</a></footer>
+</section>
+
+<!-- ============ JSON 出力 ============ -->
+<section id="ch28-json">
+  <h2>JSON 出力: 共通フィールド・サイズ上限・解析規則</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th>フィールド</th><th>既定</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>continue</code></td><td><code>true</code></td><td><code>false</code> でフック実行後に処理全体を止める。イベント固有の決定より優先</td></tr>
+          <tr><td><code>stopReason</code></td><td>なし</td><td><code>continue: false</code> のときユーザーに表示。会話に残るので続行時は Claude も読む</td></tr>
+          <tr><td><code>suppressOutput</code></td><td><code>false</code></td><td>受け付けるが<strong>効果なし</strong>。成功したフックの stdout はもともと表示されない</td></tr>
+          <tr><td><code>systemMessage</code></td><td>なし</td><td>ユーザーへの警告。SDK・stream-json では <code>SDKInformationalMessage</code> になりうる</td></tr>
+          <tr><td><code>terminalSequence</code></td><td>なし</td><td>Claude Code が代わりに出す端末エスケープ。OSC 0/1/2/9/99/777 と BEL だけ</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="small">
+      <li>フィールドは 3 種類です。上の共通フィールド、一部イベントの最上位 <code>decision</code>・<code>reason</code>、そして <code>hookEventName</code> 必須の <code>hookSpecificOutput</code> です。</li>
+      <li><code>additionalContext</code>・<code>systemMessage</code>・<code>initialUserMessage</code> とプレーン stdout は、それぞれ 10,000 文字が上限です。超えるとセッションディレクトリのファイルに保存し、パスと先頭 2,000 文字のプレビューに置き換えます。上限を変える設定はありません。</li>
+      <li>非 async フックの stdout が JSON とみなされるのは、JSON オブジェクト 1 つだけで、前後が空白のときです。配列や文字列はプレーンテキスト扱いです。</li>
+      <li>JSON として読める行が複数あると、プレーンテキスト扱いです。ただし 1 行でもフィールドを設定していれば解析失敗になります。</li>
+      <li>exit 2 と JSON を混ぜると、exit 2 のブロックが効いたまま JSON も読まれます。</li>
+    </ul>
+  </div>
+<pre data-lang="json" class="compact">{ "continue": false, "stopReason": "Build failed, fix errors before continuing" }</pre>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#json-output">hooks#json-output</a> · <a href="https://code.claude.com/docs/en/hooks#exit-code-0">#exit-code-0</a></footer>
+</section>
+
+<!-- ============ decision control ============ -->
+<section id="ch28-decision">
+  <h2>decision control 早見表</h2>
+  <table class="dense">
+    <thead><tr><th style="width:15%">方式</th><th style="width:47%">イベント</th><th>主なフィールド</th></tr></thead>
+    <tbody>
+      <tr><td>最上位 <code>decision</code></td><td><code>UserPromptSubmit</code> <code>UserPromptExpansion</code> <code>PostToolUse</code> <code>PostToolUseFailure</code> <code>PostToolBatch</code> <code>Stop</code> <code>SubagentStop</code> <code>ConfigChange</code> <code>PreCompact</code></td><td><code>decision: "block"</code> と <code>reason</code>。Stop 系は <code>additionalContext</code> も可</td></tr>
+      <tr><td>終了コードか <code>continue</code></td><td><code>TeammateIdle</code> <code>TaskCompleted</code></td><td>exit 2 と stderr。<code>continue: false</code> でチームメイトを止める</td></tr>
+      <tr><td>終了コードか <code>decision</code></td><td><code>TaskCreated</code></td><td>exit 2 か <code>decision: "block"</code> で取り消し</td></tr>
+      <tr><td rowspan="3"><code>hookSpecificOutput</code></td><td><code>PreToolUse</code></td><td><code>permissionDecision</code>（allow/deny/ask/defer）と理由</td></tr>
+      <tr><td><code>PermissionRequest</code></td><td><code>decision.behavior</code>（allow/deny）</td></tr>
+      <tr><td><code>PermissionDenied</code> / <code>MessageDisplay</code></td><td><code>retry: true</code> / <code>displayContent</code></td></tr>
+      <tr><td><code>hookSpecificOutput</code> か <code>decision</code></td><td><code>PreModelSwitch</code> / <code>Elicitation</code> <code>ElicitationResult</code></td><td><code>permissionDecision</code>（allow/deny/ask） / <code>action</code> と <code>content</code></td></tr>
+      <tr><td>パス・終了コード</td><td><code>WorktreeCreate</code> / <code>WorktreeRemove</code></td><td>stdout か <code>worktreePath</code> / 非 0 で失敗</td></tr>
+      <tr><td>文脈の追加のみ</td><td><code>SessionStart</code> <code>SubagentStart</code> <code>PostModelSwitch</code></td><td><code>additionalContext</code></td></tr>
+      <tr><td>なし</td><td><code>Setup</code> <code>Notification</code> <code>SessionEnd</code> <code>PostCompact</code> <code>InstructionsLoaded</code> <code>StopFailure</code> <code>CwdChanged</code> <code>DirectoryAdded</code> <code>FileChanged</code></td><td>ログや後片付けなどの副作用だけ</td></tr>
+    </tbody>
+  </table>
+  <ul class="small">
+    <li>最上位 <code>decision</code> の値は <code>"block"</code> だけです。許可するときは <code>decision</code> を書かないか、何も出力せずに exit 0 で終えます。</li>
+    <li>書き換えは <code>PreToolUse</code> の <code>updatedInput</code>、<code>PermissionRequest</code> の <code>decision.updatedInput</code>、<code>PostToolUse</code> の <code>updatedToolOutput</code> でできます。<code>UserPromptSubmit</code> はプロンプトを置き換えられません。</li>
+  </ul>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#decision-control">hooks#decision-control</a></footer>
+</section>
+
+<!-- ============ additionalContext ============ -->
+<section id="ch28-context">
+  <h2><code>additionalContext</code>: Claude の文脈に事実を足す</h2>
+  <div class="cols-2">
+    <div>
+      <p class="small">文字列は system reminder に包まれ、フックが発火した位置に挿入されます。Claude は次のリクエストで読みますが、チャットには表示されません。</p>
+      <table class="dense">
+        <thead><tr><th>イベント</th><th>挿入される位置</th></tr></thead>
+        <tbody>
+          <tr><td><code>SessionStart</code>・<code>SubagentStart</code></td><td>会話の先頭（最初のプロンプトの前）</td></tr>
+          <tr><td><code>UserPromptSubmit</code>・<code>UserPromptExpansion</code></td><td>送信されたプロンプトの横</td></tr>
+          <tr><td><code>PreToolUse</code>・<code>PostToolUse</code>・<code>PostToolUseFailure</code>・<code>PostToolBatch</code></td><td>ツール結果の横</td></tr>
+          <tr><td><code>Stop</code>・<code>SubagentStop</code></td><td>ターンの末尾。会話は続く</td></tr>
+          <tr><td><code>PostModelSwitch</code></td><td>切替後の次のリクエスト</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="small">
+      <li>同じイベントで複数のフックが返した値は、すべて届きます。</li>
+      <li>文字列中の <code>&lt;system-reminder&gt;</code>・<code>&lt;/system-reminder&gt;</code> は、<code>&lt;</code> が <code>&amp;lt;</code> に置き換わって届きます。</li>
+      <li>「本番環境が対象」のような事実の文で書きます。システム命令を装った文は、プロンプトインジェクション対策に引っかかり、Claude がユーザーに提示してしまいます。</li>
+      <li>不変の規約は CLAUDE.md に書きます（<a href="#/ch09">Ch9</a>）。</li>
+      <li>挿入した文はトランスクリプトに保存されます。<code>--continue</code>・<code>--resume</code> では途中のイベントの値をそのまま再生するので、時刻やコミット SHA は古くなります。<code>SessionStart</code> は <code>source: "resume"</code>（または <code>"fork"</code>）で再実行されます。</li>
+    </ul>
+  </div>
+<pre data-lang="json" class="compact">{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "This file is generated. Edit src/schema.ts and run `bun generate` instead."
+  }
+}</pre>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#add-context-for-claude">hooks#add-context-for-claude</a></footer>
+</section>
+
+<!-- ============ PreToolUse (1/2) ============ -->
+<section id="ch28-pretooluse">
+  <h2>PreToolUse (1/2): 入力と決定フィールド</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li><code>EndConversation</code> 以外の全ツールで、パラメータ生成後・実行前に発火します。入力は <code>tool_name</code>・<code>tool_input</code>・<code>tool_use_id</code> です。</li>
+        <li>MCP ツールでは <code>mcp_server</code>（<code>name</code> と <code>source</code>）も届きます（v2.1.274 以降）。信頼の判断には名前でなく <code>source</code> を使います。</li>
+        <li><code>Write</code>・<code>Edit</code>・<code>Read</code> の <code>file_path</code> は常に絶対パスです。<code>~</code> や相対パスでのすり抜けはできません。Windows ではバックスラッシュで届きます。</li>
+        <li><code>@</code> で参照したファイルはツール呼び出しなしで挿入されるので、<code>Read</code> の matcher でも発火しません。止めるには <code>Read</code> の deny ルールか <code>CLAUDE_CODE_DISABLE_FILE_MENTIONS=1</code>（v2.1.299 以降）を使います。</li>
+      </ul>
+<pre data-lang="json" class="compact">{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "Database writes are not allowed"
+  }
+}</pre>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th>フィールド</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>permissionDecision</code></td><td><code>"allow"</code> 確認を省く / <code>"deny"</code> 止める / <code>"ask"</code> 確認を出す / <code>"defer"</code> ターンを終えて後で再開（<code>-p</code> のみ）。deny・ask ルールは結果に関係なく評価される</td></tr>
+          <tr><td><code>permissionDecisionReason</code></td><td>ask はプロンプトに表示、deny は Claude に渡す。allow・defer はデバッグログのみ</td></tr>
+          <tr><td><code>updatedInput</code></td><td>入力オブジェクト全体を置き換える。権限ルールは置換後の入力で評価。defer では無視</td></tr>
+          <tr><td><code>additionalContext</code></td><td>ツール結果の横に追加。defer では無視</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>複数フックの決定は <code>deny</code> &gt; <code>defer</code> &gt; <code>ask</code> &gt; <code>allow</code> の順で優先します。exit 2 は deny と同じ扱いです。</li>
+        <li>ask のプロンプトには出どころが付きます: <code>[settings]</code>、<code>[plugin:&lt;name&gt;]</code>、<code>[skill]</code>。</li>
+        <li>最上位の <code>decision</code>（<code>"approve"</code>/<code>"block"</code>）は非推奨で、allow/deny に読み替えます。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#pretooluse">hooks#pretooluse</a> · <a href="https://code.claude.com/docs/en/hooks#pretooluse-input">#pretooluse-input</a> · <a href="https://code.claude.com/docs/en/hooks#pretooluse-decision-control">#pretooluse-decision-control</a></footer>
+</section>
+
+<!-- ============ PreToolUse (2/2) ============ -->
+<section id="ch28-pretooluse-limits">
+  <h2>PreToolUse (2/2): allow の限界と defer</h2>
+  <div class="cols-2">
+    <div>
+      <h3>allow で省けない確認</h3>
+      <ul class="small">
+        <li>どのモードでも自動承認されない操作、ネットワークパスからの読み取り、SDK が <code>always_ask</code> を付けたツール、<code>requiresUserInteraction</code> 付きの MCP ツール</li>
+        <li><code>AskUserQuestion</code>・<code>ExitPlanMode</code> は allow だけでは足りません。<code>updatedInput</code> に回答を入れて返します。</li>
+        <li>plan mode でのファイル編集の allow は、フックがないときと同じ扱いです。</li>
+        <li>逆に <code>deny</code> は、<code>bypassPermissions</code> を含むすべてのモードで効きます。<code>PreToolUse</code> は <code>dontAsk</code> を含むモード判定より先に発火します。詳しい優先関係は <a href="#/ch22">Ch22</a>。</li>
+        <li>auto mode で <code>permissionDecision</code> なしの <code>updatedInput</code> を返すと、<code>a hook changed this call's input after auto mode reviewed it</code> で拒否されることがあります（<a href="#/ch24">Ch24</a>）。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><code>"defer"</code>: 呼び出しを保留して後で再開</h3>
+      <ul class="small">
+        <li><code>-p</code> で、そのターンのツール呼び出しが 1 つのときだけ有効です。対話セッションや複数呼び出しでは警告を出して無視します。</li>
+        <li>結果は <code>stop_reason: "tool_deferred"</code> と <code>deferred_tool_use</code>（<code>id</code>・<code>name</code>・<code>input</code>）です。</li>
+        <li>呼び出し側は同じ permission host で <code>claude -p --resume &lt;session-id&gt;</code> を実行し、再発火したフックが <code>allow</code> と <code>updatedInput</code> を返します。</li>
+        <li>タイムアウトや再試行の上限はありません。セッションは <code>cleanupPeriodDays</code>（既定 30 日）まで残ります。</li>
+        <li>再開時にツールが無いと <code>tool_deferred_unavailable</code> になります。<code>CLAUDE_CODE_DROP_UNAVAILABLE_DEFERRED_TOOL=1</code> で破棄できます（v2.1.319 で挙動変更）。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#pretooluse-decision-control">hooks#pretooluse-decision-control</a> · <a href="https://code.claude.com/docs/en/hooks#tools-that-require-user-interaction">#tools-that-require-user-interaction</a> · <a href="https://code.claude.com/docs/en/hooks#defer-a-tool-call-for-later">#defer-a-tool-call-for-later</a> · <a href="https://code.claude.com/docs/en/hooks-guide#hooks-and-permission-modes">hooks-guide#hooks-and-permission-modes</a></footer>
+</section>
+
+<!-- ============ PermissionRequest ============ -->
+<section id="ch28-permissionrequest">
+  <h2>PermissionRequest: 確認ダイアログの代わりに答える</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>権限の確認を出す直前に発火します。確認を出せないセッション（<code>-p</code> のバックグラウンドサブエージェントなど）でも実行し、どのフックも決めなければ拒否します。</li>
+        <li><code>--permission-prompt-tool</code>・SDK の <code>canUseTool</code> と並行して動き、先に決めた方が適用されます。サンドボックスのネットワーク要求では発火しません。</li>
+        <li>入力は <code>tool_name</code>・<code>tool_input</code>（<code>tool_use_id</code> なし）、MCP なら <code>mcp_server</code>、任意で <code>permission_suggestions</code> です。</li>
+        <li>exit 2 は効かず、stderr も捨てられます。<code>agent</code> フックはスキップされます。</li>
+      </ul>
+      <table class="dense">
+        <thead><tr><th><code>decision</code> の中</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>behavior</code></td><td><code>"allow"</code> か <code>"deny"</code>。deny・ask ルールは引き続き評価</td></tr>
+          <tr><td><code>updatedInput</code></td><td>allow のみ。入力全体を置換し、deny・ask ルールで再評価</td></tr>
+          <tr><td><code>updatedPermissions</code></td><td>allow のみ。右の更新エントリの配列</td></tr>
+          <tr><td><code>message</code>・<code>interrupt</code></td><td>deny のみ。理由と、<code>true</code> で Claude を止める</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th><code>type</code></th><th>フィールド</th><th>効果</th></tr></thead>
+        <tbody>
+          <tr><td><code>addRules</code></td><td><code>rules</code> <code>behavior</code></td><td>ルールを追加。<code>rules</code> は <code>{toolName, ruleContent?}</code></td></tr>
+          <tr><td><code>replaceRules</code></td><td><code>rules</code> <code>behavior</code></td><td>その behavior のルールを全置換</td></tr>
+          <tr><td><code>removeRules</code></td><td><code>rules</code> <code>behavior</code></td><td>一致するルールを削除</td></tr>
+          <tr><td><code>setMode</code></td><td><code>mode</code></td><td>権限モードを変更。<code>manual</code> は <code>default</code> の別名</td></tr>
+          <tr><td><code>addDirectories</code></td><td><code>directories</code></td><td>作業ディレクトリを追加</td></tr>
+          <tr><td><code>removeDirectories</code></td><td><code>directories</code></td><td>作業ディレクトリを削除</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>全エントリに <code>destination</code> を付けます: <code>session</code>（メモリのみ）、<code>localSettings</code>、<code>projectSettings</code>、<code>userSettings</code>。</li>
+        <li><code>setMode</code> の <code>bypassPermissions</code> は、起動時に bypass が使える状態のときだけ効き、<code>defaultMode</code> には保存されません。</li>
+        <li>受け取った <code>permission_suggestions</code> の 1 つを、そのまま <code>updatedPermissions</code> として返せます。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#permissionrequest">hooks#permissionrequest</a> · <a href="https://code.claude.com/docs/en/hooks#permissionrequest-decision-control">#permissionrequest-decision-control</a> · <a href="https://code.claude.com/docs/en/hooks#permission-update-entries">#permission-update-entries</a></footer>
+</section>
+
+<!-- ============ PostToolUse ============ -->
+<section id="ch28-posttooluse">
+  <h2>PostToolUse: 結果への注記と出力の置き換え</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>入力は <code>tool_input</code>・<code>tool_response</code>（ツール固有の構造化出力）・<code>tool_use_id</code>・<code>duration_ms</code> です。</li>
+        <li>Bash の <code>tool_response.bashEditDiff</code> に変更ファイルが入ることがあります（v2.1.269 以降、public beta）。</li>
+        <li><code>Edit|Write</code> の matcher は、Bash や外部プロセスの書き換えでは発火しません。その用途には <code>FileChanged</code> を使います。</li>
+        <li><kbd>Ctrl</kbd>+<kbd>Enter</kbd> でターンを終えた後も、10 秒の猶予で動きます（v2.1.319 以降）。</li>
+      </ul>
+<pre data-lang="json" class="compact">{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "additionalContext": "Additional information for Claude",
+    "updatedToolOutput": {
+      "stdout": "[redacted]",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false
+    }
+  }
+}</pre>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th>フィールド</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>decision</code>・<code>reason</code></td><td><code>"block"</code> で <code>reason</code> を結果の横に追加（元の出力も残る）</td></tr>
+          <tr><td><code>additionalContext</code></td><td>ツール結果の横に追加</td></tr>
+          <tr><td><code>classifierContext</code></td><td>auto mode の classifier 向けの注記（v2.1.236 以降）。1 呼び出しで合計 2,000 文字まで。信頼できない文を入れない。async では無視</td></tr>
+          <tr><td><code>updatedToolOutput</code></td><td>Claude に渡す出力を置換。ツールの出力形状と一致が必要</td></tr>
+          <tr><td><code>updatedMCPToolOutput</code></td><td>MCP ツール専用。<code>updatedToolOutput</code> を推奨</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn">
+        <ul class="small">
+          <li><code>updatedToolOutput</code> が変えるのは Claude が見る内容だけです。ツールは実行済みで、OTel にも元の出力が残ります。</li>
+          <li>組み込みツールで形が合わない値は無視されます。MCP ツールの出力は検証しません。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#posttooluse">hooks#posttooluse</a> · <a href="https://code.claude.com/docs/en/hooks#posttooluse-decision-control">#posttooluse-decision-control</a> · <a href="https://code.claude.com/docs/en/hooks#annotate-a-result-for-the-auto-mode-classifier">#annotate-a-result-for-the-auto-mode-classifier</a> · <a href="https://code.claude.com/docs/en/hooks#bash">#bash</a></footer>
+</section>
+
+<!-- ============ PostToolUseFailure・PostToolBatch・PermissionDenied ============ -->
+<section id="ch28-tool-others">
+  <h2>PostToolUseFailure・PostToolBatch・PermissionDenied</h2>
+  <div class="cols-3">
+    <div>
+      <h3><code>PostToolUseFailure</code></h3>
+      <ul class="small">
+        <li>実行を始めたツールが失敗したとき（例外、MCP のエラー結果）に発火します。</li>
+        <li>検証エラー・未知のツール・権限拒否では発火しません。</li>
+        <li>入力: <code>error</code>、<code>is_interrupt</code>、<code>duration_ms</code>。Bash の <code>error</code> は先頭行が <code>Exit code N</code> で、長いと中間が省略されます。</li>
+        <li>出力: <code>additionalContext</code></li>
+      </ul>
+    </div>
+    <div>
+      <h3><code>PostToolBatch</code></h3>
+      <ul class="small">
+        <li>並列バッチの全呼び出しが解決した後、次のモデル呼び出しの前に 1 回だけ発火します。matcher はありません。</li>
+        <li><code>tool_calls[]</code> の <code>tool_response</code> は、モデルが見る <code>tool_result</code> の直列化文字列です。PostToolUse の構造化出力とは形が違います。</li>
+        <li><code>additionalContext</code> は 1 回だけ注入されます。<code>decision: "block"</code>・<code>continue: false</code>・exit 2 で、次のモデル呼び出しの前にループを止めます。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><code>PermissionDenied</code></h3>
+      <ul class="small">
+        <li>auto mode の拒否（判定なしの拒否を含む）でだけ発火します。手動の拒否、PreToolUse のブロック、deny ルールでは発火しません。</li>
+        <li><code>reason</code> の例: <code>[Data Exfiltration]</code>、<code>Classifier unavailable</code></li>
+        <li><code>retry: true</code> で「再試行してよい」とモデルに伝えます。拒否は覆りません。判定なしの拒否では無視されます。</li>
+      </ul>
+<pre data-lang="json" class="compact">{
+  "hookSpecificOutput": {
+    "hookEventName": "PermissionDenied",
+    "retry": true
+  }
+}</pre>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#posttoolusefailure">hooks#posttoolusefailure</a> · <a href="https://code.claude.com/docs/en/hooks#posttoolbatch">#posttoolbatch</a> · <a href="https://code.claude.com/docs/en/hooks#permissiondenied">#permissiondenied</a></footer>
+</section>
+
+<!-- ============ Stop・SubagentStop ============ -->
+<section id="ch28-stop">
+  <h2>Stop・SubagentStop: 停止を止めて作業を続けさせる</h2>
+  <div class="cols-2" style="grid-template-columns: minmax(0, 1.04fr) minmax(0, 1fr)">
+    <div>
+      <ul class="small">
+        <li><code>Stop</code> の入力: <code>stop_hook_active</code>（Stop フックで継続中なら <code>true</code>）、<code>last_assistant_message</code>、<code>background_tasks[]</code>、<code>session_crons[]</code>。最終応答はトランスクリプトでなく <code>last_assistant_message</code> から読みます。</li>
+        <li><code>decision: "block"</code> には <code>reason</code> が必須で、Claude は続行します。<code>hookSpecificOutput.additionalContext</code> はエラー扱いでない <code>Stop hook feedback</code> として続行させます。</li>
+        <li>連続 8 回ブロックすると、次のブロックは無視されてターンが終わります。Claude がツールを呼ぶとカウントは戻ります。上限は <code>CLAUDE_CODE_STOP_HOOK_BLOCK_CAP</code> で変えられ、<code>0</code> で無制限です。</li>
+        <li><code>/goal</code> は session スコープの prompt 型 Stop フックの組み込み版です（<a href="#/ch07">Ch7</a>）。</li>
+      </ul>
+<pre data-lang="bash" class="compact">#!/bin/bash
+INPUT=$(cat)
+if [ "$(echo "$INPUT" | jq -r '.stop_hook_active')" = "true" ]; then
+  exit 0  # Allow Claude to stop
+fi
+# ... rest of your hook logic</pre>
+    </div>
+    <div>
+      <ul class="small">
+        <li><code>SubagentStart</code>・<code>SubagentStop</code> の matcher はエージェント種別です（<code>Explore</code>、カスタムは frontmatter の <code>name</code>、プラグインは <code>^my-plugin:reviewer$</code> のようにアンカー）。<code>agent_transcript_path</code> は <code>subagents/</code> 配下の自分のトランスクリプトです。</li>
+        <li>prompt suggestions や <code>/btw</code> などの内部エージェントでも発火し、<code>agent_type</code> はセッションのエージェント名か空文字です。名前を書いた matcher は空文字に一致しません。</li>
+        <li><code>reason</code> はサブエージェントへの次の指示になります。親に文脈を入れるなら、<code>Agent</code> ツールの <code>PostToolUse</code> を使います。</li>
+        <li>v2.1.271 以降、<code>SubagentHandback</code> で報告するサブエージェントでは、<code>last_assistant_message</code> は報告本文ではありません。本文は <code>tool_input.message</code> です。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#stop">hooks#stop</a> · <a href="https://code.claude.com/docs/en/hooks#stop-decision-control">#stop-decision-control</a> · <a href="https://code.claude.com/docs/en/hooks#subagentstop">#subagentstop</a> · <a href="https://code.claude.com/docs/en/hooks-guide#stop-hook-hits-the-block-cap">hooks-guide#stop-hook-hits-the-block-cap</a></footer>
+</section>
+
+<!-- ============ プロンプト系・タスク系 ============ -->
+<section id="ch28-prompt-tasks">
+  <h2>UserPromptSubmit・UserPromptExpansion・タスク系イベント</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li><code>UserPromptSubmit</code> の入力は <code>prompt</code> と <code>session_title</code> です。<code>/deploy staging</code> のようなコマンドは展開前の文字列で届きます。貼り付けは展開済みで、<code>&lt;pasted_content id="…"&gt;</code> 行で囲まれることがあります。</li>
+        <li>出力は <code>decision: "block"</code> と <code>reason</code>（ユーザーにだけ表示）、<code>additionalContext</code>、<code>sessionTitle</code>、<code>suppressOriginalPrompt</code> です。プレーン stdout も文脈になります。</li>
+        <li>ブロック時のメッセージは既定で <code>Original prompt:</code> と本文を含み、トランスクリプトに残ります。<code>suppressOriginalPrompt: true</code> で外せますが、プロンプト履歴などには残ります。</li>
+        <li>既定のタイムアウトは 30 秒です。タイムアウトすると出力は捨てられ、プロンプトは文脈なしで届きます。</li>
+        <li><code>UserPromptExpansion</code> は <code>/skillname</code> の直接入力も捕まえます（<code>Skill</code> ツールの <code>PreToolUse</code> を通らない経路）。入力は <code>expansion_type</code>・<code>command_name</code>・<code>command_args</code>・<code>command_source</code>・<code>prompt</code> です。</li>
+      </ul>
+    </div>
+    <div>
+      <ul class="small">
+        <li><code>TaskCreated</code>: exit 2（stderr）か <code>decision: "block"</code>（<code>reason</code>）でタスクを削除し、理由をツールエラーとして返します。<code>continue: false</code> は無視します。</li>
+        <li><code>TaskCompleted</code>: <code>TaskUpdate</code> での完了時と、チームメイトが進行中のタスクを残して終えたときに発火します。exit 2 で完了にせず、stderr をモデルに返します。<code>continue: false</code> はチームメイト経路でだけ停止です。</li>
+        <li><code>TeammateIdle</code>: exit 2 で作業を続けさせ、<code>continue: false</code> で止めます。</li>
+        <li>入力は <code>task_id</code>・<code>task_subject</code> と任意の <code>task_description</code>・<code>teammate_name</code>・<code>team_name</code>（非推奨）、v2.1.290 以降は <code>agent_id</code> です。matcher はなく、チームメイトの経路は Agent Teams（Experimental、<a href="#/ch39">Ch39</a>）の機能です。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#userpromptsubmit">hooks#userpromptsubmit</a> · <a href="https://code.claude.com/docs/en/hooks#what-a-blocked-prompt-leaves-behind">#what-a-blocked-prompt-leaves-behind</a> · <a href="https://code.claude.com/docs/en/hooks#userpromptexpansion">#userpromptexpansion</a> · <a href="https://code.claude.com/docs/en/hooks#taskcreated">#taskcreated</a> · <a href="https://code.claude.com/docs/en/hooks#taskcompleted">#taskcompleted</a> · <a href="https://code.claude.com/docs/en/hooks#teammateidle">#teammateidle</a></footer>
+</section>
+
+<!-- ============ SessionStart・Setup・SessionEnd ============ -->
+<section id="ch28-session">
+  <h2>SessionStart・Setup・SessionEnd</h2>
+  <div class="cols-2">
+    <div>
+      <h3><code>SessionStart</code></h3>
+      <ul class="small">
+        <li>matcher: <code>startup</code>、<code>resume</code>（<code>--resume</code>・<code>--continue</code>・<code>/resume</code>）、<code>clear</code>、<code>compact</code>、<code>fork</code>（<code>--fork-session</code>・<code>/fork</code>・<code>/branch</code>・バックグラウンドへの移動）</li>
+        <li>対話セッションの起動と <code>/clear</code> ではバックグラウンドで動きます。すぐ入力できますが、最初の応答はフックの完了を待ちます。</li>
+        <li>入力: <code>source</code>、<code>model</code>（省略あり）、<code>agent_type</code>、<code>session_title</code>。resume・fork で応答が 1 つ以上あれば <code>seconds_since_last_response</code>・<code>context_tokens</code>・<code>prompt_cache_likely_expired</code>・<code>estimated_cache_write_usd</code> も届きます（v2.1.251 以降）。</li>
+        <li>出力: <code>additionalContext</code>（プレーン stdout も可）、<code>initialUserMessage</code>（<code>-p</code> のみ。プロンプトなしでも最初のターンになる）、<code>sessionTitle</code>、<code>watchPaths</code>、<code>reloadSkills</code>（フック後に skill を再走査）</li>
+        <li><code>CLAUDE_ENV_FILE</code> に <code>export</code> 文を追記すると、以後の Bash コマンドに反映されます。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><code>Setup</code></h3>
+      <ul class="small">
+        <li><code>--init-only</code>（matcher <code>init</code>）、<code>-p --init</code>（<code>init</code>）、<code>-p --maintenance</code>（<code>maintenance</code>）でだけ発火します。入力は <code>trigger</code> です。</li>
+        <li><code>--init-only</code> は Setup と <code>startup</code> の SessionStart を実行して終了し、何も表示しません。</li>
+        <li>JSON は終了コードに関係なく捨てられます。<code>-p</code> では stream-json の <code>hook_response</code> でだけ見えます。実行されるのは <code>command</code> だけです。</li>
+      </ul>
+      <h3><code>SessionEnd</code></h3>
+      <ul class="small">
+        <li><code>reason</code>: <code>clear</code>、<code>resume</code>、<code>logout</code>、<code>prompt_input_exit</code>、<code>other</code>。<code>bypass_permissions_disabled</code> は v2.1.234 で廃止。</li>
+        <li>予算は合計 1.5 秒です。settings の per-hook <code>timeout</code> の最大値まで（上限 60 秒）延び、プラグインのフックの値は数えません。<code>CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS</code> で明示でき、v2.1.268 以降は各フックの既定にもなります。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#sessionstart">hooks#sessionstart</a> · <a href="https://code.claude.com/docs/en/hooks#setup">#setup</a> · <a href="https://code.claude.com/docs/en/hooks#sessionend">#sessionend</a> · <a href="https://code.claude.com/docs/en/hooks#persist-environment-variables">#persist-environment-variables</a></footer>
+</section>
+
+<!-- ============ ModelSwitch・Compact ============ -->
+<section id="ch28-model-compact">
+  <h2>PreModelSwitch・PostModelSwitch・PreCompact・PostCompact</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li><code>PreModelSwitch</code>（v2.1.251 以降）は、<code>/model</code>、<kbd>Option</kbd>+<kbd>P</kbd>/<kbd>Alt</kbd>+<kbd>P</kbd> のピッカー、<code>/config</code> の Model、モデルが変わる fast mode の有効化、SDK の <code>set_model</code>・<code>apply_flag_settings</code> で発火します。自動フォールバックと再開時の復元では発火しません。</li>
+        <li>matcher は切替先の正規名で、<code>[1m]</code> は無視します。正規名を決められないモデルでは全フックが動くので、ブロックするフックは入力の <code>to_model</code> も確かめます。</li>
+        <li>入力: <code>from_model</code>、<code>to_model</code>、<code>requested_model</code>、<code>source</code>（<code>command</code>・<code>picker</code>・<code>sdk</code>）、<code>context_tokens</code>、<code>prompt_cache_warm</code>、<code>cache_ttl</code>、<code>estimated_cache_write_usd</code>、<code>pricing</code></li>
+        <li>exit 2 か <code>decision: "block"</code> で取り消します。<code>permissionDecision</code> の allow はキャッシュが温かいときの確認を省きます。ask を出せるのは対話の <code>/model</code> だけで、他では拒否扱いです。優先は deny &gt; ask &gt; allow、タイムアウト（既定 30 秒）も取り消しです。</li>
+      </ul>
+    </div>
+    <div>
+      <ul class="small">
+        <li><code>PostModelSwitch</code> は、要求された切替、自動フォールバック、<code>opusplan</code> の plan mode 出入り、再開時の復元の後に発火します。1 ターンだけのフォールバックチェーンでは発火しません。<code>source</code> に <code>auto</code>・<code>resume</code> が加わります。</li>
+        <li>exit 0 の stdout か <code>additionalContext</code> は次のリクエストで届きます。次のプロンプトから 5 秒以内に終わらなければ、その次のリクエストに回ります。</li>
+        <li><code>PreCompact</code> の matcher は <code>manual</code>（<code>/compact</code>）と <code>auto</code>（auto-compact とアイドル圧縮）です。入力は <code>trigger</code> と <code>custom_instructions</code>（auto では <code>null</code>）です。</li>
+        <li>exit 2 か <code>decision: "block"</code> で圧縮を止めます。事前の自動圧縮なら圧縮せずに続行し、上限エラーからの回復なら元のエラーでリクエストが失敗します。</li>
+        <li>exit 0 の stdout は要約への指示になり、10,000 文字で切られます。<code>PostCompact</code> は <code>compact_summary</code> を受け取るだけです。実測の発火順は <a href="#/ch06">Ch6</a>。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#premodelswitch">hooks#premodelswitch</a> · <a href="https://code.claude.com/docs/en/hooks#postmodelswitch">#postmodelswitch</a> · <a href="https://code.claude.com/docs/en/hooks#precompact">#precompact</a> · <a href="https://code.claude.com/docs/en/hooks#postcompact">#postcompact</a></footer>
+</section>
+
+<!-- ============ 設定・ディレクトリ・ファイル ============ -->
+<section id="ch28-env-events">
+  <h2>ConfigChange・InstructionsLoaded・CwdChanged・DirectoryAdded・FileChanged</h2>
+  <table class="dense">
+    <thead><tr><th style="width:17%">イベント</th><th style="width:43%">発火と入力</th><th>出力と制御</th></tr></thead>
+    <tbody>
+      <tr><td><code>ConfigChange</code></td><td>settings、<code>managed-settings.json</code>・<code>managed-settings.d/</code>、skill ファイルの変更。matcher は <code>user_settings</code> <code>project_settings</code> <code>local_settings</code> <code>policy_settings</code> <code>skills</code>。入力 <code>source</code>・<code>file_path</code></td><td>exit 2 か <code>decision: "block"</code> で新設定を適用しない。何も表示されず、デバッグログにだけ残る。<code>policy_settings</code> は止められない。サーバー管理設定では発火しない</td></tr>
+      <tr><td><code>InstructionsLoaded</code></td><td>CLAUDE.md・<code>.claude/rules/*.md</code> の読み込み（起動時と遅延読み込み）。matcher は <code>load_reason</code>（<code>session_start</code> <code>nested_traversal</code> <code>path_glob_match</code> <code>include</code> <code>compact</code>）。入力 <code>file_path</code> <code>memory_type</code> <code>globs</code> <code>trigger_file_path</code> <code>parent_file_path</code></td><td>制御なし。観測用に非同期で動く。Project instructions 設定で直接読む <code>AGENTS.md</code> では発火しない</td></tr>
+      <tr><td><code>CwdChanged</code></td><td>メイン会話のシェルコマンドが作業ディレクトリを変えた。入力 <code>old_cwd</code>・<code>new_cwd</code></td><td><code>watchPaths</code> で動的監視リストを置換（<code>[]</code> で消去）。<code>systemMessage</code> は短い端末通知</td></tr>
+      <tr><td><code>DirectoryAdded</code></td><td><code>/add-dir</code>（<code>slash_command</code>）・SDK の <code>register_repo_root</code> の後。<code>--add-dir</code> では発火しない。入力 <code>directory</code>・<code>source</code></td><td>制御なし。バックグラウンドで実行。<code>slash_command</code> では <code>systemMessage</code> が次のターンで Claude に届く。サンドボックス外で実行</td></tr>
+      <tr><td><code>FileChanged</code></td><td>監視中のファイルの変化。書き手は問わない（Edit・Bash・外部プロセス）。入力 <code>file_path</code>・<code>event</code>（<code>change</code> <code>add</code> <code>unlink</code>）</td><td><code>watchPaths</code>、<code>systemMessage</code>。ブロックはできない</td></tr>
+    </tbody>
+  </table>
+  <ul class="small">
+    <li><code>FileChanged</code> の matcher は <code>|</code> で分割され、作業ディレクトリ内のリテラルのファイル名として監視リストに登録されます。正規表現は監視には使えず、<code>"*"</code> も <code>*</code> という名前のファイルとして登録されます。監視は何かがファイルを指名したときにだけ始まります。</li>
+    <li><code>CLAUDE_ENV_FILE</code> は <code>CwdChanged</code>・<code>FileChanged</code> でも使え、次の <code>CwdChanged</code> で消去されます。direnv のような用途に向きます。</li>
+  </ul>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#configchange">hooks#configchange</a> · <a href="https://code.claude.com/docs/en/hooks#instructionsloaded">#instructionsloaded</a> · <a href="https://code.claude.com/docs/en/hooks#cwdchanged">#cwdchanged</a> · <a href="https://code.claude.com/docs/en/hooks#directoryadded">#directoryadded</a> · <a href="https://code.claude.com/docs/en/hooks#filechanged">#filechanged</a></footer>
+</section>
+
+<!-- ============ Worktree・Elicitation ============ -->
+<section id="ch28-worktree-elicitation">
+  <h2>WorktreeCreate・WorktreeRemove・Elicitation・ElicitationResult</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li><code>WorktreeCreate</code> は <code>--worktree</code>、<code>EnterWorktree</code>、サブエージェントの <code>isolation: "worktree"</code>、ワークフロー、バックグラウンドセッション、<code>claude remote-control</code> の worktree モードで発火します。Bash の <code>git worktree add</code> では発火しません。</li>
+        <li>フックを置くと git の既定処理を<strong>置き換え</strong>、<code>.worktreeinclude</code> も処理されません。入力は <code>name</code> です。</li>
+        <li>command フックは stdout の最後の空でない行でパスを返します（ANSI は除去）。HTTP は <code>hookSpecificOutput.worktreePath</code> です。失敗かパスなしなら作成失敗です。<code>.</code>・<code>..</code> を含む絶対パスと、リポジトリ内の symlink を通るパスは拒否されます。</li>
+        <li><code>WorktreeRemove</code> は入力 <code>worktree_path</code> を受け、exit 0 で削除済みとみなします。ブランチは削除しません。サブエージェントとワークフローの worktree では発火しません。</li>
+      </ul>
+    </div>
+    <div>
+      <ul class="small">
+        <li><code>Elicitation</code> は exit 0 で <code>action</code> を返すと、ダイアログを出さずに答えます: <code>accept</code>（<code>content</code> に値）、<code>decline</code>、<code>cancel</code>。出力なしなら通常のダイアログです。</li>
+        <li>exit 2 か最上位 <code>decision: "block"</code> は decline です。複数のフックでは、どれか 1 つの decline が accept・cancel より優先します。</li>
+        <li>URL モードで accept を返すと、URL は開かれません。</li>
+        <li><code>ElicitationResult</code> は、<code>Elicitation</code> フックが答えた場合は動きません。返した <code>content</code> は元の <code>content</code> 全体を置き換えます。</li>
+        <li>ユーザーが decline・cancel した応答でも動くので、入力の <code>action</code> が <code>accept</code> か確かめてから accept を返します。</li>
+      </ul>
+<pre data-lang="json" class="compact">{
+  "hookSpecificOutput": {
+    "hookEventName": "Elicitation",
+    "action": "accept",
+    "content": {
+      "username": "alice"
+    }
+  }
+}</pre>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#worktreecreate">hooks#worktreecreate</a> · <a href="https://code.claude.com/docs/en/hooks#worktreeremove">#worktreeremove</a> · <a href="https://code.claude.com/docs/en/hooks#elicitation">#elicitation</a> · <a href="https://code.claude.com/docs/en/hooks#elicitationresult">#elicitationresult</a></footer>
+</section>
+
+<!-- ============ 表示系 ============ -->
+<section id="ch28-display">
+  <h2>表示系イベント: Notification・MessageDisplay・StopFailure</h2>
+  <div class="cols-2" style="grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr)">
+    <div>
+      <ul class="small">
+        <li><code>Notification</code> の種類（matcher）: <code>permission_prompt</code> <code>idle_prompt</code> <code>auth_success</code> <code>auth_storage_failure</code> <code>elicitation_dialog</code> <code>elicitation_url_dialog</code> <code>elicitation_complete</code> <code>elicitation_response</code> <code>agent_needs_input</code> <code>agent_completed</code> <code>quota_auto_resume_fired</code> <code>quota_auto_resume_stale</code> <code>quota_auto_resume_disabled</code> <code>plugin_notification</code></li>
+        <li><code>permission_prompt</code> は無入力で約 6 秒後、<code>idle_prompt</code> は応答から約 60 秒後です。デスクトップ通知が無効でも発火します。</li>
+        <li><code>systemMessage</code>・<code>continue</code> は捨てられます。<code>terminalSequence</code> は対話セッションでだけ出力され、<code>-p</code>・SDK・async では無視されます。</li>
+      </ul>
+<pre data-lang="bash" class="compact">#!/bin/bash
+# Notification hook: ping the desktop when Claude Code needs attention.
+input=$(cat)
+title="Claude Code"
+body=$(jq -r '.message // "Needs your attention"' <<<"$input")
+seq=$(printf '\033]777;notify;%s;%s\007' "$title" "$body")
+jq -nc --arg seq "$seq" '{terminalSequence: $seq}'</pre>
+    </div>
+    <div>
+      <ul class="small">
+        <li><code>MessageDisplay</code> は完成した行のまとまりごとに呼ばれ、<code>displayContent</code> で画面の表示だけを置き換えます。Claude が見る内容は元のままです。</li>
+        <li>入力は <code>turn_id</code>・<code>message_id</code>・<code>index</code>・<code>final</code>・<code>delta</code> です。<code>-p</code> と SDK ではメッセージごとに 1 回で、<code>delta</code> が全文です。</li>
+        <li><code>StopFailure</code> の matcher は <code>error</code>: <code>rate_limit</code> <code>overloaded</code> <code>authentication_failed</code> <code>oauth_org_not_allowed</code> <code>account_on_hold</code> <code>billing_error</code> <code>invalid_request</code> <code>model_not_found</code> <code>server_error</code> <code>max_output_tokens</code> <code>cloud_credential_error</code>（v2.1.267 以降） <code>unknown</code></li>
+        <li><code>StopFailure</code> の <code>last_assistant_message</code> は API エラー文字列です。出力は <code>terminalSequence</code> 以外無視されます。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#notification">hooks#notification</a> · <a href="https://code.claude.com/docs/en/hooks#emit-terminal-notifications">#emit-terminal-notifications</a> · <a href="https://code.claude.com/docs/en/hooks#messagedisplay">#messagedisplay</a> · <a href="https://code.claude.com/docs/en/hooks#stopfailure">#stopfailure</a></footer>
+</section>
+
+<!-- ============ async・onFailure・並列 ============ -->
+<section id="ch28-async">
+  <h2>async・onFailure・並列実行</h2>
+  <div class="cols-3">
+    <div>
+      <h3><code>async</code> と <code>asyncRewake</code></h3>
+      <ul class="small">
+        <li><code>command</code> 専用です。<code>decision</code>・<code>permissionDecision</code>・<code>continue</code> は効きません。</li>
+        <li>終了後、<code>additionalContext</code> と <code>systemMessage</code> を次のターンで Claude に渡します。ユーザーには表示しません。</li>
+        <li>JSON は stdout に単独で出すか（複数行は v2.1.295 以降）、1 行に収めます。型の違うフィールドは捨てられます。</li>
+        <li><code>timeout</code> は効きません（<code>asyncRewake</code> には効く）。<code>-p</code> の終了時に動いていれば <code>cancelled</code> で止められます。</li>
+        <li><code>asyncRewake</code> の exit 2 は、待機中でも Claude をすぐ起こします。</li>
+      </ul>
+    </div>
+    <div>
+      <h3><code>onFailure: "block"</code></h3>
+      <ul class="small">
+        <li><code>command</code> と <code>http</code> で使えます（v2.1.295 以降）。失敗時に、そのイベントの exit 2 と同じ効果を出します。<code>PermissionRequest</code> では拒否です。</li>
+        <li>失敗とみなすもの: 起動できない、0・2 以外の終了コード（allow の JSON 付きでも）、HTTP エラー・非 2xx、タイムアウト、不正な出力</li>
+        <li><code>Stop</code>・<code>SubagentStop</code>・<code>TaskCompleted</code>・<code>TeammateIdle</code> と、async のフックには効きません。</li>
+        <li>Git Bash のない Windows では、shell form の <code>PreToolUse</code>・<code>PermissionRequest</code> は未設定でも失敗でブロックすることがあります。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>並列と結果の合成</h3>
+      <ul class="small">
+        <li>一致したフックは並列に動き、すべて完了してから結果を合成します。1 つの deny で他のフックは止まりません。</li>
+        <li>同じイベントの prompt・agent フックは 12 個ずつ動きます。待機中のフックの <code>timeout</code> は開始時から数えます。</li>
+        <li>v2.1.312 で、セッション全体（サブエージェント含む）で同時 24 個、加えてイベントの timeout より長く待った 12 個まで、という上限が入りました。同じ項目で「1 秒未満の <code>timeout</code> は 1 秒とみなす」ようになりました。</li>
+        <li>複数フックの <code>updatedInput</code> はマージされず、どれが使われるかも保証されません。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#run-hooks-in-the-background">hooks#run-hooks-in-the-background</a> · <a href="https://code.claude.com/docs/en/hooks#block-the-action-when-a-hook-fails">#block-the-action-when-a-hook-fails</a> · <a href="https://code.claude.com/docs/en/hooks#hook-handler-fields">#hook-handler-fields</a> · <a href="https://code.claude.com/docs/en/hooks-guide#combine-results-from-multiple-hooks">hooks-guide#combine-results-from-multiple-hooks</a> · changelog 2.1.312</footer>
+</section>
+
+<!-- ============ frontmatter と環境変数 ============ -->
+<section id="ch28-frontmatter-env">
+  <h2>frontmatter のフックと、フックが受け取る環境変数</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>skill のフックは起動後<strong>セッションの終わりまで</strong>残ります（<code>once: true</code> なら初回成功後に削除）。サブエージェントのフックは実行中だけ動き、<code>Stop</code> は <code>SubagentStop</code> になります。</li>
+        <li>プロジェクトの skill のフックは、未信頼フォルダの <code>-p</code> でも登録されます。プロジェクトのサブエージェントのフックは信頼ダイアログの承認が必要で、<code>-p</code> は承認とみなしません。</li>
+        <li>v2.1.304 以降、skill の出どころ（プロジェクト・個人フォルダ・各プラグイン）ごとに、フック 1,024 個と matcher 合計 16,384 文字が上限です。</li>
+      </ul>
+<pre data-lang="yaml" class="compact">---
+name: secure-operations
+description: Perform operations with security checks
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: "./scripts/security-check.sh"
+---</pre>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:46%">環境変数</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>CLAUDE_PROJECT_DIR</code></td><td>開始時のプロジェクトルート。worktree に入っても変わらない（入力の <code>cwd</code> は追従）</td></tr>
+          <tr><td><code>CLAUDE_PLUGIN_ROOT</code>・<code>CLAUDE_PLUGIN_DATA</code></td><td>プラグインの導入先と永続データ</td></tr>
+          <tr><td><code>CLAUDE_ENV_FILE</code></td><td><code>SessionStart</code>・<code>Setup</code>・<code>CwdChanged</code>・<code>FileChanged</code> のみ。PowerShell で動くフックには無い</td></tr>
+          <tr><td><code>CLAUDE_EFFORT</code></td><td>入力の <code>effort.level</code> と同じ値</td></tr>
+          <tr><td><code>CLAUDE_CODE_SESSION_ID</code></td><td>入力の <code>session_id</code> と同じ。<code>/clear</code> で更新</td></tr>
+          <tr><td><code>CLAUDECODE</code>・<code>CLAUDE_CODE_CHILD_SESSION</code></td><td><code>1</code>。Claude Code が起動したプロセスの目印</td></tr>
+          <tr><td><code>CLAUDE_PID</code></td><td>Claude Code のプロセス ID（v2.1.214 以降）</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>他に <code>CLAUDE_CODE_REMOTE</code>・<code>CLAUDE_CODE_BRIDGE_SESSION_ID</code> などがあり、<code>OTEL_*</code> は除かれます（<a href="#/ch20">Ch20</a>）。</li>
+        <li>実機では <span class="undocumented"><code>CLAUDE_CODE_ENTRYPOINT</code></span>・<span class="undocumented"><code>CLAUDE_CODE_SESSION_ATTENDED</code></span> も見えました <span class="badge undocumented">Undocumented</span>。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#hooks-in-skills-and-agents">hooks#hooks-in-skills-and-agents</a> · <a href="https://code.claude.com/docs/en/hooks#limits-on-skill-hooks">#limits-on-skill-hooks</a> · <a href="https://code.claude.com/docs/en/hooks#reference-scripts-by-path">#reference-scripts-by-path</a> · <a href="https://code.claude.com/docs/en/env-vars">env-vars</a> · 実機確認 2.1.321</footer>
+</section>
+
+<!-- ============ セキュリティ・管理・デバッグ ============ -->
+<section id="ch28-security">
+  <h2>セキュリティ・管理・デバッグ</h2>
+  <div class="cols-3">
+    <div>
+      <h3>セキュリティ</h3>
+      <ul class="small">
+        <li>command フックは自分のユーザー権限のすべてで動きます。</li>
+        <li>対話セッションは、信頼ダイアログを承認するまで全 settings ファイル（<code>~/.claude/settings.json</code> も含む）のフックを止めておきます。</li>
+        <li><code>-p</code> と SDK はダイアログを出さずに信頼済みとみなすので、リポジトリにコミットされたフックが動きます。他人のリポジトリでは <code>.claude/</code> を確認するか、<code>--bare</code> か <code>--settings '{"disableAllHooks": true}'</code> を使います。</li>
+        <li>入力の検証、<code>"$VAR"</code> の引用、<code>..</code> の拒否、絶対パス、<code>.env</code>・<code>.git/</code>・鍵の回避を推奨しています。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>管理</h3>
+      <ul class="small">
+        <li><code>disableAllHooks</code> は優先順位を適用した後の値で効きます。プロジェクトの <code>false</code> はユーザーの <code>true</code> に勝ちます。managed のフックを止められるのは managed の設定だけです。</li>
+        <li>個別のフックを無効にする方法はありません。</li>
+        <li><code>allowManagedHooksOnly</code>（managed）は managed・SDK・強制有効化プラグインのフックだけを動かします。<code>strictPluginOnlyCustomization</code> の <code>"hooks"</code> でも絞れます（<a href="#/ch58">Ch58</a>）。</li>
+        <li><code>allowedHttpHookUrls</code>・<code>httpHookAllowedEnvVars</code> は managed を含む全ソースの HTTP フックに効きます。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>確認とデバッグ</h3>
+      <ul class="small">
+        <li><code>/hooks</code> は読み取り専用の一覧で、各フックの出どころを表示します。末尾の <code>All events</code> で全イベントを見られます。</li>
+        <li><code>claude --debug-file &lt;path&gt;</code> か <code>--debug</code>（<code>~/.claude/debug/&lt;session-id&gt;.txt</code>）でログを取ります。v2.1.296 以降、<code>Hooks:</code> で始まる行に結果と所要時間が出ます。</li>
+        <li>JSON が効かないときは、ログで <code>Hook output does not start with {</code>（シェルプロファイルの出力が先に出ている）と <code>Hook JSON output had unrecognized keys</code>（階層の誤り）を探します。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#security-considerations">hooks#security-considerations</a> · <a href="https://code.claude.com/docs/en/hooks#disable-or-remove-hooks">#disable-or-remove-hooks</a> · <a href="https://code.claude.com/docs/en/hooks#debug-hooks">#debug-hooks</a> · <a href="https://code.claude.com/docs/en/settings-reference#allowmanagedhooksonly">settings-reference#allowmanagedhooksonly</a> · <a href="https://code.claude.com/docs/en/hooks-guide#hook-json-has-no-effect">hooks-guide#hook-json-has-no-effect</a></footer>
+</section>
+
+<!-- ============ 実機検証 ============ -->
+<section id="ch28-lab">
+  <h2>実機検証: フックが受け取った stdin JSON と終了コード</h2>
+  <div class="cols-2" style="grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr)">
+    <div class="lab">
+<pre data-lang="json" class="compact">{
+  "session_id": "<UUID>",
+  "transcript_path": "~/.claude/projects/<PROJECT-SLUG>/<UUID>.jsonl",
+  "cwd": "<PROJECT>",
+  "prompt_id": "<UUID>",
+  "permission_mode": "default",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "rm -f lab-nonexistent.txt",
+    "description": "Remove lab-nonexistent.txt if present"
+  },
+  "tool_use_id": "toolu_<ID>"
+}</pre>
+      <p class="small">プロジェクト設定の記録用フックで取得（<code>-p --setting-sources project --output-format stream-json --verbose --include-hook-events</code>、haiku）。jq で整形し、ID とパスは伏せ字</p>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:27%">確認したこと</th><th>結果</th></tr></thead>
+        <tbody>
+          <tr><td>発火順（ツールなし）</td><td><code>SessionStart</code>、<code>UserPromptSubmit</code>、<code>MessageDisplay</code>、<code>Stop</code>、<code>SessionEnd</code></td></tr>
+          <tr><td>入力の有無</td><td><code>SessionStart</code> に <code>prompt_id</code>・<code>permission_mode</code> なし。<code>effort</code> はツール文脈だけ。<code>scratchpad_dir</code> は全イベントでなし</td></tr>
+          <tr><td>exit 2（<code>if</code> 付き）</td><td><code>--allowedTools "Bash(rm *)"</code> があっても <code>rm</code> をブロック</td></tr>
+          <tr><td>exit 1・stderr のみ</td><td>ブロックされず実行</td></tr>
+          <tr><td>exit 1・deny の JSON</td><td>拒否された。stream の <code>outcome</code> は <code>"error"</code>（exit 0 なら <code>"success"</code>）</td></tr>
+          <tr><td><code>UserPromptExpansion</code></td><td><code>command_source</code> は <code>"projectSettings"</code></td></tr>
+        </tbody>
+      </table>
+      <div class="callout conflict"><p class="small"><code>UserPromptSubmit</code>・<code>UserPromptExpansion</code> のフックイベントも <code>system/init</code> の前に出ました。headless ページの記載は <code>SessionStart</code>・<code>Setup</code> だけです（<a href="#/ch44">Ch44</a>）。</p></div>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/hooks#common-input-fields">hooks#common-input-fields</a> · <a href="https://code.claude.com/docs/en/hooks#exit-code-output">#exit-code-output</a> · <a href="https://code.claude.com/docs/en/headless#read-session-metadata">headless#read-session-metadata</a> · 実機確認 2.1.321</footer>
+</section>
+
+</section>

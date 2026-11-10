@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<style>code::before { content: "--style-flag"; } section > h2 { color: black; }</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+<section id="part-1" class="part-divider"><h1>Part I</h1></section>
+<section id="ch-1" data-part="Part I" data-title="Chapter">
+
+<section id="title"><h1>Fixture deck</h1></section>
+
+<section id="ch-1-title" class="chapter-title"><h2>章タイトル</h2></section>
+
+<section id="s-basic">
+  <h2>基本の識別子</h2>
+  <p>本文の --not-in-code と CLAUDE_CODE_PROSE_ONLY は対象外です。</p>
+  <ul>
+    <li><code>claude --model opus --add-dir ../lib</code></li>
+    <li><code>CLAUDE_CODE_USE_BEDROCK=1</code> と <code>$ANTHROPIC_API_KEY</code></li>
+    <li><code>/compact focus on tests</code></li>
+    <li><code>/etc/claude-code/managed-settings.json</code></li>
+    <li><code>/agent-sdk/overview</code> と <code>/managed-settings.json</code></li>
+    <li><code>PreToolUse</code></li>
+  </ul>
+  <footer class="src">出典: fixture</footer>
+</section>
+
+<section id="s-fake">
+  <h2>存在しない変数</h2>
+  <p><code>CLAUDE_CODE_NOT_A_REAL_VAR</code></p>
+  <footer class="src">出典: fixture</footer>
+</section>
+
+<section id="s-undoc">
+  <h2><code>CLAUDE_CODE_SECRET_KNOB</code> <span class="badge undocumented">Undocumented</span></h2>
+  <p><code>--secret-flag</code></p>
+  <footer class="src">出典: 実機確認</footer>
+</section>
+
+<section id="s-inline-undoc">
+  <h2>一部だけ非公開</h2>
+  <ul>
+    <li class="undocumented"><span><code>--hidden-flag</code></span></li>
+    <li><code>--visible-flag</code></li>
+  </ul>
+  <footer class="src">出典: fixture</footer>
+</section>
+
+<section id="s-legend">
+  <h2>凡例</h2>
+  <table><tbody><tr><td><span class="badge undocumented">Undocumented</span></td><td><code>CLAUDE_CODE_LEGEND_VAR</code></td></tr></tbody></table>
+  <footer class="src">出典: fixture</footer>
+</section>
+
+<section id="s-json">
+  <h2>設定ファイル</h2>
+  <pre><code class="language-json" data-trim>{
+  "permissions": { "defaultMode": "plan" },
+  "env": { "MAX_THINKING_TOKENS": "1024" }
+}</code></pre>
+  <p><code>{&quot;notInJsonBlock&quot;: true}</code></p>
+  <footer class="src">出典: fixture</footer>
+</section>
+
+<section id="s-nosrc">
+  <h2>出典のないスライド</h2>
+  <p>本文だけ。</p>
+</section>
+
+</section>
+</div></div>
+<script>const s = "<code>--script-flag</code>"; if (1 < 2) {}</script>
+</body>
+</html>

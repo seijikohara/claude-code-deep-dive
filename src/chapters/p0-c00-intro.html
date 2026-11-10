@@ -1,0 +1,55 @@
+<section id="intro" data-part="Part 0 導入" data-chapter="" data-title="この資料について">
+
+<section id="title">
+  <p class="title-meta">調査日 2026-11-10</p>
+  <h1>Claude Code<br>Deep Dive</h1>
+  <div>
+    <div class="version"><span class="prompt">$ </span>claude --version<br><span class="out">2.1.321 (Claude Code)</span></div>
+    <p class="subtitle">このバージョンの全機能を、公式ドキュメントと実機の動作から読み解く</p>
+  </div>
+</section>
+
+<section id="intro-reading">
+  <h2>この資料の読み方</h2>
+  <div class="cols-2">
+    <div>
+      <h3>対象と情報源</h3>
+      <ul>
+        <li>対象はインストール済みの <code>2.1.321</code> だけです。</li>
+        <li>情報源は 2 つです。公式ドキュメント（code.claude.com/docs、英語版 228 ページ）と、実機での確認結果です。</li>
+        <li>実機確認には <code>--help</code>、ヘッドレス実行（<code>-p</code>）、起動時の init イベントを使いました。</li>
+        <li>記憶や推測による記述はありません。</li>
+      </ul>
+      <h3>操作</h3>
+      <ul>
+        <li><kbd>→</kbd> で次の章、<kbd>↓</kbd> で章内の次のスライドへ進みます。<kbd>Space</kbd> を押すと、全スライドを順に進みます。</li>
+        <li><kbd>Esc</kbd> で全体表示、<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> で全文検索を使えます。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>ステータスの表記</h3>
+      <table>
+        <thead><tr><th>表記</th><th>意味</th></tr></thead>
+        <tbody>
+          <tr><td>（なし）</td><td>一般提供（GA）</td></tr>
+          <tr><td><span class="badge beta">Beta</span></td><td>ドキュメントが beta / public beta と明記</td></tr>
+          <tr><td><span class="badge preview">Preview</span></td><td>research preview</td></tr>
+          <tr><td><span class="badge experimental">Experimental</span></td><td>実験的機能。多くは環境変数などで明示的に有効化が必要</td></tr>
+          <tr><td><span class="badge undocumented">Undocumented</span></td><td>実機にあるが、ドキュメントに記載がない</td></tr>
+          <tr><td><span class="badge deprecated">Deprecated</span></td><td>非推奨</td></tr>
+          <tr><td><span class="badge removed">Removed</span></td><td>削除済み（経緯の説明のためだけに掲載）</td></tr>
+        </tbody>
+      </table>
+      <div class="callout conflict"><p>ドキュメント・changelog・実機の記述が食い違う箇所には、この枠を付けています。</p></div>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/llms.txt">Claude Code docs index</a> · <a href="https://code.claude.com/docs/en/changelog">changelog</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="intro-toc">
+  <h2>目次</h2>
+  <!--TOC-->
+  <footer class="src">出典: 本資料の構成</footer>
+</section>
+
+</section>

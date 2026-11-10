@@ -1,0 +1,552 @@
+<section id="ch02" data-part="Part I 基礎の深掘り" data-chapter="Ch2" data-title="モデル選択">
+
+<section id="ch02-title" class="chapter-title">
+  <p class="chapter-label">02</p>
+  <h1>モデル選択</h1>
+  <p class="chapter-summary">セッションがどのモデルで動くかは、エイリアスの解決、指定元の優先順位、許可リスト、自動の切り替えで決まります。この章では、エイリアスとモデル ID、プロバイダ差、価格、優先順位と再開時の扱い、ピン留めと上書き、<code>opusplan</code>、サブエージェント、フォールバック、Fable と 1M コンテキストを扱います。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch02-overview">
+  <h2>全体像</h2>
+  <div class="cols-2">
+    <div>
+      <h3>モデルの書き方</h3>
+      <ul class="small">
+        <li><strong>エイリアス</strong>: <code>fable</code>, <code>opus</code>, <code>sonnet</code>, <code>haiku</code>, <code>best</code>, <code>opusplan</code>、1M 版の <code>opus[1m]</code> / <code>sonnet[1m]</code>、特別値 <code>default</code>。解決先はプロバイダと Claude Code のバージョンで変わります。</li>
+        <li><strong>モデル名</strong>: Anthropic API は完全なモデル名（例: <code>claude-opus-5-5</code>）、Amazon Bedrock は inference profile ARN、Microsoft Foundry は deployment 名、Google Cloud's Agent Platform は version 名です。</li>
+      </ul>
+      <div class="callout note">
+        <p class="small"><code>ANTHROPIC_BASE_URL</code> が変えるのはリクエストの送り先で、応答するモデルではありません。</p>
+      </div>
+      <h3>現在のモデルの確認</h3>
+      <p class="small"><code>/status</code>（アカウント情報も表示）と、設定済みならステータスライン。</p>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:30%">決めること</th><th>主な手段</th></tr></thead>
+        <tbody>
+          <tr><td>セッションのモデル</td><td><code>/model</code>, <code>--model</code>, <code>ANTHROPIC_MODEL</code>, <code>model</code>, 組織既定モデル, <code>ANTHROPIC_DEFAULT_MODEL</code></td></tr>
+          <tr><td>エイリアスの解決先</td><td>プロバイダ, <code>ANTHROPIC_DEFAULT_*_MODEL</code>, <code>modelOverrides</code></td></tr>
+          <tr><td>選べるモデル</td><td><code>availableModels</code>, <code>deniedModels</code>, 組織のモデル制限</td></tr>
+          <tr><td>自動の切り替え</td><td><code>opusplan</code>, <code>fallbackModel</code>, 安全分類器によるフォールバック</td></tr>
+          <tr><td>サブエージェント</td><td>呼び出し時の <code>model</code>, frontmatter, <code>CLAUDE_CODE_SUBAGENT_MODEL</code></td></tr>
+        </tbody>
+      </table>
+      <p class="small">関連: effort は <a href="#/ch03">Ch3</a>、fast mode は <a href="#/ch04">Ch4</a>、Advisor は <a href="#/ch05">Ch5</a>、auto-compact window は <a href="#/ch06">Ch6</a>、プロバイダ固有の設定は <a href="#/ch59">Ch59</a>。</p>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#available-models">model-config#available-models</a> · <a href="https://code.claude.com/docs/en/model-config#checking-your-current-model">#checking-your-current-model</a></footer>
+</section>
+
+<section id="ch02-aliases">
+  <h2>エイリアスの解決結果（実測）</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:26%">エイリアス</th><th>ドキュメント上の動作</th></tr></thead>
+        <tbody>
+          <tr><td><code>default</code></td><td>モデルの上書きを消し、アカウントの実行時既定に戻す特別値。エイリアスではない</td></tr>
+          <tr><td><code>best</code></td><td><code>opus</code> と同じモデル</td></tr>
+          <tr><td><code>fable</code></td><td>プロバイダの Fable モデル。最も難しく長い作業向け</td></tr>
+          <tr><td><code>opus</code></td><td>最新の Opus。複雑な推論向け</td></tr>
+          <tr><td><code>sonnet</code></td><td>最新の Sonnet。日常のコーディング向け</td></tr>
+          <tr><td><code>haiku</code></td><td>高速で効率のよい Haiku。単純な作業向け</td></tr>
+          <tr><td><code>sonnet[1m]</code></td><td>1M コンテキストの Sonnet。Sonnet 5.5 / 5 に解決される場合は効果なし</td></tr>
+          <tr><td><code>opus[1m]</code></td><td>1M コンテキストの Opus。Opus 4.7 以降に解決される場合は効果なし</td></tr>
+          <tr><td><code>opusplan</code></td><td>plan mode では <code>opus</code>、実行時は <code>sonnet</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>Anthropic API での解決（実機）</h3>
+      <div class="lab">
+<pre data-lang="text" class="compact">default    model= claude-opus-5-5 …
+best       model= claude-opus-5-5 …
+opus       model= claude-opus-5-5 …
+sonnet     model= claude-sonnet-5-5 …
+haiku      model= claude-haiku-5-5 …
+fable      model= claude-fable-5-2 …
+opusplan   model= claude-sonnet-5-5 …
+opus[1m]   model= claude-opus-5-5 …
+fable[1m]  model= claude-fable-5-2 …</pre>
+        <p class="small"><code>--model &lt;alias&gt;</code> ごとの init イベントの <code>model</code>。<code>--setting-sources project</code>、到達しない <code>ANTHROPIC_BASE_URL</code> で実行（リクエストは送られない）</p>
+      </div>
+      <ul class="small">
+        <li><code>default</code> → <code>claude-opus-5-5</code> は Anthropic API・サブスクリプションの場合です（他の種別は次スライド）。<code>opusplan</code> は plan mode 外のため Sonnet です。</li>
+        <li><code>best</code> は 2.1.321 から <code>opus</code> と同じです。それより前は <code>fable</code> と同じモデルでした（docs の版履歴）。</li>
+        <li><code>[1m]</code> は効果のないモデルでは ID から外れます（2.1.311）。<span class="undocumented undocumented-item"><code>fable[1m]</code> も受け付けますが効果はありません</span> <span class="badge undocumented">Undocumented</span></li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#model-aliases">model-config#model-aliases</a> · <a href="https://code.claude.com/docs/en/model-config#version-history">#version-history</a> · changelog 2.1.311 · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch02-providers">
+  <h2>プロバイダ別のエイリアスと <code>default</code></h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:40%">プロバイダ</th><th><code>opus</code></th><th><code>sonnet</code></th><th><code>haiku</code></th></tr></thead>
+        <tbody>
+          <tr><td>Anthropic API</td><td>Opus 5.5</td><td>Sonnet 5.5</td><td>Haiku 5.5</td></tr>
+          <tr><td>Claude Platform on AWS</td><td>Opus 5.5</td><td>Sonnet 4.6</td><td>Haiku 4.5</td></tr>
+          <tr><td>Bedrock, Agent Platform</td><td>Opus 5.5</td><td>Sonnet 4.5</td><td>Haiku 4.5</td></tr>
+          <tr><td>Microsoft Foundry</td><td>Opus 4.6</td><td>Sonnet 4.5</td><td>Haiku 4.5</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li><code>fable</code> は Claude apps gateway のセッションでは Fable 5、それ以外では Fable 5.2 です（<code>ANTHROPIC_DEFAULT_FABLE_MODEL</code> 未設定時）。</li>
+        <li>古いモデルに解決されるプロバイダで新しいモデルを使うには、完全なモデル名を指定するか、<code>ANTHROPIC_DEFAULT_OPUS_MODEL</code> / <code>ANTHROPIC_DEFAULT_SONNET_MODEL</code> を設定します。</li>
+      </ul>
+      <h3><code>default</code> の解決先</h3>
+      <ul class="small">
+        <li>Pro, Max, Ultra, Team, Enterprise, Anthropic API: Opus 5.5</li>
+        <li>Claude Platform on AWS, Bedrock, Agent Platform: Opus 5.5</li>
+        <li>Microsoft Foundry: Sonnet 4.5</li>
+        <li>組織既定モデルがあればそちらが優先されます（v2.1.196 以降）。Fable はどのプランでもアカウントの既定になりません。</li>
+      </ul>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:17%">版</th><th>エイリアスの変更</th></tr></thead>
+        <tbody>
+          <tr><td>2.1.321</td><td><code>fable</code> → Fable 5.2（apps gateway を除く）</td></tr>
+          <tr><td>2.1.321</td><td><code>best</code> → <code>opus</code> と同じ（以前は <code>fable</code> と同じ）</td></tr>
+          <tr><td>2.1.293</td><td><code>haiku</code> → Haiku 5.5（Anthropic API）</td></tr>
+          <tr><td>2.1.284</td><td><code>sonnet</code> → Sonnet 5.5（Anthropic API）</td></tr>
+          <tr><td>2.1.280</td><td><code>opus</code> → Opus 5.5（Anthropic API, Platform on AWS, Bedrock, Agent Platform）</td></tr>
+          <tr><td>2.1.257</td><td><code>fable</code> → Fable 5.1（apps gateway を除く）</td></tr>
+          <tr><td>2.1.219</td><td><code>opus</code> → Opus 5（Anthropic API, Platform on AWS, Bedrock, Agent Platform）</td></tr>
+          <tr><td>2.1.207</td><td><code>opus</code> → Opus 4.8（Platform on AWS, Bedrock, Agent Platform）</td></tr>
+          <tr><td>2.1.197</td><td><code>sonnet</code> → Sonnet 5（Anthropic API）</td></tr>
+          <tr><td>2.1.154</td><td><code>opus</code> → Opus 4.8（Anthropic API）</td></tr>
+        </tbody>
+      </table>
+      <p class="small">プロバイダごとの設定手順は <a href="#/ch59">Ch59</a> を参照してください。</p>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#model-aliases">model-config#model-aliases</a> · <a href="https://code.claude.com/docs/en/model-config#default-model-setting">#default-model-setting</a> · <a href="https://code.claude.com/docs/en/model-config#version-history">#version-history</a></footer>
+</section>
+
+<section id="ch02-ids">
+  <h2>モデル ID・コンテキスト長・最小バージョン</h2>
+  <table class="dense">
+    <thead><tr><th style="width:15%">モデル</th><th style="width:40%">ID（Anthropic API）</th><th style="width:25%">コンテキスト</th><th>必要なバージョン</th></tr></thead>
+    <tbody>
+      <tr><td>Fable 5.2</td><td><code>claude-fable-5-2</code></td><td>1M（標準）</td><td>v2.1.321 以降</td></tr>
+      <tr><td>Fable 5.1 / 5</td><td><code>claude-fable-5-1</code> / <code>claude-fable-5</code></td><td>1M（標準）</td><td>Fable 5.1 は v2.1.257 以降</td></tr>
+      <tr><td>Opus 5.5</td><td><code>claude-opus-5-5</code></td><td>1M（標準）</td><td>v2.1.280 以降</td></tr>
+      <tr><td>Opus 5 / 4.8 / 4.7</td><td><code>claude-opus-5</code> / <code>claude-opus-4-8</code> / <code>claude-opus-4-7</code></td><td>1M（標準）</td><td>記載なし</td></tr>
+      <tr><td>Opus 4.6</td><td><code>claude-opus-4-6</code></td><td>200K。<code>[1m]</code> で 1M</td><td>記載なし</td></tr>
+      <tr><td>Sonnet 5.5</td><td><code>claude-sonnet-5-5</code></td><td>1M（標準）</td><td>v2.1.284 以降</td></tr>
+      <tr><td>Sonnet 5</td><td><code>claude-sonnet-5</code></td><td>1M（標準）</td><td>記載なし</td></tr>
+      <tr><td>Sonnet 4.6</td><td><code>claude-sonnet-4-6</code></td><td>200K。<code>[1m]</code> で 1M</td><td>記載なし</td></tr>
+      <tr><td>Sonnet 4.5</td><td><code>claude-sonnet-4-5</code>（日付付き <code>claude-sonnet-4-5-20250929</code>）</td><td>1M の対象外</td><td>記載なし</td></tr>
+      <tr><td>Haiku 5.5</td><td><code>claude-haiku-5-5</code></td><td>1M（全プラン）</td><td>v2.1.293 以降</td></tr>
+      <tr><td>Haiku 4.5</td><td><code>claude-haiku-4-5</code></td><td>1M の対象外</td><td>記載なし</td></tr>
+    </tbody>
+  </table>
+  <ul class="small">
+    <li>5.x 系モデルの日付付き ID はドキュメントにありません。古いバージョンでこれらを要求すると失敗します。<code>claude update</code> で更新します。</li>
+    <li>実機: Haiku 5.5 の <code>modelUsage</code> は <code>contextWindow</code> 1000000、<code>maxOutputTokens</code> 128000 でした。</li>
+  </ul>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#model-aliases">model-config#model-aliases</a> · <a href="https://code.claude.com/docs/en/model-config#work-with-fable">#work-with-fable</a> · <a href="https://code.claude.com/docs/en/model-config#extended-context">#extended-context</a> · <a href="https://code.claude.com/docs/en/model-config#restrict-model-selection">#restrict-model-selection</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch02-pricing">
+  <h2>価格表</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:22%">モデル</th><th>入力 / 出力 (MTok)</th><th>キャッシュ読み取り</th><th style="width:16%">版</th></tr></thead>
+        <tbody>
+          <tr><td>Fable 5.2</td><td>$8 / $40</td><td>$0.20</td><td>2.1.321</td></tr>
+          <tr><td>Fable 5.1</td><td>$10 / $50</td><td>$0.25</td><td>2.1.257</td></tr>
+          <tr><td>Opus 5.5</td><td>$4 / $20</td><td>$0.20</td><td>2.1.280</td></tr>
+          <tr><td>Sonnet 5.5</td><td>$2 / $10</td><td>$0.10（2.1.296 で訂正。2.1.284 の告知は $0.20）</td><td>2.1.284</td></tr>
+          <tr><td>Sonnet 5</td><td>$2 / $10</td><td>記載なし</td><td>2.1.243</td></tr>
+          <tr><td>Haiku 5.5</td><td>$0.10 / $0.50（100K 超のプロンプトは $0.50 / $2.50）</td><td>記載なし</td><td>2.1.293</td></tr>
+        </tbody>
+      </table>
+      <p class="small muted">changelog が示す Claude Code のコスト計算用の単価です。docs のページには標準価格の表がありません。Opus 5・Opus 4.8 の標準価格は記載がありません。</p>
+    </div>
+    <div>
+      <ul class="small">
+        <li>Anthropic API の 1M コンテキストは標準価格で、200K を超えた分の割増はありません。例外は Haiku 5.5 で、100K トークンを超えるプロンプトは単価が上がります。</li>
+        <li>fast mode の単価（Fable 5.2 は $16 / $80 など）は <a href="#/ch04">Ch4</a> を参照してください。</li>
+        <li><code>/model</code> ピッカーの価格は、Anthropic API に直接、またはそれを中継する LLM ゲートウェイ経由で接続したときだけ表示されます。Bedrock などのサードパーティプロバイダと Claude apps gateway では表示されません。</li>
+        <li>ピッカーの価格は表示用のラベルです。選ばれるモデルや請求額には影響しません。</li>
+        <li>セッションのコスト表示（<code>/usage</code>）と契約単価の設定（<code>modelPricing</code>）は <a href="#/ch61">Ch61</a> で扱います。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/changelog">changelog</a> 2.1.243 / 2.1.257 / 2.1.280 / 2.1.284 / 2.1.293 / 2.1.296 / 2.1.321 · <a href="https://code.claude.com/docs/en/model-config#extended-context">model-config#extended-context</a> · <a href="https://code.claude.com/docs/en/model-config#setting-your-model">#setting-your-model</a></footer>
+</section>
+
+<section id="ch02-precedence">
+  <h2>メインモデルの優先順位（実測）</h2>
+  <div class="cols-2">
+    <div>
+      <ol class="small">
+        <li><code>/model &lt;alias|name&gt;</code>（セッション中）</li>
+        <li><code>claude --model &lt;alias|name&gt;</code></li>
+        <li><code>ANTHROPIC_MODEL</code></li>
+        <li>設定ファイルの <code>model</code></li>
+        <li>組織既定モデル（Enterprise、v2.1.196 以降）</li>
+        <li><code>ANTHROPIC_DEFAULT_MODEL</code>（v2.1.236 以降）</li>
+        <li>Default オプション（アカウントに記録したモデル、またはアカウント種別の既定）</li>
+      </ol>
+      <ul class="small">
+        <li>docs の番号付きリストには組織既定モデルがありません。5 の位置は組織既定モデルと <code>ANTHROPIC_DEFAULT_MODEL</code> の節から決まります。</li>
+        <li>組織既定を「ユーザーの選択を上書き」にすると、user・project・local の <code>model</code> より上になります。<code>--model</code>、<code>ANTHROPIC_MODEL</code>、managed、<code>--settings</code> の <code>model</code> は上書きできません。</li>
+        <li><code>ANTHROPIC_DEFAULT_MODEL</code> は、値が <code>default</code>・<code>inherit</code>・<code>opusplan</code>・<code>haiku</code> の場合、<code>enforceAvailableModels</code> が ON の場合、制限や利用不可の場合に無視されます。</li>
+        <li>値は起動時に検証されず、誤りは最初のリクエストで <code>There's an issue with the selected model</code> になります。</li>
+      </ul>
+    </div>
+    <div>
+      <div class="lab">
+<pre data-lang="text" class="compact">$ ANTHROPIC_MODEL=sonnet claude -p --model haiku \
+    --settings '{"model":"opus"}' …
+… "model":"claude-haiku-5-5" …
+
+$ ANTHROPIC_MODEL=sonnet claude -p \
+    --settings '{"model":"opus"}' …
+… "model":"claude-sonnet-5-5" …
+
+$ ANTHROPIC_DEFAULT_MODEL=sonnet claude -p \
+    --settings '{"model":"opus"}' …
+… "model":"claude-opus-5-5" …
+
+$ ANTHROPIC_DEFAULT_MODEL=sonnet claude -p …
+… "model":"claude-sonnet-5-5" …
+
+$ ANTHROPIC_DEFAULT_MODEL=haiku claude -p …
+… "model":"claude-opus-5-5" …</pre>
+        <p class="small">stream-json の init 行から抜粋。<code>--setting-sources project</code>、到達しない <code>ANTHROPIC_BASE_URL</code> で実行</p>
+      </div>
+      <p class="small">実測したのは 2・3・4・6 の順と <code>haiku</code> の無視です。6 とアカウントに記録したモデルの順位は docs に記載がありません。</p>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#setting-your-model">model-config#setting-your-model</a> · <a href="https://code.claude.com/docs/en/model-config#set-a-default-model-for-new-sessions">#set-a-default-model-for-new-sessions</a> · <a href="https://code.claude.com/docs/en/model-config#organization-default-model">#organization-default-model</a> · <a href="https://code.claude.com/docs/en/model-config#control-the-model-users-run-on">#control-the-model-users-run-on</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch02-picker">
+  <h2><code>/model</code> ピッカーと再開時のモデル</h2>
+  <div class="cols-2">
+    <div>
+      <h3><code>/model</code></h3>
+      <ul class="small">
+        <li><code>/model &lt;name&gt;</code> は即座に切り替え、user 設定の <code>model</code> に既定として保存します。</li>
+        <li>引数なしでピッカーを開きます。<kbd>Enter</kbd> は切り替えて保存、<kbd>s</kbd> はこのセッションだけです（<code>modelPicker:thisSessionOnly</code> で変更可）。左右キーで effort も変えられます（<a href="#/ch03">Ch3</a>）。</li>
+        <li><code>-p</code> の <code>/model</code> はセッション限りで保存しません（v2.1.205 以降）。</li>
+        <li>切り替えは、メイン会話のモデルを継承するサブエージェントにも及びます。</li>
+      </ul>
+      <div class="lab">
+<pre data-lang="text" class="compact">$ claude -p "/model"
+Current model: `Opus 5.5 (default)`
+Usage: /model <name>. Available: sonnet, opus, haiku,
+fable, best, sonnet[1m], opus[1m], fable[1m], opusplan,
+default, or a full model ID.
+
+$ claude -p --model haiku "/model opus"
+Set model to `Opus 5.5` for this session only</pre>
+      </div>
+    </div>
+    <div>
+      <h3>再開時（<code>--resume</code> / <code>--continue</code> / <code>/resume</code>）</h3>
+      <ul class="small">
+        <li>保存時のモデルで再開します。引退済みか <code>availableModels</code> で除外されていれば、通常の優先順位に従います。</li>
+        <li><code>--model</code>、<code>ANTHROPIC_MODEL</code>、<code>ANTHROPIC_DEFAULT_OPUS_MODEL</code> 系の変数（v2.1.195 以降）は、復元されたモデルより優先されます。</li>
+        <li>Bedrock・Agent Platform・Foundry では、トランスクリプトのモデルを復元しません。</li>
+        <li><code>model</code> 設定が <code>haiku</code> なら、Haiku 4.5 で保存したセッションも、いま <code>haiku</code> が指す Haiku 5.5 で再開します。</li>
+      </ul>
+      <h3>次のセッションが別のモデルで始まる原因</h3>
+      <ul class="small">
+        <li>1 セッション限りの選択（<kbd>s</kbd>、<code>--model</code>、<code>-p</code> の <code>/model</code>）</li>
+        <li>上位の指定（project・managed の <code>model</code>、<code>ANTHROPIC_MODEL</code>、上書き設定の組織既定）</li>
+        <li><code>~/.claude/settings.json</code> に書き込めなかった、またはセッションを再開した</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#setting-your-model">model-config#setting-your-model</a> · <a href="https://code.claude.com/docs/en/model-config#a-new-session-starts-on-a-different-model-than-you-picked">#a-new-session-starts-on-a-different-model-than-you-picked</a> · <a href="https://code.claude.com/docs/en/commands">commands</a> · changelog 2.1.321 · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch02-pinning">
+  <h2><code>ANTHROPIC_DEFAULT_*_MODEL</code> によるピン留め</h2>
+<pre data-lang="bash" class="compact">export ANTHROPIC_DEFAULT_OPUS_MODEL='arn:aws:bedrock:us-east-1:123456789012:custom-model/abc'
+export ANTHROPIC_DEFAULT_OPUS_MODEL_NAME='Opus via Bedrock'
+export ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION='Opus 4.7 routed through a Bedrock custom endpoint'
+export ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES='effort,xhigh_effort,max_effort,thinking,adaptive_thinking,interleaved_thinking'</pre>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:52%">環境変数</th><th>決めるもの</th></tr></thead>
+        <tbody>
+          <tr><td><code>ANTHROPIC_DEFAULT_FABLE_MODEL</code></td><td><code>fable</code> の解決先。サードパーティで自動フォールバックの Fable 判定にも使う</td></tr>
+          <tr><td><code>ANTHROPIC_DEFAULT_OPUS_MODEL</code></td><td><code>opus</code>、plan mode 中の <code>opusplan</code></td></tr>
+          <tr><td><code>ANTHROPIC_DEFAULT_SONNET_MODEL</code></td><td><code>sonnet</code>、plan mode 外の <code>opusplan</code></td></tr>
+          <tr><td><code>ANTHROPIC_DEFAULT_HAIKU_MODEL</code></td><td><code>haiku</code> とバックグラウンド機能。<code>ANTHROPIC_SMALL_FAST_MODEL</code> は非推奨</td></tr>
+        </tbody>
+      </table>
+      <p class="small">値は完全なモデル名かプロバイダの ID です（Bedrock なら <code>us.anthropic.claude-opus-4-8</code>）。</p>
+    </div>
+    <div>
+      <ul class="small">
+        <li>サードパーティでは展開前のピン留めが推奨です。未設定時の既定 ID が使えないと、Bedrock・Agent Platform は通知して古い版へ戻り、Foundry はエラーになります。</li>
+        <li>設定すると、ピッカーはそのファミリーの組み込み行の代わりに 1 行だけ出します。<code>/model opus[1m]</code> はピン留めしたモデルに <code>[1m]</code> を付けます。<code>[1m]</code> は変数ごとに読まれ、送信前に外されます。</li>
+        <li><code>_NAME</code>・<code>_DESCRIPTION</code> は表示を、<code>_SUPPORTED_CAPABILITIES</code> は能力（列挙したものだけ ON）を決めます。サードパーティで効き、前の 2 つは LLM ゲートウェイでも効きます。</li>
+        <li>実機: <code>ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-4-8</code> と <code>--model opus</code> で、init の <code>model</code> は <code>claude-opus-4-8</code> でした。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#environment-variables">model-config#environment-variables</a> · <a href="https://code.claude.com/docs/en/model-config#pin-models-for-third-party-deployments">#pin-models-for-third-party-deployments</a> · <a href="https://code.claude.com/docs/en/model-config#customize-pinned-model-display-and-capabilities">#customize-pinned-model-display-and-capabilities</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch02-overrides">
+  <h2><code>modelOverrides</code>・<code>modelPicker</code>・カスタムモデル</h2>
+<pre data-lang="json" class="compact">{
+  "modelOverrides": {
+    "claude-opus-4-7": "arn:aws:bedrock:us-east-2:123456789012:application-inference-profile/opus-prod",
+    "claude-opus-4-6": "arn:aws:bedrock:us-east-2:123456789012:application-inference-profile/opus-46-prod",
+    "claude-sonnet-4-6": "arn:aws:bedrock:us-east-2:123456789012:application-inference-profile/sonnet-prod"
+  }
+}</pre>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li><code>modelOverrides</code> は Anthropic のモデル ID を、プロバイダへ送る ID（ARN、version 名、deployment 名）に版ごとに対応付けます。キーは Anthropic のモデル ID で、不明なキーは無視されます。</li>
+        <li><code>--model</code>、<code>ANTHROPIC_MODEL</code>、<code>ANTHROPIC_DEFAULT_*_MODEL</code> に書いた Anthropic ID にも適用されます。</li>
+        <li>許可リストは上書き後の値ではなく Anthropic ID で判定します。managed が <code>availableModels</code> を設定している場合、直接指定した ID に効くのは managed の <code>modelOverrides</code> だけです。</li>
+        <li>ゲートウェイのエイリアスを値に入れると、<code>[claude-code:unrecognized_model]</code> の診断行が止まります。</li>
+      </ul>
+    </div>
+    <div>
+      <ul class="small">
+        <li><code>modelPicker</code> はピッカーの行を順序とラベル付きで定義します（v2.1.242 以降）。読むのは managed・<code>--settings</code>・user だけで、最上位の 1 つが全体を決めます。</li>
+        <li>各行は <code>model</code>（必須）、<code>label</code>、<code>description</code>、<code>behavesAs</code>（v2.1.257 以降。既知モデルの能力と effort 既定を借りる）を持ちます。<code>replaceBuiltInOptions: true</code> で組み込みの行を隠します。</li>
+        <li><code>ANTHROPIC_CUSTOM_MODEL_OPTION</code>（<code>_NAME</code>・<code>_DESCRIPTION</code> 付き）は、検証なしの行を 1 つ追加します。<code>availableModels</code> を使う場合は、その ID も許可リストに入れます。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#override-model-ids-per-version">model-config#override-model-ids-per-version</a> · <a href="https://code.claude.com/docs/en/settings-reference#modelpicker">settings-reference#modelpicker</a> · <a href="https://code.claude.com/docs/en/model-config#add-a-custom-model-option">model-config#add-a-custom-model-option</a></footer>
+</section>
+
+<section id="ch02-allowlist">
+  <h2>許可リストとブロック: <code>availableModels</code> ほか</h2>
+  <div class="cols-2">
+    <div>
+<pre data-lang="json" class="compact">{
+  "availableModels": ["opus", "sonnet"],
+  "deniedModels": ["claude-opus-5-5"]
+}</pre>
+      <ul class="small">
+        <li><code>availableModels</code> のエントリは、ファミリー（<code>sonnet</code>）、版の接頭辞（<code>claude-fable-5</code> は 5・5.1・5.2 を許可）、完全な ID のいずれかです。</li>
+        <li>同じファミリーの具体的なエントリがあると、そのファミリーのワイルドカードは無効になります。managed のリストは下位スコープを置き換えます。</li>
+        <li>Default オプションまで縛るには <code>enforceAvailableModels: true</code> を併用します（v2.1.175 以降）。</li>
+        <li><code>deniedModels</code> と <code>availableModelsMatch: "exact"</code> は managed 専用で v2.1.283 以降です。上の例は Opus 5.5 をどの表記でもブロックします。</li>
+        <li>Enterprise の組織モデル制限（v2.1.187 以降）は別に効きます。Haiku は無効にできません。配布方法は <a href="#/ch58">Ch58</a>。</li>
+      </ul>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:42%">ブロックされた指定</th><th>扱い</th></tr></thead>
+        <tbody>
+          <tr><td>ファミリーのエイリアス</td><td>許可された最新版に置き換えて通知（Anthropic API・Platform on AWS）</td></tr>
+          <tr><td><code>/model</code></td><td>エラーで拒否</td></tr>
+          <tr><td><code>--model</code>, <code>ANTHROPIC_MODEL</code>, <code>model</code></td><td>起動時に警告して既定モデルへ</td></tr>
+          <tr><td><code>ANTHROPIC_DEFAULT_MODEL</code></td><td>無視</td></tr>
+          <tr><td>サブエージェント・チームメイト</td><td>フォールバックモデルで実行</td></tr>
+          <tr><td>Skill・コマンドの <code>model</code></td><td>無視してセッションのモデルで実行</td></tr>
+          <tr><td><code>advisorModel</code> / <code>--advisor</code></td><td>advisor を無効化 / 起動時にエラー終了</td></tr>
+        </tbody>
+      </table>
+      <div class="lab">
+<pre data-lang="text" class="compact">$ claude -p --model opus --settings \
+    '{"availableModels":["sonnet","claude-opus-4-6"]}' …
+… "model":"claude-opus-4-6" …</pre>
+      </div>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#restrict-model-selection">model-config#restrict-model-selection</a> · <a href="https://code.claude.com/docs/en/model-config#merge-behavior">#merge-behavior</a> · <a href="https://code.claude.com/docs/en/model-config#block-specific-models-or-versions">#block-specific-models-or-versions</a> · <a href="https://code.claude.com/docs/en/model-config#organization-model-restrictions">#organization-model-restrictions</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch02-opusplan">
+  <h2><code>opusplan</code></h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>plan mode の間は <code>opus</code>、実行時は自動で <code>sonnet</code> に切り替わるハイブリッドなエイリアスです。<code>/model opusplan</code>、<code>--model opusplan</code>、<code>"model": "opusplan"</code> で指定します。</li>
+        <li>2 つのフェーズの解決先は、<code>ANTHROPIC_DEFAULT_OPUS_MODEL</code> と <code>ANTHROPIC_DEFAULT_SONNET_MODEL</code> で決まります。</li>
+        <li>各フェーズのコンテキストは <code>opus</code> と <code>sonnet</code> と同じです。Anthropic API の現行モデルは両方とも 1M です。そうでない場合は <code>opusplan[1m]</code> を指定します（<code>/model</code> での指定は v2.1.265 以降）。</li>
+        <li>plan mode の切り替えはモデルの切り替えなので、そのたびにプロンプトキャッシュが新しくなります（<a href="#/ch06">Ch6</a>）。</li>
+      </ul>
+    </div>
+    <div>
+      <ul class="small">
+        <li><code>availableModels</code> が最新の Opus を除外し古い版を許可している場合（例: <code>["sonnet", "claude-opus-4-6"]</code>）、計画には許可された最新の Opus を使います。Opus がすべて除外なら Sonnet のままです。</li>
+        <li>同様に、Haiku のセッションが plan mode で Sonnet に上がる場合は、許可された最新の Sonnet を使います。</li>
+        <li>古い版への置き換えは Anthropic API と Platform on AWS だけです。Bedrock・Agent Platform・Foundry・Mantle では、除外されていれば plan mode でもセッションのモデルのままです。</li>
+        <li>Enterprise で <code>/model</code> の選択をアカウントに記録している場合、<code>opusplan</code> を選んでも記録は変わりません。</li>
+      </ul>
+      <p class="small">実機では、<code>-p</code>（plan mode 外）の init の <code>model</code> は <code>claude-sonnet-5-5</code> でした。判断の要所だけ強いモデルに相談する方法は <a href="#/ch05">Ch5</a> を参照してください。</p>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#opusplan-model-setting">model-config#opusplan-model-setting</a> · <a href="https://code.claude.com/docs/en/model-config#environment-variables">#environment-variables</a> · <a href="https://code.claude.com/docs/en/prompt-caching#switching-models">prompt-caching#switching-models</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch02-subagents">
+  <h2>サブエージェントのモデル解決</h2>
+  <div class="cols-2">
+    <div>
+      <ol class="small">
+        <li>呼び出し時の <code>model</code> パラメータ（エイリアスのみ: <code>sonnet</code>, <code>opus</code>, <code>haiku</code>, <code>fable</code>）</li>
+        <li>定義の frontmatter の <code>model</code>（<code>inherit</code> はメイン会話のモデル）</li>
+        <li><code>CLAUDE_CODE_SUBAGENT_MODEL</code></li>
+        <li>メイン会話のモデル</li>
+      </ol>
+      <ul class="small">
+        <li>1・2 のファミリーエイリアスが、メイン会話と同じファミリーを指す場合は、メイン会話の正確なモデル（<code>[1m]</code> を含む）になります。</li>
+        <li><code>CLAUDE_CODE_SUBAGENT_MODEL</code> のエイリアスは常にエイリアスの指す版になります。<code>inherit</code> は未設定と同じです。単独では組み込みの Explore と Plan のモデルを変えません。</li>
+        <li>v2.1.251 より前は、<code>CLAUDE_CODE_SUBAGENT_MODEL</code> が 1・2 より優先されていました。</li>
+        <li>mod の <code>agent.spawn</code> フックがモデルを決めると、1 の代わりにそれが使われます。</li>
+        <li>許可リストでブロックされた値は、許可された最新版または継承モデルに置き換わり、対話セッションでは警告が出ます。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>全サブエージェントを 1 つのモデルに固定</h3>
+<pre data-lang="json" class="compact">{
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"
+  }
+}</pre>
+      <ul class="small">
+        <li><code>CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1</code>（v2.1.257 以降）は、サブエージェント・チームメイト・workflow エージェントの frontmatter と呼び出し時の指定を無視させます。</li>
+        <li>FORCE だけを設定すると、メイン会話のモデルになります。ただし組み込みの Explore は自分のモデルのままです。</li>
+        <li>フォークと、<code>model: inherit</code> でサブエージェント実行する Skill は、常にメイン会話のモデルです。</li>
+        <li>実際のモデルは <code>/tasks</code> の行で確認できます（v2.1.242 以降）。サブエージェント自体は <a href="#/ch37">Ch37</a>。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/sub-agents#choose-a-model">sub-agents#choose-a-model</a> · <a href="https://code.claude.com/docs/en/sub-agents#run-every-subagent-on-one-model">#run-every-subagent-on-one-model</a> · <a href="https://code.claude.com/docs/en/model-config#environment-variables">model-config#environment-variables</a></footer>
+</section>
+
+<section id="ch02-fallback-chains">
+  <h2>フォールバックモデルのチェーン（可用性）</h2>
+  <div class="cols-2">
+    <div>
+<pre data-lang="bash" class="compact">claude --fallback-model sonnet,haiku</pre>
+<pre data-lang="json" class="compact">{
+  "fallbackModel": ["claude-sonnet-5", "claude-haiku-4-5"]
+}</pre>
+      <ul class="small">
+        <li>主モデルが過負荷・利用不可・その他の再試行できないサーバーエラーのとき、チェーンを順に試します。切り替えはそのターンだけで、次のメッセージは主モデルから試します。</li>
+        <li><code>--fallback-model</code> が <code>fallbackModel</code> に優先します。各エントリはモデル名かエイリアスで、<code>"default"</code> は既定モデルに展開されます。</li>
+        <li>重複を除いて最大 3 モデルです。<code>fallbackModel</code> は設定ファイル間でマージされず、最上位のファイルがチェーン全体を決めます。</li>
+      </ul>
+    </div>
+    <div>
+      <ul class="small">
+        <li>認証・課金・レート制限・リクエストサイズ・通信のエラーと、組織のポリシーチェックによる拒否では切り替わりません。Bedrock・Agent Platform が呼び出せないモデルを拒否した場合は、利用不可として切り替わります。</li>
+        <li>起動時に確認はなく、<code>/status</code> にも出ません。切り替え時の通知が最初の手がかりです。</li>
+        <li><code>availableModels</code> の外のエントリは読み込み時に除かれます。</li>
+        <li>圧縮（compaction）にも適用されますが、主モデルよりコンテキストが小さいモデルには切り替えません。</li>
+        <li>サブエージェントにも適用されます（v2.1.247 以降）。セッションのモデルは変わりません。</li>
+        <li>切り替えたターンは、キャッシュのない状態で始まります（<a href="#/ch06">Ch6</a>）。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#fallback-model-chains">model-config#fallback-model-chains</a> · <a href="https://code.claude.com/docs/en/settings-reference#fallbackmodel">settings-reference#fallbackmodel</a> · <a href="https://code.claude.com/docs/en/cli-reference">cli-reference</a></footer>
+</section>
+
+<section id="ch02-auto-fallback">
+  <h2>安全分類器による自動フォールバック</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:34%">フラグが立ったモデル</th><th>サイバー</th><th>バイオ</th></tr></thead>
+        <tbody>
+          <tr><td>Fable 各モデル, Opus 5.5</td><td>Opus 4.8 で再実行</td><td>Opus 5 で再実行</td></tr>
+          <tr><td>Sonnet 5.5</td><td>Sonnet 5 で再実行</td><td>拒否で終了</td></tr>
+          <tr><td>Opus 5</td><td>Opus 4.8 で再実行</td><td>拒否で終了</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>フォールバック後はセッションがそのモデルに留まります。戻すには <code>/model</code> を実行します。</li>
+        <li>effort はフラグが立ったリクエストのレベルを引き継ぎます。例: <code>medium</code> の Opus 5.5 から Opus 4.8 に移っても <code>medium</code> のままです。</li>
+        <li>CLAUDE.md や git status を含む最初のリクエストで発動することがあります。<code>claude --safe-mode</code> でカスタマイズが原因か切り分けます。</li>
+        <li>移り先が <code>availableModels</code> で除外されていると、フォールバックせず拒否で終わります。</li>
+      </ul>
+    </div>
+    <div>
+      <ul class="small">
+        <li><code>/config</code> の <strong>Switch models when a message is flagged</strong> で <strong>Switch automatically</strong> か <strong>Ask each time</strong> を選びます。<code>"switchModelsOnFlag": false</code> は Ask each time と同じです。</li>
+        <li>Ask each time のとき、<code>-p</code> などダイアログを出せない環境では拒否で終わります。</li>
+        <li>Agent ツールで起動したサブエージェントは確認しません。Switch automatically なら移り先で再実行し、Ask each time なら <code>Agent terminated early due to an API error</code> で失敗します（v2.1.318 以降）。</li>
+        <li><code>CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK=1</code> は自動の切り替えを止めます。</li>
+        <li>Bedrock・Agent Platform・Foundry では、元と移り先のモデルを識別できる場合だけ動きます。Opus の移り先（<code>ANTHROPIC_DEFAULT_OPUS_MODEL</code>、またはプロバイダのモデル一覧の Opus 4.8）が必須です。Fable は <code>ANTHROPIC_DEFAULT_FABLE_MODEL</code> で識別させ、Sonnet 5.5 には <code>ANTHROPIC_DEFAULT_SONNET_MODEL</code> か Sonnet 5 を用意します。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#automatic-model-fallback">model-config#automatic-model-fallback</a> · <a href="https://code.claude.com/docs/en/model-config#ask-before-switching">#ask-before-switching</a> · <a href="https://code.claude.com/docs/en/model-config#subagents-switch-or-fail-without-asking">#subagents-switch-or-fail-without-asking</a> · <a href="https://code.claude.com/docs/en/model-config#enable-fallback-on-bedrock-agent-platform-and-foundry">#enable-fallback-on-bedrock-agent-platform-and-foundry</a> · <a href="https://code.claude.com/docs/en/settings-reference#switchmodelsonflag">settings-reference#switchmodelsonflag</a> · <a href="https://code.claude.com/docs/en/env-vars">env-vars</a></footer>
+</section>
+
+<section id="ch02-fable">
+  <h2>Fable を使うときの注意</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>Fable はどのプランでもアカウントの既定にならないため、明示的に選びます。Fable 5.2 は <code>/model fable</code> か <code>claude --model fable</code>、Claude apps gateway では <code>/model claude-fable-5-2</code> です。</li>
+        <li>Fable 5.1 と Fable 5 は ID で選びます（<code>/model claude-fable-5-1</code> など）。他のプロバイダではプロバイダの ID か <code>ANTHROPIC_DEFAULT_FABLE_MODEL</code> を使います。</li>
+        <li>Fable 5.2 を提供していないゲートウェイは、<code>claude-fable-5-2</code> のリクエストを拒否します。</li>
+        <li>Anthropic API では、<code>availableModels</code> や組織の制限で除外されない限りピッカーに出ます。zero data retention などで使えない組織では、理由付きのグレー表示になります。</li>
+        <li>2.1.321 で、user 設定に保存された <code>claude-fable-5-1</code> は <code>fable</code> に移ります。Pro・Max は v2.1.321 の初回起動時で、起動時のモデル行に一度 <code>(auto-updated)</code> が出ることがあります。Team・Enterprise は組織設定しだいです。移行後は、保存したレベルがなければ Fable 5.2 の既定 effort で始まります。Console、サードパーティ、project・local・managed 設定は <code>claude-fable-5-1</code> のままです。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Fable と usage credits</h3>
+      <ul class="small">
+        <li>プランと席種によっては、Fable の利用がプランの枠ではなく usage credits に課金されます。その場合、ピッカーの Fable 行に <code>Requires usage credits</code> と出ます。</li>
+        <li>対話セッションでは同意プロンプトが出ます。Fable で続けると、以降は出ません。閉じた場合、<code>/model</code> での選択なら現在のモデルを維持し、セッション途中なら既定モデルでターンを続けます。</li>
+        <li>Remote Control 接続中、バックグラウンドセッション、チームメイトでは、途中の同意プロンプトを <code>dialogExpiry</code>（既定 5 分）まで待ち、応答がなければリクエストを送らずにターンを終えます。</li>
+        <li><code>-p</code> と、プロンプトを出さない Agent SDK アプリでは同意を求めず、そのまま usage credits に課金します。</li>
+        <li>Fable はサイバー・バイオの分類器による自動フォールバックの対象です（前スライド）。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#work-with-fable">model-config#work-with-fable</a> · <a href="https://code.claude.com/docs/en/model-config#fable-and-usage-credits">#fable-and-usage-credits</a> · changelog 2.1.321</footer>
+</section>
+
+<section id="ch02-1m">
+  <h2>1M コンテキスト</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>Fable、Sonnet 5 以降、Haiku 5.5、Opus 4.7 以降は、接尾辞なしで 1M で動きます。Bedrock・Agent Platform・Foundry・Claude apps gateway でも同じです。</li>
+        <li>Opus 4.6 と Sonnet 4.6 は <code>[1m]</code> 版だけが 1M です（<code>/model claude-opus-4-6[1m]</code>、<code>/model opus[1m]</code>）。利用可否はプランで変わります。</li>
+        <li>プランの確認は Anthropic API に直接つないだときだけです。LLM ゲートウェイ経由ではゲートウェイが可否を決めます。</li>
+        <li><code>CLAUDE_CODE_DISABLE_1M_CONTEXT=1</code> は <code>[1m]</code> 版をピッカーから消し、ネイティブ 1M のモデルも 200K として扱います。</li>
+        <li>認識できないモデル ID は 200K と見なされ、起動時に警告が出ます。<code>modelOverrides</code>、<code>behavesAs</code>、<code>[1m]</code>、<code>CLAUDE_CODE_MAX_CONTEXT_TOKENS</code> で正しい値を与えます。</li>
+        <li>警告の例: <code>⚠ Model "my-gateway-opus" isn't recognized · context assumed to be 200k tokens · ...</code></li>
+      </ul>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:36%">プラン</th><th>Opus 4.6 の 1M</th><th>Sonnet 4.6 の 1M</th></tr></thead>
+        <tbody>
+          <tr><td>Max, Ultra, Team, Enterprise</td><td>サブスクリプションに含む</td><td>usage credits が必要</td></tr>
+          <tr><td>Pro</td><td>usage credits が必要</td><td>usage credits が必要</td></tr>
+          <tr><td>API・従量課金</td><td>利用可</td><td>利用可</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>Haiku 5.5 は、Anthropic API ではすべてのプランで 1M です。</li>
+        <li>ネイティブ 1M のモデルは、既定で約 967K トークンで自動圧縮します。ゲートウェイが 200K で止まる場合は <code>CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000</code> を設定します。auto-compact window の設定経路と優先順位は <a href="#/ch06">Ch6</a> で扱います。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/model-config#extended-context">model-config#extended-context</a> · <a href="https://code.claude.com/docs/en/model-config#turn-off-1m-context">#turn-off-1m-context</a> · <a href="https://code.claude.com/docs/en/model-config#context-window-behind-an-llm-gateway">#context-window-behind-an-llm-gateway</a> · <a href="https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id">#correct-the-window-for-a-gateway-or-custom-model-id</a> · <a href="https://code.claude.com/docs/en/model-config#haiku-5-5-context-window-and-pricing">#haiku-5-5-context-window-and-pricing</a></footer>
+</section>
+
+</section>

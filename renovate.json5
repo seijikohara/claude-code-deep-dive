@@ -1,0 +1,35 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  // Shared policy (schedule, automerge, release-age cooldown) lives in the preset.
+  // https://github.com/seijikohara/renovate-config
+  extends: ["github>seijikohara/renovate-config:default.json5"],
+  packageRules: [
+    {
+      description: "Update Astro and its official integrations in one PR",
+      groupName: "astro",
+      matchPackageNames: ["astro", "@astrojs/*"],
+    },
+    {
+      // oxlint declares the oxlint-tsgolint version it needs as a peer dependency,
+      // and oxlint-tsgolint follows TypeScript's major version. Keep them in one PR,
+      // majors included, so oxlint never lands without a matching oxlint-tsgolint.
+      description: "Update the oxc linter and formatter in one PR",
+      groupName: "linting and formatting",
+      matchPackageNames: ["oxlint", "oxfmt", "oxlint-tsgolint"],
+      separateMajorMinor: false,
+    },
+    {
+      // A reveal.js update can change slide layout without failing the build.
+      // tools/check.mjs measures every slide in CI, but review the rendered deck before merging a major.
+      description: "Do not automerge reveal.js major updates",
+      matchPackageNames: ["reveal.js"],
+      matchUpdateTypes: ["major"],
+      automerge: false,
+    },
+    {
+      description: "Update the deck fonts in one PR",
+      groupName: "fonts",
+      matchPackageNames: ["@fontsource/*"],
+    },
+  ],
+}

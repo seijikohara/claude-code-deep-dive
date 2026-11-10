@@ -1,0 +1,856 @@
+[
+  {
+    "name": "--add-dir",
+    "desc_ja": "Claude がファイルを読み書きできる作業ディレクトリを追加し、各パスがディレクトリとして存在するか検証する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<directories...>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--advisor",
+    "desc_ja": "サーバー側のアドバイザーツールをモデルエイリアスか完全なモデル ID で有効にし、`advisorModel` 設定より優先する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<model>",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--agent",
+    "desc_ja": "現在のセッションで使うエージェントを指定し、`agent` 設定を上書きする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<agent>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--agents",
+    "desc_ja": "JSON でカスタムサブエージェントを動的に定義し、Claude Code は起動時に値を検証して不正なら終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<json-or-file>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--allow-dangerously-skip-permissions",
+    "desc_ja": "`bypassPermissions` を `Shift+Tab` のモード切り替えに加えるが、そのモードでは開始しない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--allowedTools",
+    "desc_ja": "権限プロンプトなしで実行できるツールを指定し、ネットワークパスからの読み取りは対象外とする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "--allowed-tools"
+    ],
+    "args": "<tools...>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--append-subagent-system-prompt",
+    "desc_ja": "フォークしたものを除く全サブエージェントのシステムプロンプト末尾にテキストを追加し、`-p` の非対話モードでのみ適用される。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--append-subagent-system-prompt-file",
+    "desc_ja": "ファイルから読み込んだテキストをサブエージェントのシステムプロンプトに追加し、`-p` の非対話モードでのみ適用される。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--append-system-prompt",
+    "desc_ja": "既定のシステムプロンプトの末尾にカスタムテキストを追加する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<prompt>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--append-system-prompt-file",
+    "desc_ja": "ファイルから追加のシステムプロンプトを読み込み、既定のプロンプトに追加する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--autocompact",
+    "desc_ja": "保存済みの設定を変えずにこのセッションの自動コンパクションのウィンドウを設定し、`/autocompact` と同じ値を受け付ける。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<auto|tokens>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--ax-screen-reader",
+    "desc_ja": "装飾のないスクリーンリーダー向けのフラットなテキストで出力し、`axScreenReader` 設定と環境変数より優先する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--bare",
+    "desc_ja": "最小モードで起動し、フック・スキル・プラグイン・MCP サーバー・`CLAUDE.md` などの自動検出を省いてスクリプトでの起動を速くする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--betas",
+    "desc_ja": "API リクエストに含めるベータヘッダーを指定し、API キー利用者のみが対象となる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<betas...>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--bg",
+    "desc_ja": "セッションをバックグラウンドエージェントとして開始してすぐに戻り、セッション ID と管理コマンドを表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "--background"
+    ],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--brief",
+    "desc_ja": "エージェントからユーザーへの連絡に使う `SendUserMessage` ツールを有効にする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "--channels",
+    "desc_ja": "リサーチプレビューで、このセッションでチャネル通知を受け取る MCP サーバーをスペース区切りで指定する。",
+    "status": "preview",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--chrome",
+    "desc_ja": "Web の自動操作とテストのために Chrome ブラウザ連携を有効にする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--cloud",
+    "desc_ja": "タスク説明を渡すと新しいクラウドセッションを作成し、セッション ID か URL を渡すと `-p` で既存セッションにメッセージを追加する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "[description|session_id|url]",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--continue",
+    "desc_ja": "カレントディレクトリの最新の会話を読み込み、終了済みのバックグラウンドセッションも対象に含める。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "-c"
+    ],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--dangerously-load-development-channels",
+    "desc_ja": "ローカル開発用に承認済み許可リストにないチャネルを有効にし、`-p` 指定時はこのフラグを無視する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--dangerously-skip-permissions",
+    "desc_ja": "権限プロンプトをスキップし、`--permission-mode bypassPermissions` と同等に動作する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--debug",
+    "desc_ja": "デバッグモードを有効にし、`=` 形式で指定すると `mcp,startup` のようにカテゴリで絞り込める。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "-d"
+    ],
+    "args": "[filter]",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--debug-file",
+    "desc_ja": "指定したファイルパスにデバッグログを書き込み、暗黙的にデバッグモードを有効にする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<path>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--desktop",
+    "desc_ja": "カレントディレクトリで Claude Desktop アプリを開き、ターミナルではセッションを開始せずに終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--disable-slash-commands",
+    "desc_ja": "このセッションですべてのスキルとコマンドを無効にする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--disallowedTools",
+    "desc_ja": "拒否ルールを指定し、ツール名だけならコンテキストから除き、`Bash(rm *)` のような形式なら一致する呼び出しだけを拒否する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "--disallowed-tools"
+    ],
+    "args": "<tools...>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--effort",
+    "desc_ja": "現在のセッションの effort レベルを `low`・`medium`・`high`・`xhigh`・`max`・`ultracode` から設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<level>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--enable-auto-mode",
+    "desc_ja": "v2.1.111 で削除され、auto モードで開始するには `--permission-mode auto` を使う。",
+    "status": "removed",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--environment",
+    "desc_ja": "指定した ID のセルフホスト環境で動く新しいクラウドセッションを作成し、環境 ID は `ccpool_` で始まる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<environment-id>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--exclude-dynamic-system-prompt-sections",
+    "desc_ja": "自動メモリの場所などユーザー固有の情報をシステムプロンプトから最初のユーザーメッセージへ移し、プロンプトキャッシュの再利用を高める。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--exec",
+    "desc_ja": "Claude セッションを開始せず、シェルコマンドを PTY ベースのバックグラウンドジョブとして実行し、`--bg` と併用する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--fallback-model",
+    "desc_ja": "メインのモデルが過負荷または利用不可のとき、カンマ区切りで指定したモデルへ順に自動でフォールバックする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<model>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--file",
+    "desc_ja": "起動時にダウンロードするファイルリソースを `file_id:relative_path` 形式で指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<specs...>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "--fork-session",
+    "desc_ja": "再開時に元のセッション ID を再利用せず新しい ID を作成し、`--resume` か `--continue` と併用する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--forward-subagent-text",
+    "desc_ja": "サブエージェントのテキストと思考ブロックを `parent_tool_use_id` 付きのメッセージとして出力ストリームに流す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--from-pr",
+    "desc_ja": "特定のプルリクエストに紐づくセッションに絞ってセッションピッカーを開き、PR 番号や URL を受け付ける。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "[value]",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--help",
+    "desc_ja": "コマンドのヘルプを表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "-h"
+    ],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "--ide",
+    "desc_ja": "有効な IDE がちょうど 1 つあるとき、起動時にその IDE へ自動で接続する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--include-hook-events",
+    "desc_ja": "フックのライフサイクルイベントを出力ストリームに含め、`--output-format stream-json` を必要とする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--include-partial-messages",
+    "desc_ja": "部分的なストリーミングイベントを出力に含め、`--print` と `--output-format stream-json` を必要とする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--init",
+    "desc_ja": "セッション前に `init` マッチャーの `Setup` フックを実行し、非対話モードでのみ使える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--init-only",
+    "desc_ja": "`Setup` と `SessionStart` フックを実行し、会話を開始せずに終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--input-format",
+    "desc_ja": "非対話モードの入力形式を `text` か `stream-json` から指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<format>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--json-schema",
+    "desc_ja": "非対話モードで、エージェントの処理完了後に JSON Schema に適合する検証済みの JSON 出力を得る。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<schema>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--maintenance",
+    "desc_ja": "セッション前に `maintenance` マッチャーの `Setup` フックを実行し、非対話モードでのみ使える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--max-budget-usd",
+    "desc_ja": "非対話モードで、API 呼び出しの推定費用がこの金額に達したら実行を停止する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<amount>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--max-turns",
+    "desc_ja": "非対話モードでエージェントのターン数を制限し、既定では上限を設けない。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--mcp-config",
+    "desc_ja": "スペース区切りで渡した JSON ファイルまたは JSON 文字列から MCP サーバーを読み込む。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<configs...>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--model",
+    "desc_ja": "現在のセッションのモデルをエイリアスか完全な名前で設定し、`model` 設定と `ANTHROPIC_MODEL` を上書きする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<model>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--name",
+    "desc_ja": "セッションの表示名を設定し、`/resume` とターミナルのタイトルに表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "-n"
+    ],
+    "args": "<name>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--no-chrome",
+    "desc_ja": "このセッションで Chrome ブラウザ連携を無効にする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--no-session-persistence",
+    "desc_ja": "非対話モードでセッションをディスクに保存せず、再開できないようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--output-format",
+    "desc_ja": "非対話モードの出力形式を `text`・`json`・`stream-json` から指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<format>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--permission-mode",
+    "desc_ja": "指定した権限モードで開始し、設定ファイルの `defaultMode` を上書きする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<mode>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--permission-prompt-tool",
+    "desc_ja": "非対話モードで権限プロンプトを処理する MCP ツールを `mcp__<server>__<tool>` 形式の完全名で指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--permission-prompts",
+    "desc_ja": "非対話モードで権限プロンプトに誰が応答するかを設定し、`none` を渡すとプロンプトを拒否する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<target>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--plugin-dir",
+    "desc_ja": "このセッションに限り、ディレクトリや `.zip` アーカイブ、プラグインのフォルダからプラグインを読み込む。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<path>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--plugin-url",
+    "desc_ja": "このセッションに限り、URL からプラグインの `.zip` アーカイブを取得する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<url>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--print",
+    "desc_ja": "対話モードを使わずに応答を出力し、プログラムからの使い方は Agent SDK のドキュメントを参照する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "-p"
+    ],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--prompt-suggestions",
+    "desc_ja": "次のユーザープロンプトを予測したターンの後に、その予測を `prompt_suggestion` メッセージとして出力する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "[value]",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--ref",
+    "desc_ja": "`--environment` 使用時に、新しいセッションのチェックアウトをローカルの `HEAD` ではなく指定した ref から作る。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<branch>",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--remote",
+    "desc_ja": "非推奨で、既存セッション向けの形式も含めて `--cloud` の別名として動作する。",
+    "status": "deprecated",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--remote-control",
+    "desc_ja": "Remote Control を有効にして対話セッションを開始し、claude.ai や Claude アプリからも操作できるようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "--rc"
+    ],
+    "args": "[name]",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--remote-control-session-name-prefix",
+    "desc_ja": "名前を明示しないときに自動生成する Remote Control セッション名の接頭辞を指定し、既定はマシンのホスト名とする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<prefix>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--replay-user-messages",
+    "desc_ja": "確認応答のため、標準入力から受け取ったユーザーメッセージを標準出力へ再送出する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--restricted",
+    "desc_ja": "制限モードで起動し、共有マシン上でコマンド実行やユーザー・プロジェクト設定の読み込みを行わないようにする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--resume",
+    "desc_ja": "ID または名前で特定のセッションを再開するか、対話式のピッカーで再開するセッションを選ぶ。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "-r"
+    ],
+    "args": "[value]",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--safe-mode",
+    "desc_ja": "設定の不具合を切り分けるため、`CLAUDE.md`・スキル・プラグイン・フック・MCP サーバーなどすべてのカスタマイズを無効にして起動する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--session-id",
+    "desc_ja": "会話に使うセッション ID を指定し、有効な UUID である必要がある。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<uuid>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--setting-sources",
+    "desc_ja": "読み込む設定ソースを `user`・`project`・`local` のカンマ区切りで指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<sources>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--settings",
+    "desc_ja": "設定 JSON ファイルのパスかインライン JSON 文字列を指定し、このセッションで `settings.json` の同じキーを上書きする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<file-or-json>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--strict-mcp-config",
+    "desc_ja": "`--mcp-config` の MCP サーバーだけを使い、ほかの MCP 設定はすべて無視する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--system-prompt",
+    "desc_ja": "システムプロンプト全体をカスタムテキストで置き換える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<prompt>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--system-prompt-file",
+    "desc_ja": "ファイルからシステムプロンプトを読み込み、既定のプロンプトを置き換える。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--system-prompt-snapshot",
+    "desc_ja": "`off` を渡すと、会話の最初のリクエストで記録したシステムプロンプトを再利用せず、リクエストごとに再構築する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<on|off>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--teammate-mode",
+    "desc_ja": "エージェントチームのチームメイトの表示方法を、既定の `in-process` か `auto`・`tmux`・`iterm2` から設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "--teleport",
+    "desc_ja": "クラウドセッションをローカルのターミナルで再開する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "[session]",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--tmux",
+    "desc_ja": "worktree 用の tmux セッションを作成し、`--worktree` との併用を必要とする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--tools",
+    "desc_ja": "Claude が使える組み込みツールを制限し、`\"\"` で全無効、`\"default\"` で既定セット、ツール名で個別に指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "<tools...>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--verbose",
+    "desc_ja": "詳細ログを有効にしてターンごとの出力をすべて表示し、`viewMode` 設定を上書きする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--version",
+    "desc_ja": "バージョン番号を出力する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "-v"
+    ],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "--worktree",
+    "desc_ja": "`<repo>/.claude/worktrees/<name>` の隔離された git worktree で Claude を起動する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-flags",
+    "aliases": [
+      "-w"
+    ],
+    "args": "[name]",
+    "in_docs": true,
+    "in_help": true
+  }
+]

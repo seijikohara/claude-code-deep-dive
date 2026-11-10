@@ -1,0 +1,18 @@
+# Git hooks managed by lefthook. `lefthook install` (the `prepare` script) enables them.
+pre-commit:
+  # Run the jobs in order so oxlint checks the code after oxfmt has formatted it.
+  # Any job that exits non-zero aborts the commit.
+  piped: true
+  jobs:
+    # 1. Format the staged code and documents with oxfmt, then re-stage them.
+    - name: oxfmt
+      glob: "*.{js,mjs,cjs,ts,mts,cts,md,css,json,jsonc,yaml,yml}"
+      exclude:
+        - "data/**/*.json"
+      run: pnpm exec oxfmt --write {staged_files}
+      stage_fixed: true
+    # 2. Lint JS/TS with oxlint. Type-aware rules resolve types across files,
+    #    so the job lints the whole project whenever staged JS/TS changes.
+    - name: oxlint
+      glob: "*.{js,mjs,cjs,ts,mts,cts,astro}"
+      run: pnpm run lint

@@ -1,0 +1,196 @@
+<section id="ch27" data-part="Part III 設定と安全" data-chapter="Ch27" data-title="診断">
+
+<section id="ch27-title" class="chapter-title">
+  <p class="chapter-label">27</p>
+  <h1>診断</h1>
+  <p class="chapter-summary">設定が効かないとき、何が読み込まれ、どの値が勝ったかを確かめる手段をまとめます。<code>/status</code>、<code>claude doctor</code>、<code>--debug</code>、<code>--setting-sources</code> による切り分け、<code>--safe-mode</code> と clean-config による再現の順に扱います。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch27-status">
+  <h2><code>/status</code>: 読み込まれた設定ソースを見る</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>設定ダイアログの Status タブを開きます。バージョン、モデル、アカウント、接続状態を表示し、Claude の応答中でも使えます。<code>/config</code> は同じダイアログの別タブです。</li>
+        <li><code>Setting sources</code> 行は、このセッションが読んだファイルを並べます（<code>User settings</code>、<code>Project local settings</code> など）。</li>
+        <li>managed が効いていると <code>Enterprise managed settings</code> の後ろの括弧に経路が出ます。</li>
+        <li>見つかったが選ばれなかった managed ソースは <code>Skipped sources</code> 行に出ます（2.1.242 以降）。</li>
+        <li><code>Session kind</code> 行は <code>interactive</code> か、背景セッションでは <code>background job · attached</code> などです。</li>
+        <li><code>Organization policy</code> 行は、組織ポリシーを読めたかと、その結果を待っている機能（WebFetch など）を示します。</li>
+      </ul>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:40%">括弧内の表示</th><th>経路</th></tr></thead>
+        <tbody>
+          <tr><td><code>(remote)</code></td><td>server-managed settings（claude.ai・gateway）</td></tr>
+          <tr><td><code>(plist)</code>・<code>(HKLM)</code></td><td>MDM・OS ポリシー</td></tr>
+          <tr><td><code>(file)</code>・<code>(drop-ins)</code>・<code>(file + drop-ins)</code></td><td><code>managed-settings.json</code> と <code>managed-settings.d/</code></td></tr>
+          <tr><td><code>(remote + file, merged)</code> など</td><td><code>managedSourcesBehavior: "merge"</code> で合成</td></tr>
+          <tr><td><code>(HKCU)</code></td><td>ユーザーが書けるレジストリ</td></tr>
+          <tr><td><code>(parent process)</code></td><td>埋め込みホストが渡した制限</td></tr>
+          <tr><td><code>(helper)</code></td><td><code>policyHelper</code> の出力</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn">
+        <p class="small"><code>Setting sources</code> は読んだファイルを示すだけで、各キーをどのファイルが決めたかは示しません。project や managed が <code>model</code> を決めた場合は、起動時のヘッダーがそのファイルを示します。</p>
+      </div>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/settings#confirm-what-loaded">settings#confirm-what-loaded</a> · <a href="https://code.claude.com/docs/en/managed-settings#read-the-source-in-status">managed-settings#read-the-source-in-status</a> · <a href="https://code.claude.com/docs/en/commands">commands</a>（<code>/status</code>）· <a href="https://code.claude.com/docs/en/tools-reference#webfetch-availability">tools-reference#webfetch-availability</a></footer>
+</section>
+
+<section id="ch27-doctor">
+  <h2><code>claude doctor</code> と <code>/doctor</code>（実測）</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:28%"></th><th><code>claude doctor</code></th><th><code>/doctor</code></th></tr></thead>
+        <tbody>
+          <tr><td>実行場所</td><td>ターミナル。セッションを開始しない</td><td>セッション内。Skill</td></tr>
+          <tr><td>動作</td><td>読み取り専用の診断</td><td>修正を提案し、確認後に適用</td></tr>
+          <tr><td>対象</td><td>インストール、自動更新、managed の取得、組織ポリシー、不正な設定、Remote Control</td><td>インストール、不正な設定、未使用の拡張、サブエージェント名の重複、CLAUDE.md</td></tr>
+          <tr><td>補足</td><td>カレントディレクトリの設定を trust の確認なしで読む</td><td>別名 <code>/checkup</code>。<code>DISABLE_DOCTOR_COMMAND=1</code> で隠せる</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li><code>-p</code> の実行が設定を黙って捨てたときは、ターミナルで <code>claude doctor</code> を実行して何が落ちたかを確かめます。</li>
+        <li>右の下は不正な <code>defaultMode</code> を置いたディレクトリでの出力です。Suggested fix が挙げるモードは 4 つで、エラー文の 6 つより少なくなっています。プランなどを含む値は … にしました。</li>
+      </ul>
+    </div>
+    <div>
+      <div class="lab">
+<pre data-lang="text" class="compact">$ claude doctor
+Claude Code doctor
+
+Running: …
+…
+Organization policy: …
+
+Invalid settings
+- <cwd>/.claude/settings.json › permissions.allow:
+  Invalid permission rule "Bash(npm run *" was skipped: …
+- <cwd>/.claude/settings.json › hooks.NotAnEvent:
+  Unknown hook event "NotAnEvent" was ignored. …
+…</pre>
+      </div>
+      <div class="lab">
+<pre data-lang="text" class="compact">Invalid settings
+- <cwd>/.claude/settings.json › permissions.defaultMode:
+  Invalid value. Expected one of: "acceptEdits", "auto",
+  "bypassPermissions", "default", "dontAsk", "plan"
+  Suggested fix: Valid modes: "acceptEdits" (ask before
+  file changes), "plan" (analysis only), "bypassPermissions"
+  (auto-accept all), or "default" (standard behavior)</pre>
+      </div>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/cli-reference#cli-commands">cli-reference#cli-commands</a> · <a href="https://code.claude.com/docs/en/commands">commands</a>（<code>/doctor</code>）· <a href="https://code.claude.com/docs/en/debug-your-config#check-resolved-settings">debug-your-config#check-resolved-settings</a> · <a href="https://code.claude.com/docs/en/env-vars#variables">env-vars</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch27-debug">
+  <h2><code>--debug</code> とデバッグログ（実測）</h2>
+  <div class="cols-2">
+    <div>
+<pre data-lang="bash" class="compact">claude --debug='mcp,startup'
+claude --debug='!mcp'
+claude --debug-file /tmp/claude-debug.log</pre>
+      <ul class="small">
+        <li>フィルタは <code>=</code> の形でだけ効きます。空白で区切ると、フィルタなしでデバッグが有効になります。</li>
+        <li><code>--debug-file</code> はデバッグを有効にし、<code>CLAUDE_CODE_DEBUG_LOGS_DIR</code> より優先します。既定の出力先は <code>~/.claude/debug/&lt;session-id&gt;.txt</code> です。</li>
+        <li><code>DEBUG=1</code> は <code>--debug</code> と同じです。<code>CLAUDE_CODE_DEBUG_LOGS_DIR</code> は名前に反してファイルパスで、単独では有効になりません。</li>
+        <li>セッションの途中からは <code>/debug [description]</code>（Skill）でログを取り始め、Claude にログを読ませて診断させます。</li>
+        <li>フックが発火しないときは <code>claude --debug</code> で、イベント、照合した matcher、終了コードと出力を確かめます（<a href="#/ch28">Ch28</a>）。</li>
+      </ul>
+    </div>
+    <div>
+      <div class="lab">
+<pre data-lang="text" class="compact">$ claude -p --setting-sources project \
+    --debug-file ./d1.log "/advisor"
+… [DEBUG] MDM settings load completed in 0ms
+… [DEBUG] Broken symlink or missing file encountered
+  for settings.json at path: /Library/Application
+  Support/ClaudeCode/managed-settings.json
+… [DEBUG] Broken symlink or missing file encountered
+  for settings.json at path: <cwd>/.claude/settings.json
+… [DEBUG] Watching for changes in setting files
+  ~/.claude/settings.json...</pre>
+        <p class="small">設定に関する行の抜粋。時刻は … に置き換え</p>
+      </div>
+      <ul class="small">
+        <li><code>--debug=mcp</code> のログは 14 行、<code>--debug='!mcp'</code> は 135 行で、<code>[MCP]</code> の行はそれぞれ 2 行と 0 行でした。</li>
+        <li><code>--debug=hooks</code> を付けた同じ実行では、ログファイルが作られませんでした。</li>
+        <li><span class="undocumented"><code>--debug-file</code> は同じディレクトリに、最新のログを指す <code>latest</code> シンボリックリンクを作りました <span class="badge undocumented">Undocumented</span></span></li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/cli-reference#cli-flags">cli-reference#cli-flags</a> · <a href="https://code.claude.com/docs/en/env-vars#variables">env-vars#variables</a> · <a href="https://code.claude.com/docs/en/commands">commands</a>（<code>/debug</code>）· <a href="https://code.claude.com/docs/en/debug-your-config#check-hooks">debug-your-config#check-hooks</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch27-which-won">
+  <h2>どの設定が勝ったかを突き止める</h2>
+  <div class="cols-2">
+    <div>
+      <ol class="small">
+        <li><code>/status</code> で、読まれたファイルと managed の経路を確かめる。</li>
+        <li>settings-reference でキーの「Per-session overrides」行を読み、フラグや環境変数が上書きしていないかを確かめる（<a href="#/ch18-per-key">Ch18</a>）。</li>
+        <li><code>claude doctor</code> で、不正として捨てられたファイルとエントリを確かめる。</li>
+        <li><code>--setting-sources</code> で読むファイルを 1 つずつ絞り、<code>-p --output-format stream-json --verbose</code> の init にある <code>model</code> や <code>permissionMode</code> を比べる。プロンプトを <code>/advisor</code> のようなローカルコマンドにすると、モデルへのリクエストは送られない（実測）。</li>
+        <li>デバッグログで、どの設定パスが存在し、どれが無いかを確かめる。</li>
+        <li>それでも分からなければ、次のスライドの clean-config で再現させる。</li>
+      </ol>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:30%">コマンド</th><th>表示する内容</th></tr></thead>
+        <tbody>
+          <tr><td><code>/context [all]</code></td><td>コンテキストの内訳。メモリファイル、Skill（バンドル分を含む）、出どころ付きのサブエージェント</td></tr>
+          <tr><td><code>/permissions</code></td><td>実際に効いている allow・deny ルール</td></tr>
+          <tr><td><code>/hooks</code></td><td>このセッションに登録されたフック（イベント別）</td></tr>
+          <tr><td><code>/mcp</code></td><td>MCP サーバーごとの接続状態と、このプロジェクトでの承認</td></tr>
+          <tr><td><code>/memory</code></td><td>メモリファイルの場所と auto memory の切り替え</td></tr>
+          <tr><td><code>/skills</code></td><td>project・user・プラグインの Skill</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/debug-your-config#see-what-loaded-into-context">debug-your-config#see-what-loaded-into-context</a> · <a href="https://code.claude.com/docs/en/debug-your-config#check-resolved-settings">#check-resolved-settings</a> · <a href="https://code.claude.com/docs/en/settings#troubleshoot-a-setting-that-doesnt-apply">settings#troubleshoot-a-setting-that-doesnt-apply</a> · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch27-isolate">
+  <h2><code>--safe-mode</code>・<code>--bare</code> と clean-config での切り分け</h2>
+  <div class="cols-2">
+    <div>
+      <h3><code>--safe-mode</code>（<code>CLAUDE_CODE_SAFE_MODE=1</code>）</h3>
+      <ul class="small">
+        <li>読み込まないもの: CLAUDE.md、Skill、プラグイン、フック、MCP サーバー、カスタムコマンドとエージェント、出力スタイル、workflow、カスタムテーマ、キーバインド、ステータスラインとファイル候補のコマンド、LSP サーバー、auto memory。</li>
+        <li>認証、モデル選択、組み込みツール、権限は通常どおり動きます。managed のポリシーとフックは残り、managed のプラグイン・Skill・CLAUDE.md・MCP は止まります。</li>
+        <li>問題が消えたら、止めたもののどれかが原因です。</li>
+      </ul>
+      <h3><code>--bare</code>（<code>CLAUDE_CODE_SIMPLE=1</code>）</h3>
+      <ul class="small">
+        <li>自動検出をすべて省き、ツールは <code>Bash</code>・<code>Read</code>・<code>Edit</code> だけです。診断よりスクリプト向けで、詳細は <a href="#/ch44">Ch44</a> です。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>clean-config で再現させる</h3>
+<pre data-lang="bash" class="compact">mkdir -p ~/claude-clean/empty && cd ~/claude-clean/empty
+CLAUDE_CONFIG_DIR=~/claude-clean/config \
+  claude --setting-sources user</pre>
+      <ul class="small">
+        <li>初回セットアップ画面が出れば、空の設定ディレクトリが効いています。managed settings と claude.ai のコネクタは残ります。</li>
+        <li><strong>問題が消えた</strong>: 原因は user か project の設定です。<code>~/.claude.json</code> と <code>~/.claude</code> のファイルを 1 つずつ戻して探します。</li>
+        <li><strong>問題が残った</strong>: <code>/status</code> で managed を確かめ、シェルの環境変数を確かめます。</li>
+      </ul>
+      <h3>よくある取り違え</h3>
+      <ul class="small">
+        <li><code>permissions</code>・<code>hooks</code>・<code>env</code> を <code>~/.claude.json</code> に書いている。</li>
+        <li><code>mcpServers</code> を <code>settings.json</code> に書いている。project は <code>.mcp.json</code>、user は <code>claude mcp add --scope user</code>。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/debug-your-config#test-against-a-clean-configuration">debug-your-config#test-against-a-clean-configuration</a> · <a href="https://code.claude.com/docs/en/debug-your-config#check-common-causes">#check-common-causes</a> · <a href="https://code.claude.com/docs/en/cli-reference#cli-flags">cli-reference#cli-flags</a></footer>
+</section>
+
+</section>

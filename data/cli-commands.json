@@ -1,0 +1,710 @@
+[
+  {
+    "name": "claude",
+    "desc_ja": "対話セッションを開始する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude \"query\"",
+    "desc_ja": "初期プロンプトを指定して対話セッションを開始する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude -p \"query\"",
+    "desc_ja": "SDK 経由でクエリを実行し、終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "cat file | claude -p \"query\"",
+    "desc_ja": "パイプで渡された内容を処理する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude -c",
+    "desc_ja": "現在のディレクトリで直近の会話を続行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude -c -p \"query\"",
+    "desc_ja": "SDK 経由で会話を続行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude -r \"<session>\" \"query\"",
+    "desc_ja": "ID または名前を指定してセッションを再開する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude update",
+    "desc_ja": "最新バージョンに更新する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [
+      "claude upgrade"
+    ],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude gateway",
+    "desc_ja": "`--config` で `gateway.yaml` を指定して、SSO とポリシーを適用するセルフホスト型ゲートウェイサーバーを起動する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude install",
+    "desc_ja": "ネイティブバイナリをインストールまたは再インストールし、`2.1.118` のようなバージョンか `stable`・`latest` を指定できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "[version]",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude auth login",
+    "desc_ja": "Anthropic アカウントにサインインし、`--email`・`--sso`・`--console` でメールの事前入力や認証方法を指定できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude auth logout",
+    "desc_ja": "Anthropic アカウントからログアウトする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude auth status",
+    "desc_ja": "認証状態を JSON で表示し、ログイン済みなら終了コード 0、未ログインなら 1 で終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude agents",
+    "desc_ja": "並列のバックグラウンドセッションを監視・起動するエージェントビューを開き、`--json` で稼働中のセッションを JSON 出力できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude attach",
+    "desc_ja": "このターミナルでバックグラウンドセッションにアタッチし、ID の代わりに名前の一部を渡すには v2.1.290 以降が必要になる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<id|name>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude auto-mode defaults",
+    "desc_ja": "組み込みの auto モード分類器ルールを JSON で出力し、`--label <prefix>` でラベルの前方一致で絞り込める。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude auto-mode reset",
+    "desc_ja": "ユーザー設定ファイルから `autoMode` セクションを削除して auto モードの設定を既定に戻し、`-y`/`--yes` で確認を省略できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude daemon logs",
+    "desc_ja": "バックグラウンドセッションのスーパーバイザーのログ `~/.claude/daemon.log` を、`Ctrl+C` を押すまで追跡して表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude daemon run",
+    "desc_ja": "バックグラウンドセッションのスーパーバイザーをこのターミナルのフォアグラウンドで実行し、ログを表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude daemon status",
+    "desc_ja": "診断用にスーパーバイザーの状態・バージョン・ソケットディレクトリ・ワーカー数を表示し、未起動なら 1 で終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude daemon stop",
+    "desc_ja": "バックグラウンドセッションのスーパーバイザーと配下のセッションを停止し、`--keep-workers` でセッションを動かしたままにできる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "--any",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude doctor",
+    "desc_ja": "セッションを開始せずに、インストール状態や設定ファイルの検証エラーなどの読み取り専用の診断を出力する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude import",
+    "desc_ja": "`/import` を実行して他のコーディングエージェントの設定を Claude Code に取り込む対話セッションを開始する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "[source]",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude logs",
+    "desc_ja": "バックグラウンドセッションの最近の出力を表示し、ID の代わりに名前の一部を渡すには v2.1.290 以降が必要になる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<id|name>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude mcp",
+    "desc_ja": "Model Context Protocol（MCP）サーバーを設定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude mcp login",
+    "desc_ja": "対話型の `/mcp` パネルを開かずに MCP サーバーの OAuth 認証を行い、HTTP・SSE・claude.ai コネクタに対応する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<name>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude mcp logout",
+    "desc_ja": "MCP サーバーの保存済み OAuth 認証情報を消去する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<name>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin",
+    "desc_ja": "Claude Code のプラグインを管理し、別名 `claude plugins` でも実行できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [
+      "claude plugins"
+    ],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude purge",
+    "desc_ja": "プロジェクトのトランスクリプトや履歴など Claude Code のローカル状態をすべて削除し、`--dry-run` でプレビューできる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "[path]",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude remote-control",
+    "desc_ja": "claude.ai や Claude アプリから操作するための Remote Control サーバーを、サーバーモードで起動する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [
+      "claude rc"
+    ],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude respawn",
+    "desc_ja": "実行中または停止済みのバックグラウンドセッションを会話を保ったまま再起動し、`--all` で実行中の全セッションを再起動する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<id>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude rm",
+    "desc_ja": "バックグラウンドセッションを一覧から削除し、worktree が原因で拒否されると再実行用のフラグと値を表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<id>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude self-hosted-runner",
+    "desc_ja": "マシンやコンテナをセルフホスト環境に登録し、自前のインフラで Claude Code のクラウドセッションをホストするランナーを起動する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": false
+  },
+  {
+    "name": "claude setup-token",
+    "desc_ja": "CI やスクリプト向けに長期間有効な OAuth トークンを生成し、保存せずにターミナルへ出力する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude stop",
+    "desc_ja": "バックグラウンドセッションを停止し、`claude kill` でも実行できる。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [
+      "claude kill"
+    ],
+    "args": "<id>",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude ultrareview",
+    "desc_ja": "非対話で ultrareview を実行して指摘を標準出力に表示し、成功時は 0、失敗時は 1 で終了する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "[target]",
+    "in_docs": true,
+    "in_help": true
+  },
+  {
+    "name": "claude auth",
+    "desc_ja": "認証を管理する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude auto-mode",
+    "desc_ja": "auto モードの設定を確認またはリセットする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude auto-mode config",
+    "desc_ja": "実際に有効な auto モードの設定を JSON で出力し、未設定の項目は既定値で示す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude auto-mode critique",
+    "desc_ja": "独自に定義した auto モードのルールについて AI のフィードバックを得る。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude mcp add",
+    "desc_ja": "Claude Code に MCP サーバーを追加する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<name> <commandOrUrl> [args...]",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude mcp add-from-claude-desktop",
+    "desc_ja": "Claude Desktop から MCP サーバーをインポートする（Mac と WSL のみ）。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude mcp add-json",
+    "desc_ja": "JSON 文字列で MCP サーバー（stdio・SSE・HTTP・WebSocket）を追加する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<name> <json>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude mcp get",
+    "desc_ja": "MCP サーバーの詳細を取得し、未承認の `.mcp.json` サーバーは接続せずに「⏸ Pending approval」と表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<name>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude mcp list",
+    "desc_ja": "設定済みの MCP サーバーを一覧表示し、承認済みのサーバーはこのプロジェクトで無効化されていなければヘルスチェックする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude mcp remove",
+    "desc_ja": "MCP サーバーを削除する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<name>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude mcp reset-project-choices",
+    "desc_ja": "このプロジェクトでプロジェクトスコープ（`.mcp.json`）のサーバーに対して行った承認と拒否をすべてリセットする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude mcp serve",
+    "desc_ja": "Claude Code の MCP サーバーを起動する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin configure",
+    "desc_ja": "プラグインのオプションと未設定の項目を表示するか、`--values-stdin` で標準入力から値を保存する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<plugin>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin details",
+    "desc_ja": "プラグインの構成要素の一覧と推定トークンコストを表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<name>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin disable",
+    "desc_ja": "有効なプラグインを無効化する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "[plugin]",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin enable",
+    "desc_ja": "無効なプラグインを有効化する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<plugin>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin eval",
+    "desc_ja": "評価ケース（既定は `evals/` 配下）をプラグインに対して手元で実行し、スコア付きの結果を報告する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "[target]",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin eval init",
+    "desc_ja": "入力の収集とグレーダーの設計を対話形式で行って評価スイートを作成し、`--bare <name>` で空の単一ケーステンプレートを作る。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "[name]",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin init",
+    "desc_ja": "`~/.claude/skills/<name>/` に新しいプラグインのひな形を作成し、次のセッションから自動で読み込む。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [
+      "claude plugin new"
+    ],
+    "args": "<name>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin install",
+    "desc_ja": "利用可能なマーケットプレイスからプラグインをインストールし、特定のマーケットプレイスは `plugin@marketplace` で指定する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [
+      "claude plugin i"
+    ],
+    "args": "<plugin>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin list",
+    "desc_ja": "インストール済みのプラグインを一覧表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin marketplace",
+    "desc_ja": "Claude Code のマーケットプレイスを管理する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin marketplace add",
+    "desc_ja": "URL・パス・GitHub リポジトリからマーケットプレイスを追加する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<source>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin marketplace list",
+    "desc_ja": "設定済みのマーケットプレイスをすべて一覧表示する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin marketplace remove",
+    "desc_ja": "設定済みのマーケットプレイスを削除する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [
+      "claude plugin marketplace rm"
+    ],
+    "args": "<name>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin marketplace update",
+    "desc_ja": "マーケットプレイスをソースから更新し、名前を指定しなければすべて更新する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "[name]",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin prune",
+    "desc_ja": "不要になった自動インストールの依存関係を削除する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [
+      "claude plugin autoremove"
+    ],
+    "args": "",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin restore-set-aside",
+    "desc_ja": "組織が宣言したマーケットプレイスが別のソースを置き換えた際に退避したオプションとシークレットを、プラグイン ID に戻す。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<plugin>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin tag",
+    "desc_ja": "`plugin.json` とマーケットプレイスの一致を検証してリリース用の `{name}--v{version}` git タグを作成する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "[path]",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin test",
+    "desc_ja": "mod のテストを実行する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "[dir]",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin uninstall",
+    "desc_ja": "インストール済みのプラグインをアンインストールする。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [
+      "claude plugin remove"
+    ],
+    "args": "<plugin>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin update",
+    "desc_ja": "プラグインを最新バージョンに更新する（適用には再起動が必要）。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<plugin>",
+    "in_docs": false,
+    "in_help": true
+  },
+  {
+    "name": "claude plugin validate",
+    "desc_ja": "プラグインやマーケットプレイスのマニフェスト、またはディレクトリ内のスキル・エージェント・コマンドを検証する。",
+    "status": "ga",
+    "anchor": "https://code.claude.com/docs/en/cli-reference#cli-commands",
+    "aliases": [],
+    "args": "<path>",
+    "in_docs": false,
+    "in_help": true
+  }
+]

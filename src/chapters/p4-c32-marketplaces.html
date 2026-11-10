@@ -1,0 +1,263 @@
+<section id="ch32" data-part="Part IV 拡張" data-chapter="Ch32" data-title="マーケットプレイス">
+
+<section id="ch32-title" class="chapter-title">
+  <p class="chapter-label">32</p>
+  <h1>マーケットプレイス</h1>
+  <p class="chapter-summary">プラグインのカタログである <code>marketplace.json</code> と、その配布・管理の仕組みです。この章では、ファイルの書式、プラグインソースとマーケットプレイスソース、ホスティングとリリース、組織による登録と制限、シードと信頼モデルを扱います。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch32-file">
+  <h2><code>marketplace.json</code>（1/2）: 例とトップレベルのフィールド</h2>
+  <div class="cols-2">
+    <div>
+<pre data-lang="json" class="compact">{
+  "name": "my-marketplace",
+  "description": "Plugins for my team",
+  "owner": {
+    "name": "Your Name"
+  },
+  "plugins": [
+    {
+      "name": "my-first-plugin",
+      "source": "./plugins/my-first-plugin",
+      "description": "A greeting plugin to learn the basics"
+    }
+  ]
+}</pre>
+      <ul class="small">
+        <li>場所は <code>.claude-plugin/marketplace.json</code> です。<code>.claude-plugin/</code> を含むディレクトリがマーケットプレイスのルートで、相対パスはここから解決します。</li>
+        <li>インストール ID は <code>&lt;エントリ名&gt;@&lt;marketplace の name&gt;</code> です。1 人が同じ <code>name</code> の marketplace を 2 つ登録することはできません。</li>
+      </ul>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:40%">フィールド</th><th>規則</th></tr></thead>
+        <tbody>
+          <tr><td><code>name</code>（必須）</td><td>英数字・<code>.</code>・<code>_</code>・<code>-</code>。英数字で始まり、<code>..</code> は不可</td></tr>
+          <tr><td><code>owner</code>（必須）</td><td><code>name</code> が必須、<code>email</code>・<code>url</code> は任意</td></tr>
+          <tr><td><code>plugins</code>（必須）</td><td>エントリごとに検証。1 つが不正でも全体は落ちない</td></tr>
+          <tr><td><code>description</code>・<code>version</code></td><td><code>metadata.</code> の下にも書ける。説明が無いと validate が警告</td></tr>
+          <tr><td><code>metadata.pluginRoot</code></td><td>bare 名のソースを解決するディレクトリ（v2.1.239 以降）</td></tr>
+          <tr><td><code>forceRemoveDeletedPlugins</code></td><td><code>true</code> なら、消したエントリを利用者側でもアンインストール</td></tr>
+          <tr><td><code>allowCrossMarketplaceDependenciesOn</code></td><td>依存として入れてよい他の marketplace 名</td></tr>
+          <tr><td><code>renames</code></td><td>旧名から新名（削除は <code>null</code>）への対応</td></tr>
+        </tbody>
+      </table>
+      <p class="small">未知のキーは読み込み時に無視され、validate が警告します。</p>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/plugins/create-marketplace#create-a-marketplace">plugins/create-marketplace#create-a-marketplace</a> · <a href="https://code.claude.com/docs/en/plugins/marketplace-reference#marketplace-file">plugins/marketplace-reference#marketplace-file</a> · <a href="https://code.claude.com/docs/en/plugins/marketplace-reference#top-level-fields">#top-level-fields</a></footer>
+</section>
+
+<section id="ch32-entries">
+  <h2><code>marketplace.json</code>（2/2）: エントリ・strict モード・予約名</h2>
+  <div class="cols-2">
+    <div>
+      <ul class="small">
+        <li>エントリの必須は <code>name</code> と <code>source</code> です。他に <code>description</code>、<code>version</code>、<code>category</code>、<code>tags</code>、<code>strict</code>、<code>relevance</code>、<code>dependencies</code>、<code>defaultEnabled</code>、<code>displayName</code>、<code>metadata</code>、<code>headers</code>、<code>headersHelper</code> と、<code>plugin.json</code> のフィールドを書けます。</li>
+        <li><code>version</code> は <code>plugin.json</code> が優先し、validate が警告します。<code>defaultEnabled</code> と表示用フィールドはエントリが優先します。</li>
+        <li><code>headersHelper</code> を書くエントリは <code>"strict": false</code> が必須です。</li>
+        <li>エントリの <code>hooks</code> はインラインのオブジェクトだけが動きます。パスや配列は <code>not yet supported in a marketplace entry</code> になります。</li>
+      </ul>
+      <table class="dense">
+        <thead><tr><th><code>strict</code></th><th><code>plugin.json</code></th><th>結果</th></tr></thead>
+        <tbody>
+          <tr><td>任意</td><td>なし</td><td>エントリがマニフェストになる</td></tr>
+          <tr><td><code>true</code>（既定）</td><td>あり</td><td>エントリのコンポーネントを追記。<code>hooks</code> はイベント単位で置き換え</td></tr>
+          <tr><td><code>false</code></td><td>あり</td><td>エントリにコンポーネントがあると <code>has conflicting manifests</code> で失敗</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>使えない marketplace 名</h3>
+      <ul class="small">
+        <li>公式名 14 個（<code>claude-plugins-official</code> など）、コミュニティ名（<code>claude-community</code>・<code>claude-plugins-community</code>・<code>healthcare</code>）、ディレクトリ名 2 個。<code>github.com/anthropics/</code> 由来の場合だけ使えます。</li>
+        <li>公式に見える名前と非 ASCII 文字（<code>Marketplace name impersonates an official Anthropic/Claude marketplace</code>）、記号違いの表記（<code>claude.code.plugins</code> など。v2.1.280 以降）。</li>
+        <li><code>inline</code>・<code>builtin</code>・<code>skills-dir</code>・<code>synced</code>・<code>claude-plugin-test</code>。</li>
+        <li><code>npm</code>・<code>pip</code>・<code>uv</code>・<code>cargo</code>・<code>github</code>・<code>gh</code>（大小文字を問わない。v2.1.275 以降）、<code>toString</code> などの JS のメンバー名（v2.1.296 以降）。</li>
+        <li><code>claudeai-</code> で始まる名前と、登録済みの GitHub marketplace のダウンロード用フォルダ名 <code>&lt;owner&gt;-&lt;repo&gt;</code>（v2.1.290 以降）。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/plugins/marketplace-reference#plugin-entries">plugins/marketplace-reference#plugin-entries</a> · <a href="https://code.claude.com/docs/en/plugins/marketplace-reference#strict-mode">#strict-mode</a> · <a href="https://code.claude.com/docs/en/plugins/marketplace-reference#reserved-names">#reserved-names</a></footer>
+</section>
+
+<section id="ch32-plugin-sources">
+  <h2>プラグインソース: エントリの <code>source</code></h2>
+  <table class="dense">
+    <thead><tr><th style="width:12%">種類</th><th style="width:22%">フィールド</th><th>要点</th></tr></thead>
+    <tbody>
+      <tr><td>相対パス</td><td>文字列</td><td>ルート基準で <code>./</code> 始まり（<code>pluginRoot</code> 下の bare 名も可）。<code>url</code> ソースの marketplace では解決できない</td></tr>
+      <tr><td><code>github</code></td><td><code>repo</code>・<code>ref</code>・<code>sha</code></td><td><code>owner/repo</code> 形式</td></tr>
+      <tr><td><code>url</code></td><td><code>url</code>・<code>ref</code>・<code>sha</code></td><td>任意の git URL（<code>https://</code>・<code>http://</code>・<code>file://</code>・<code>git@</code>）。<code>.git</code> は不要</td></tr>
+      <tr><td><code>git-subdir</code></td><td><code>url</code>・<code>path</code>・<code>ref</code>・<code>sha</code></td><td>サブディレクトリだけを sparse checkout と partial clone で取得</td></tr>
+      <tr><td><code>npm</code></td><td><code>package</code>・<code>version</code>・<code>registry</code></td><td>install script は動かさない。git・<code>file:</code>・<code>npm:</code> 別名・github.com 上の tarball は拒否</td></tr>
+      <tr><td><code>archive</code></td><td><code>url</code>・<code>sha256</code></td><td>HTTPS の zip（v2.1.224 以降）。<code>sha256</code> と一致しなければ拒否</td></tr>
+      <tr><td><code>command</code></td><td><code>command</code>・<code>timeout</code>・<code>mode</code></td><td>利用者の端末で実行し、出力したディレクトリを使う（v2.1.229 以降）</td></tr>
+    </tbody>
+  </table>
+  <div class="cols-2">
+    <ul class="small">
+      <li><code>sha</code> は小文字 40 文字です。<code>ref</code> と両方あれば <code>sha</code> を checkout します。</li>
+      <li><code>archive</code> は 256 MiB・120 秒・リダイレクト 5 回までです。展開後は 10 万エントリ、1 ファイル 512 MiB、合計 1 GiB、圧縮率 50 倍が上限です。</li>
+    </ul>
+    <ul class="small">
+      <li><code>command</code> は絶対パスを 1 行出力し、<code>timeout</code>（1〜600 秒、既定 60）以内に exit 0 します。利用者が承認したコマンドだけを、セッションごとに再実行します。</li>
+      <li><code>mode</code> は <code>copy</code>（既定。256 MiB・2 万エントリまで）か <code>link</code>（Windows 不可）です。</li>
+    </ul>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/plugins/marketplace-reference#plugin-sources">plugins/marketplace-reference#plugin-sources</a> · <a href="https://code.claude.com/docs/en/plugins/marketplace-reference#command-plugin-source">#command-plugin-source</a> · <a href="https://code.claude.com/docs/en/plugins/host-marketplace#stay-within-the-download-limits-for-hosted-files">plugins/host-marketplace#stay-within-the-download-limits-for-hosted-files</a></footer>
+</section>
+
+<section id="ch32-marketplace-sources">
+  <h2>マーケットプレイスソースと <code>claude plugin marketplace</code></h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:50%">入力</th><th>種類</th></tr></thead>
+        <tbody>
+          <tr><td><code>owner/repo</code>、<code>owner/repo#ref</code>、<code>owner/repo@ref</code></td><td><code>github</code></td></tr>
+          <tr><td><code>user@host:path</code></td><td><code>git</code>（SSH）</td></tr>
+          <tr><td><code>.git</code> で終わるか <code>/_git/</code> を含む URL、github.com・gitlab.com のリポジトリ URL</td><td><code>git</code></td></tr>
+          <tr><td>その他の <code>http(s)://</code> URL</td><td><code>url</code>（<code>marketplace.json</code> を直接取得）</td></tr>
+          <tr><td><code>./</code>・<code>../</code>・<code>/</code>・<code>~/</code> のディレクトリ</td><td><code>directory</code></td></tr>
+          <tr><td>同じ形式の <code>.json</code> ファイル</td><td><code>file</code></td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li>フラグは <code>--scope</code>（<code>-s</code> は無い。既定 user）、<code>--sparse &lt;paths...&gt;</code>、<code>--claudeai</code>、<code>--json</code> です。</li>
+        <li><code>list</code>（<code>--json</code>）、<code>update [name]</code>（名前なしで全部。<code>--json</code> は名前が必要）、<code>remove</code>（<code>rm</code>）があります。最後のスコープから外すと、そこから入れたプラグインを全部アンインストールし、オプション・秘密・データも消します。</li>
+      </ul>
+    </div>
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:24%">種類</th><th>フィールドと注意</th></tr></thead>
+        <tbody>
+          <tr><td><code>github</code>・<code>git</code></td><td><code>ref</code>、<code>path</code>（既定 <code>.claude-plugin/marketplace.json</code>）、<code>sparsePaths</code></td></tr>
+          <tr><td><code>url</code></td><td><code>url</code>・<code>headers</code>・<code>headersHelper</code>。5 MiB・10 秒まで</td></tr>
+          <tr><td><code>file</code>・<code>directory</code></td><td><code>path</code>。その場で読み、コピーしない</td></tr>
+          <tr><td><code>settings</code></td><td><code>name</code>・<code>plugins</code>・<code>owner</code> の埋め込みカタログ。相対パスは不可</td></tr>
+          <tr><td><code>npm</code></td><td><code>NPM marketplace sources not yet implemented</code></td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li><code>hostPattern</code>・<code>pathPattern</code>・<code>skills-dir</code>・<code>owner/*</code> は許可・拒否リスト専用です。</li>
+        <li>同じ名前の <code>url</code>・<code>github</code> でも、プラグインソースとは意味が違います（marketplace の <code>url</code> は <code>marketplace.json</code> への直リンク）。</li>
+        <li>非公開リポジトリは、端末の git 資格情報を確認なしで使います（<code>CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1</code> で SSH を試さない）。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/plugins/cli-reference#plugin-marketplace-add">plugins/cli-reference#plugin-marketplace-add</a> · <a href="https://code.claude.com/docs/en/plugins/marketplace-reference#marketplace-sources">plugins/marketplace-reference#marketplace-sources</a> · <a href="https://code.claude.com/docs/en/plugins/host-marketplace#grant-access-to-a-private-marketplace">plugins/host-marketplace#grant-access-to-a-private-marketplace</a></footer>
+</section>
+
+<section id="ch32-hosting">
+  <h2>ホスティングとリリース</h2>
+  <div class="cols-2" style="grid-template-columns:1fr 1.08fr">
+    <div>
+      <ul class="small">
+        <li><strong>置き場所</strong>: GitHub、他の git ホスト（完全な URL を渡す）、<code>marketplace.json</code> の URL、共有ディレクトリ。共有ディレクトリでは相対パスのプラグインをその場で読み、版を上げずに編集が届きます。</li>
+        <li><strong>新しい版を届ける</strong>: <code>version</code> を毎回上げるか、manifest にもエントリにも書かずにコミットを追わせます。両方に書くと <code>plugin.json</code> が警告なしに優先されます（validate は不一致を報告）。</li>
+        <li><strong>版を固定する</strong>: エントリの <code>ref</code>・<code>sha</code>、追加時の <code>#&lt;ref&gt;</code>、<code>&lt;plugin&gt;--v&lt;version&gt;</code> タグを使います。</li>
+        <li><strong>チャネル</strong>: Claude Code にチャネルの概念はありません。別の <code>name</code> を持つ 2 つの marketplace（例 <code>stable-tools</code> と <code>latest-tools</code>）で別の ref を指します。</li>
+        <li><strong>自動更新</strong>: 自作の marketplace は既定で無効です。<code>marketplace.json</code> に有効化のフィールドはなく、利用者か管理者が有効にします。</li>
+      </ul>
+    </div>
+    <div>
+<pre data-lang="json" class="compact">{
+  "name": "your-marketplace",
+  "owner": { "name": "Your Org" },
+  "plugins": [
+    { "name": "code-formatter", "source": "./plugins/code-formatter" }
+  ],
+  "renames": {
+    "formatter": "code-formatter",
+    "legacy-linter": null
+  }
+}</pre>
+      <ul class="small">
+        <li><code>renames</code> は追記専用の履歴です。旧キーを <code>enabledPlugins</code> と <code>pluginConfigs</code>（user・project・local）で新名に書き換えます。循環は validate が <code>renames.&lt;name&gt;: chain does not resolve</code> で拒否します。</li>
+        <li>非推奨という状態はありません。エントリを消して <code>null</code> を書き、必要なら <code>forceRemoveDeletedPlugins</code> を使います。</li>
+        <li>Anthropic のディレクトリ（claude.ai）経由の掲載は別経路で、Claude Code には <code>@synced</code> として届きます。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/plugins/host-marketplace#host-your-marketplace">plugins/host-marketplace#host-your-marketplace</a> · <a href="https://code.claude.com/docs/en/plugins/host-marketplace#keep-users-up-to-date">#keep-users-up-to-date</a> · <a href="https://code.claude.com/docs/en/plugins/host-marketplace#run-release-channels">#run-release-channels</a> · <a href="https://code.claude.com/docs/en/plugins/host-marketplace#rename-or-remove-a-plugin">#rename-or-remove-a-plugin</a> · <a href="https://code.claude.com/docs/en/plugins/publish">plugins/publish</a></footer>
+</section>
+
+<section id="ch32-org">
+  <h2>組織管理: 登録と強制有効化</h2>
+  <div class="cols-2" style="grid-template-columns:1.3fr 1fr">
+    <div>
+<pre data-lang="json" class="compact">{
+  "extraKnownMarketplaces": {
+    "your-marketplace": {
+      "source": { "source": "github", "repo": "your-org/your-marketplace" },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "code-formatter@your-marketplace": true,
+    "deploy-helper@your-marketplace": true
+  }
+}</pre>
+      <ul class="small">
+        <li>managed で <code>true</code> にしたプラグインは、次のセッション開始時にインストールされ、利用者は無効化できません。<code>false</code> は全スコープで禁止し、一覧から隠します。</li>
+        <li>managed の <code>autoUpdate</code> があると、利用者の <code>/plugin</code> のトグルは拒否されます。</li>
+        <li><code>-p</code> と CI ではインストールが裏で走ります。<code>CLAUDE_CODE_SYNC_PLUGIN_INSTALL=1</code> で最初のクエリ前に待ちます。</li>
+      </ul>
+    </div>
+    <div>
+      <ul class="small">
+        <li>リポジトリの <code>.claude/settings.json</code> に書いた <code>extraKnownMarketplaces</code> は、そのフォルダの workspace trust を受け入れた後にだけ効きます。<code>-p</code> では、対話で信頼済みのフォルダに限ります。</li>
+        <li>別名は <code>additionalMarketplaces</code>（v2.1.232 以降）です。配布経路は <a href="#/ch58">Ch58</a> で扱います。</li>
+      </ul>
+      <div class="callout note">
+        <p class="small">2.1.321 で managed の <code>extraKnownMarketplaces</code> が次のように変わりました。</p>
+        <ul class="small">
+          <li>宣言した名前を別のソースから追加できない。他から入ったエントリは隠され、そのプラグインは宣言側から入れ直される。</li>
+          <li>宣言外のソースの同名を置き換えると、データは <code>cleanupPeriodDays</code> の間、オプションと秘密は <code>claude plugin restore-set-aside &lt;plugin&gt;</code> まで退避される（<code>--discard</code> で破棄）。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/plugins/org#require-a-marketplace-and-its-plugins">plugins/org#require-a-marketplace-and-its-plugins</a> · <a href="https://code.claude.com/docs/en/plugins/org#require-plugins-per-repository">#require-plugins-per-repository</a> · <a href="https://code.claude.com/docs/en/plugins/org#set-update-policy">#set-update-policy</a> · changelog 2.1.321（<code>restore-set-aside</code> はリファレンス未掲載）· 実機確認 2.1.321（<code>--help</code>）</footer>
+</section>
+
+<section id="ch32-lockdown">
+  <h2>シード・許可リストと拒否リスト・信頼モデル</h2>
+  <div class="cols-2" style="grid-template-columns:1.62fr 1fr">
+    <div>
+<pre data-lang="json" class="compact">{
+  "strictKnownMarketplaces": [
+    { "source": "github", "repo": "anthropics/claude-plugins-official" },
+    { "source": "github", "repo": "your-org/*" },
+    { "source": "skills-dir" }
+  ],
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": { "source": "github", "repo": "anthropics/claude-plugins-official" }
+    },
+    "your-marketplace": {
+      "source": { "source": "github", "repo": "your-org/your-marketplace" }
+    }
+  },
+  "enabledPlugins": {
+    "code-formatter@your-marketplace": true,
+    "deploy-helper@your-marketplace": true
+  },
+  "disableSideloadFlags": true
+}</pre>
+    </div>
+    <ul class="small">
+      <li><strong>許可リスト</strong>は <code>repo</code>・<code>url</code>・<code>ref</code>・<code>path</code> の完全一致で、<code>owner/*</code>・<code>hostPattern</code>・<code>pathPattern</code> も使えます。<code>[]</code> は公式も閉じます。</li>
+      <li><strong>拒否リスト</strong>は先に評価され、git URL を正規化して照合します。</li>
+      <li><code>skills-dir</code> の無い許可リストは skills-dir プラグインも止めます。</li>
+      <li><strong>シード</strong>: ビルド時に <code>CLAUDE_CODE_PLUGIN_CACHE_DIR</code> で入れ、実行時に <code>CLAUDE_CODE_PLUGIN_SEED_DIR</code> で指します。読み取り専用です。</li>
+      <li><strong>信頼</strong>: 公式名は <code>github.com/anthropics/</code> 由来に限ります。フック・モニター・サーバーのプロセスはサンドボックス外で動き、MCP ツールの呼び出しと <code>bin/</code> の実行には権限ルールが効きます。</li>
+    </ul>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/plugins/org#allow-the-official-marketplace-and-your-own">plugins/org#allow-the-official-marketplace-and-your-own</a> · <a href="https://code.claude.com/docs/en/plugins/org#restrict-what-users-can-install">#restrict-what-users-can-install</a> · <a href="https://code.claude.com/docs/en/plugins/org#seed-containers-and-ci">#seed-containers-and-ci</a> · <a href="https://code.claude.com/docs/en/plugins/security">plugins/security</a></footer>
+</section>
+
+</section>

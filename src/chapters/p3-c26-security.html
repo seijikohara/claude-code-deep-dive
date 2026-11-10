@@ -1,0 +1,166 @@
+<section id="ch26" data-part="Part III 設定と安全" data-chapter="Ch26" data-title="セキュリティ">
+
+<section id="ch26-title" class="chapter-title">
+  <p class="chapter-label">26</p>
+  <h1>セキュリティ</h1>
+  <p class="chapter-summary">Claude Code が組み込みで持つ保護とプロンプトインジェクション対策、評価ハーネス向けの <code>--restricted</code>、dev container と security-guidance プラグイン、データの学習・保持と ZDR を扱います。</p>
+  <!--CHAPTER-TOC-->
+</section>
+
+<section id="ch26-model">
+  <h2>セキュリティモデルとプロンプトインジェクション対策</h2>
+  <div class="cols-2">
+    <div>
+      <h3>組み込みの保護</h3>
+      <ul class="small">
+        <li><strong>作業ディレクトリ境界</strong>: Manual mode ではファイルツールが起動ディレクトリ外を読み書きする前に確認します。境界は確認にすぎず、承認した Bash コマンドはユーザー権限の範囲に書けます。</li>
+        <li><strong>ネットワークコマンド</strong>: <code>curl</code>・<code>wget</code> は既定で自動承認されません。</li>
+        <li><strong>Web ページ要約</strong>: WebFetch は多くの場合、別のモデル呼び出しの回答を Claude に渡し、生のページは渡しません。</li>
+        <li><strong>信頼確認</strong>: 対話セッションは信頼ダイアログと <code>.mcp.json</code> 承認を出します。<code>-p</code> はどちらも出しません。</li>
+        <li><strong>インジェクション検出・フェイルクローズ</strong>: Manual mode では解析しきれないコマンドと、どのルールにも一致しないコマンドを確認します。<code>Bash(git *)</code> のような部分一致の allow では省略されません。</li>
+        <li><strong>認証情報</strong>: macOS は Keychain、Linux はモード <code>0600</code> のファイルに保管します。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>auto mode 側の対策（<a href="#/ch24-decision-order">Ch24</a>）</h3>
+      <ul class="small">
+        <li>分類器へのリクエストからツール結果を除き、読んだ内容が分類器を直接操作できないようにします。</li>
+        <li>サーバー側のプローブが、Claude が読む前のツール結果を走査します。</li>
+        <li>サブエージェントの最終報告を、親が読む前に分類器が確認します。</li>
+      </ul>
+      <h3>MCP・クラウド・報告</h3>
+      <ul class="small">
+        <li>Anthropic は MCP サーバーのセキュリティ監査をしません。<code>.mcp.json</code> だけでは読み込まれる全サーバーは分かりません。</li>
+        <li>クラウドセッションの GitHub 資格情報は VM に入りません。</li>
+        <li>脆弱性は公開せず HackerOne で報告します。</li>
+      </ul>
+      <p class="small muted">保護の多くは「Manual mode では」と条件付きです。対話セッションの組み込み開始モードは auto です（<a href="#/ch23-starting-mode">Ch23</a>）。</p>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/security#built-in-protections">security#built-in-protections</a> · <a href="https://code.claude.com/docs/en/security#protect-against-prompt-injection">#protect-against-prompt-injection</a> · <a href="https://code.claude.com/docs/en/security#mcp-security">#mcp-security</a> · <a href="https://code.claude.com/docs/en/security#cloud-execution-security">#cloud-execution-security</a> · <a href="https://code.claude.com/docs/en/permission-modes#how-the-classifier-evaluates-actions">permission-modes#how-the-classifier-evaluates-actions</a></footer>
+</section>
+
+<section id="ch26-restricted">
+  <h2><code>--restricted</code>: 共有マシンで評価ハーネスを動かすとき</h2>
+  <div class="cols-2">
+    <table class="dense">
+      <thead><tr><th style="width:34%">対象</th><th>restricted mode での扱い</th></tr></thead>
+      <tbody>
+        <tr><td>コードを実行する組み込みツールと WebFetch</td><td>削除。<code>--tools</code> で個別に名前を挙げた場合だけ残る（<code>default</code> プリセットでは戻らない）</td></tr>
+        <tr><td>設定ファイル</td><td>managed settings と <code>--settings</code> だけ読む。user・project・local は無視</td></tr>
+        <tr><td>MCP サーバー</td><td><code>--strict-mcp-config</code> を併用するとスキップ（help の記述）</td></tr>
+        <tr><td>ファイルツール</td><td>作業ディレクトリ（<code>--add-dir</code> を含む）に限定</td></tr>
+        <tr><td><code>bypassPermissions</code></td><td>拒否</td></tr>
+        <tr><td>保護パスへの書き込み</td><td>分類器は承認できない。人か、設定した permission handler だけが承認できる</td></tr>
+        <tr><td>auto memory・subagent memory の <code>.md</code></td><td>保護パスの例外から外れる</td></tr>
+        <tr><td>クラウドセッションの作成</td><td>拒否</td></tr>
+        <tr><td>セッション間メッセージングのソケット</td><td>開かない（2.1.290 の修正）</td></tr>
+      </tbody>
+    </table>
+    <div>
+      <pre data-lang="bash" class="compact">claude --restricted -p "query"
+CLAUDE_CODE_RESTRICTED=1 claude -p "query"</pre>
+      <ul class="small">
+        <li>v2.1.248 以降で使えます。<code>CLAUDE_CODE_RESTRICTED</code> は設定ファイルの <code>env</code> ブロックでは無視されます。</li>
+        <li>クラウドセッションを作ろうとすると <code>Cloud sessions cannot be created from a --restricted session: they would not enforce it.</code> で拒否されます。</li>
+        <li>実機の <code>-p</code> では <code>Bash</code>・<code>Monitor</code>・<code>CronCreate</code>・<code>RemoteTrigger</code>・<code>Workflow</code> が消え、<code>Glob</code>・<code>Grep</code> が現れました。docs は「コードを実行するツール」という一般的な表現だけです。init の詳細は <a href="#/ch44">Ch44</a> が扱います。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/cli-reference#cli-flags">cli-reference#cli-flags</a> · <a href="https://code.claude.com/docs/en/permission-modes#protected-paths">permission-modes#protected-paths</a> · <a href="https://code.claude.com/docs/en/env-vars">env-vars</a> · <a href="https://code.claude.com/docs/en/errors#cloud-sessions-cannot-be-created-from-a-restricted-session">errors</a> · <code>claude --help</code> · changelog 2.1.248, 2.1.290 · 実機確認 2.1.321</footer>
+</section>
+
+<section id="ch26-devcontainer">
+  <h2>dev container: コンテナで隔離して動かす</h2>
+  <div class="cols-2">
+    <div>
+      <pre data-lang="json" class="compact">{
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  }
+}</pre>
+      <ul class="small">
+        <li><code>:1.0</code> が固定するのは feature のインストールスクリプトで、Claude Code のリリースではありません。コンテナ内でも既定で自動更新します。</li>
+        <li>バージョンを固定するには、Dockerfile で <code>npm install -g @anthropic-ai/claude-code@X.Y.Z</code> を実行し、<code>containerEnv</code> に <code>DISABLE_AUTOUPDATER=1</code> を設定します。</li>
+        <li>再ビルドで認証を失わないよう、<code>~/.claude</code> に名前付きボリュームをマウントし、<code>CLAUDE_CONFIG_DIR</code> を同じパスに設定します。</li>
+      </ul>
+    </div>
+    <div>
+      <ul class="small">
+        <li><strong>組織ポリシー</strong>: Dockerfile で <code>/etc/claude-code/managed-settings.json</code> へコピーできます。ただしリポジトリに書き込める人なら誰でもこの手順を消せます。回避されたくない場合は server-managed settings か MDM で配ります（<a href="#/ch58">Ch58</a>）。</li>
+        <li><strong>通信制限</strong>: 参照用コンテナの <code>init-firewall.sh</code> が外向き通信を許可先に絞ります。<code>runArgs</code> で <code>NET_ADMIN</code> と <code>NET_RAW</code> を付けます。</li>
+        <li><strong>確認なしの実行</strong>: 非 root ユーザーで動くので <code>--dangerously-skip-permissions</code> を渡せます。root で起動すると CLI は拒否します。</li>
+        <li>参照用コンテナは「保守されたベースイメージではなく動作例」とされています。</li>
+      </ul>
+      <div class="callout warn">
+        <p class="small"><code>--dangerously-skip-permissions</code> で動かすと、悪意のあるプロジェクトがコンテナ内で読めるもの（<code>~/.claude</code> の認証情報を含む）を持ち出すことは防げません。<code>~/.ssh</code> やクラウドの資格情報ファイルをマウントしないでください。</p>
+      </div>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/devcontainer">devcontainer</a>（Add Claude Code / Persist authentication / Enforce organization policy / Restrict network egress / Run without permission prompts）</footer>
+</section>
+
+<section id="ch26-security-guidance">
+  <h2>security-guidance プラグイン: 書いたコードを自分で見直させる</h2>
+  <div class="cols-2">
+    <div>
+      <pre data-lang="text" class="compact">/plugin install security-guidance@claude-plugins-official</pre>
+      <table class="dense">
+        <thead><tr><th style="width:24%">時点</th><th style="width:30%">フック</th><th>内容</th></tr></thead>
+        <tbody>
+          <tr><td>ファイル編集ごと</td><td><code>PostToolUse</code>（Edit・Write・NotebookEdit）</td><td>パターン照合。モデル呼び出しなし。<code>eval(</code>、<code>pickle</code>、<code>.innerHTML =</code>、<code>.github/workflows/</code> の編集など</td></tr>
+          <tr><td>ターン終了ごと</td><td><code>Stop</code>（バックグラウンド）</td><td>そのターンの git diff を別の Claude が確認。1 ターン 30 ファイルまで</td></tr>
+          <tr><td>Claude の commit・push</td><td><code>PostToolUse</code>（Bash を絞り込み）</td><td>周辺コードも読むエージェント型レビュー。1 時間あたり 20 回まで</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <ul class="small">
+        <li>独自ルールは追加のみです。<code>.claude/claude-security-guidance.md</code>（合計 8 KB まで）と <code>.claude/security-patterns.yaml</code>（50 ルールまで）を置きます。</li>
+        <li>レビューは既定で Opus です。<code>SECURITY_REVIEW_MODEL</code> と <code>SG_AGENTIC_MODEL</code> で変えられます。</li>
+        <li>Python 3.7 以降が必要です。commit レビューと、サードパーティプロバイダでのモデルレビューは 3.10 以降が必要です。</li>
+        <li>層ごとに <code>ENABLE_PATTERN_RULES=0</code>・<code>ENABLE_STOP_REVIEW=0</code>・<code>ENABLE_COMMIT_REVIEW=0</code> で止められます。全体は <code>SECURITY_GUIDANCE_DISABLE=1</code> です。</li>
+        <li>全プランで使えます。クラウドセッションは user やリポジトリの設定からはプラグインを読み込みません。</li>
+      </ul>
+      <div class="callout note">
+        <p class="small">どの層も書き込みや commit を<strong>止めません</strong>。指摘は Claude への指示として届くだけです。確実に止めるには、編集をブロックするフックと組み合わせます。</p>
+      </div>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/security-guidance">security-guidance</a>（What the plugin checks / Add your own rules / Usage cost / Disable or uninstall）</footer>
+</section>
+
+<section id="ch26-data">
+  <h2>データの学習・保持と ZDR</h2>
+  <div class="cols-2">
+    <div>
+      <table class="dense">
+        <thead><tr><th style="width:20%">項目</th><th>コンシューマー（Free・Pro・Max・Ultra）</th><th>商用（Team・Enterprise・API）</th></tr></thead>
+        <tbody>
+          <tr><td>学習</td><td>設定がオンなら学習に使う</td><td>使わない。Development Partner Program などで提供を選んだ場合を除く</td></tr>
+          <tr><td>保持</td><td>オン 5 年、オフ 30 日</td><td>標準 30 日。ZDR は資格のある Enterprise のみ</td></tr>
+        </tbody>
+      </table>
+      <ul class="small">
+        <li><code>/feedback</code>・<code>/bug</code>・<code>/share</code> で送ったトランスクリプトは 5 年保持されます。</li>
+        <li>ローカルのトランスクリプトは <code>~/.claude/projects/</code> に平文で 30 日保存されます。期間は <code>cleanupPeriodDays</code> で変えます。</li>
+        <li>Bedrock・Agent Platform・Foundry・Claude Platform on AWS では、メトリクス・エラー報告・<code>/feedback</code> が既定で無効です。WebFetch のドメイン安全確認はプロバイダによらず、ホスト名だけを <code>api.anthropic.com</code> に送ります（<code>skipWebFetchPreflight</code> で無効化）。</li>
+        <li>テレメトリの無効化は <a href="#/ch61">Ch61</a> が扱います。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Zero Data Retention（ZDR）</h3>
+      <ul class="small">
+        <li>Claude for Enterprise の資格を満たすアカウント向けです。標準プランには含まれず、管理画面からは有効にできません。アカウントチームに依頼し、組織ごとに有効化します。</li>
+        <li>対象は Anthropic 直接プラットフォームでの Claude Code の推論です。ZDR 組織へのログインを強制するには、managed の <code>forceLoginMethod</code> と <code>forceLoginOrgUUID</code> を使います。</li>
+        <li>無効になる機能: クラウドセッション（Desktop から開始したものを含む）、Chat と Cowork の統合、Claude Tag、Artifacts、<code>/feedback</code>・<code>/bug</code>・<code>/share</code>、Remote Control。</li>
+        <li>Fable モデルは既定でデータ保持が必要です。ZDR 下では <code>best</code> エイリアスは Opus に解決します。</li>
+        <li>ポリシー違反とされたセッションは、ZDR でも最長 2 年保持されることがあります。</li>
+      </ul>
+    </div>
+  </div>
+  <footer class="src">出典: <a href="https://code.claude.com/docs/en/data-usage#data-training-policy">data-usage#data-training-policy</a> · <a href="https://code.claude.com/docs/en/data-usage#data-retention">#data-retention</a> · <a href="https://code.claude.com/docs/en/data-usage#default-behaviors-by-api-provider">#default-behaviors-by-api-provider</a> · <a href="https://code.claude.com/docs/en/zero-data-retention">zero-data-retention</a></footer>
+</section>
+
+</section>
