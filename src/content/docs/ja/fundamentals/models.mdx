@@ -34,7 +34,7 @@ import { Badge } from "@astrojs/starlight/components";
 | 自動の切り替え     | `opusplan`, `fallbackModel`, 安全分類器によるフォールバック                                |
 | サブエージェント   | 呼び出し時の `model`, frontmatter, `CLAUDE_CODE_SUBAGENT_MODEL`                            |
 
-関連: effort は [Ch3](/claude-code-deep-dive/ja/fundamentals/effort/)、fast mode は [Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/)、Advisor は [Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/)、auto-compact window は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/)、プロバイダ固有の設定は [Ch59](/claude-code-deep-dive/ja/enterprise/providers/)。
+関連: effort は [Effort と思考](/claude-code-deep-dive/ja/fundamentals/effort/)、fast mode は [Fast mode](/claude-code-deep-dive/ja/fundamentals/fast-mode/)、Advisor は [Advisor](/claude-code-deep-dive/ja/fundamentals/advisor/)、auto-compact window は [コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/)、プロバイダ固有の設定は [クラウドプロバイダ](/claude-code-deep-dive/ja/enterprise/providers/)。
 
 <div class="src">
   出典: [model-config#available-models](https://code.claude.com/docs/en/model-config#available-models) · [#checking-your-current-model](https://code.claude.com/docs/en/model-config#checking-your-current-model)
@@ -114,7 +114,7 @@ fable[1m]  model= claude-fable-5-2 …
 | 2.1.197 | `sonnet` → Sonnet 5（Anthropic API）                                         |
 | 2.1.154 | `opus` → Opus 4.8（Anthropic API）                                           |
 
-プロバイダごとの設定手順は [Ch59](/claude-code-deep-dive/ja/enterprise/providers/) を参照してください。
+プロバイダごとの設定手順は [クラウドプロバイダ](/claude-code-deep-dive/ja/enterprise/providers/) を参照してください。
 
 <div class="src">
   出典: [model-config#model-aliases](https://code.claude.com/docs/en/model-config#model-aliases) · [#default-model-setting](https://code.claude.com/docs/en/model-config#default-model-setting) · [#version-history](https://code.claude.com/docs/en/model-config#version-history)
@@ -161,10 +161,10 @@ fable[1m]  model= claude-fable-5-2 …
 changelog が示す Claude Code のコスト計算用の単価です。docs のページには標準価格の表がありません。Opus 5・Opus 4.8 の標準価格は記載がありません。
 
 - Anthropic API の 1M コンテキストは標準価格で、200K を超えた分の割増はありません。例外は Haiku 5.5 で、100K トークンを超えるプロンプトは単価が上がります。
-- fast mode の単価（Fable 5.2 は $16 / $80 など）は [Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/) を参照してください。
+- fast mode の単価（Fable 5.2 は $16 / $80 など）は [Fast mode](/claude-code-deep-dive/ja/fundamentals/fast-mode/) を参照してください。
 - `/model` ピッカーの価格は、Anthropic API に直接、またはそれを中継する LLM ゲートウェイ経由で接続したときだけ表示されます。Bedrock などのサードパーティプロバイダと Claude apps gateway では表示されません。
 - ピッカーの価格は表示用のラベルです。選ばれるモデルや請求額には影響しません。
-- セッションのコスト表示（`/usage`）と契約単価の設定（`modelPricing`）は [Ch61](/claude-code-deep-dive/ja/enterprise/monitoring-costs/) で扱います。
+- セッションのコスト表示（`/usage`）と契約単価の設定（`modelPricing`）は [監視・コスト・分析](/claude-code-deep-dive/ja/enterprise/monitoring-costs/) で扱います。
 
 <div class="src">
   出典: [changelog](https://code.claude.com/docs/en/changelog) 2.1.243 / 2.1.257 / 2.1.280 / 2.1.284 / 2.1.293 / 2.1.296 / 2.1.321 · [model-config#extended-context](https://code.claude.com/docs/en/model-config#extended-context) · [#setting-your-model](https://code.claude.com/docs/en/model-config#setting-your-model)
@@ -222,7 +222,7 @@ stream-json の init 行から抜粋。`--setting-sources project`、到達し�
 ### `/model`
 
 - `/model <name>` は即座に切り替え、user 設定の `model` に既定として保存します。
-- 引数なしでピッカーを開きます。<kbd>Enter</kbd> は切り替えて保存、<kbd>s</kbd> はこのセッションだけです（`modelPicker:thisSessionOnly` で変更可）。左右キーで effort も変えられます（[Ch3](/claude-code-deep-dive/ja/fundamentals/effort/)）。
+- 引数なしでピッカーを開きます。<kbd>Enter</kbd> は切り替えて保存、<kbd>s</kbd> はこのセッションだけです（`modelPicker:thisSessionOnly` で変更可）。左右キーで effort も変えられます（[Effort と思考](/claude-code-deep-dive/ja/fundamentals/effort/)）。
 - `-p` の `/model` はセッション限りで保存しません（v2.1.205 以降）。
 - 切り替えは、メイン会話のモデルを継承するサブエージェントにも及びます。
 
@@ -274,7 +274,7 @@ export ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES='effort,xhigh_effort,
 
 値は完全なモデル名かプロバイダの ID です（Bedrock なら `us.anthropic.claude-opus-4-8`）。
 
-- サードパーティでは展開前のピン留めが推奨です。未設定時の既定 ID が使えないと、Bedrock・Agent Platform は通知して古い版へ戻ります。Foundry は docs ではエラーですが、changelog 2.1.314 では同じファミリーの古い版へ戻ります（[Ch59](/claude-code-deep-dive/ja/enterprise/providers/)）。
+- サードパーティでは展開前のピン留めが推奨です。未設定時の既定 ID が使えないと、Bedrock・Agent Platform は通知して古い版へ戻ります。Foundry は docs ではエラーですが、changelog 2.1.314 では同じファミリーの古い版へ戻ります（[クラウドプロバイダ](/claude-code-deep-dive/ja/enterprise/providers/)）。
 - 設定すると、ピッカーはそのファミリーの組み込み行の代わりに 1 行だけ出します。`/model opus[1m]` はピン留めしたモデルに `[1m]` を付けます。`[1m]` は変数ごとに読まれ、送信前に外されます。
 - `_NAME`・`_DESCRIPTION` は表示を、`_SUPPORTED_CAPABILITIES` は能力（列挙したものだけ ON）を決めます。サードパーティで効き、前の 2 つは LLM ゲートウェイでも効きます。
 - 実機: `ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-4-8` と `--model opus` で、init の `model` は `claude-opus-4-8` でした。
@@ -325,7 +325,7 @@ export ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES='effort,xhigh_effort,
 - 同じファミリーの具体的なエントリがあると、そのファミリーのワイルドカードは無効になります。managed のリストは下位スコープを置き換えます。
 - Default オプションまで縛るには `enforceAvailableModels: true` を併用します（v2.1.175 以降）。
 - `deniedModels` と `availableModelsMatch: "exact"` は managed 専用で v2.1.283 以降です。上の例は Opus 5.5 をどの表記でもブロックします。
-- Enterprise の組織モデル制限（v2.1.187 以降）は別に効きます。Haiku は無効にできません。配布方法は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/)。
+- Enterprise の組織モデル制限（v2.1.187 以降）は別に効きます。Haiku は無効にできません。配布方法は [管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/)。
 
 | ブロックされた指定                    | 扱い                                                               |
 | ------------------------------------- | ------------------------------------------------------------------ |
@@ -354,14 +354,14 @@ $ claude -p --model opus --settings \
 - plan mode の間は `opus`、実行時は自動で `sonnet` に切り替わるハイブリッドなエイリアスです。`/model opusplan`、`--model opusplan`、`"model": "opusplan"` で指定します。
 - 2 つのフェーズの解決先は、`ANTHROPIC_DEFAULT_OPUS_MODEL` と `ANTHROPIC_DEFAULT_SONNET_MODEL` で決まります。
 - 各フェーズのコンテキストは `opus` と `sonnet` と同じです。Anthropic API の現行モデルは両方とも 1M です。そうでない場合は `opusplan[1m]` を指定します（`/model` での指定は v2.1.265 以降）。
-- plan mode の切り替えはモデルの切り替えなので、そのたびにプロンプトキャッシュが新しくなります（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/)）。
+- plan mode の切り替えはモデルの切り替えなので、そのたびにプロンプトキャッシュが新しくなります（[コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/)）。
 
 * `availableModels` が最新の Opus を除外し古い版を許可している場合（例: `["sonnet", "claude-opus-4-6"]`）、計画には許可された最新の Opus を使います。Opus がすべて除外なら Sonnet のままです。
 * 同様に、Haiku のセッションが plan mode で Sonnet に上がる場合は、許可された最新の Sonnet を使います。
 * 古い版への置き換えは Anthropic API と Platform on AWS だけです。Bedrock・Agent Platform・Foundry・Mantle では、除外されていれば plan mode でもセッションのモデルのままです。
 * Enterprise で `/model` の選択をアカウントに記録している場合、`opusplan` を選んでも記録は変わりません。
 
-実機では、`-p`（plan mode 外）の init の `model` は `claude-sonnet-5-5` でした。判断の要所だけ強いモデルに相談する方法は [Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/) を参照してください。
+実機では、`-p`（plan mode 外）の init の `model` は `claude-sonnet-5-5` でした。判断の要所だけ強いモデルに相談する方法は [Advisor](/claude-code-deep-dive/ja/fundamentals/advisor/) を参照してください。
 
 <div class="src">
   出典: [model-config#opusplan-model-setting](https://code.claude.com/docs/en/model-config#opusplan-model-setting) · [#environment-variables](https://code.claude.com/docs/en/model-config#environment-variables) · [prompt-caching#switching-models](https://code.claude.com/docs/en/prompt-caching#switching-models) · 実機確認 2.1.321
@@ -396,7 +396,7 @@ $ claude -p --model opus --settings \
 - `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`（v2.1.257 以降）は、サブエージェント・チームメイト・workflow エージェントの frontmatter と呼び出し時の指定を無視させます。
 - FORCE だけを設定すると、メイン会話のモデルになります。ただし組み込みの Explore は自分のモデルのままです。
 - フォークと、`model: inherit` でサブエージェント実行する Skill は、常にメイン会話のモデルです。
-- 実際のモデルは `/tasks` の行で確認できます（v2.1.242 以降）。サブエージェント自体は [Ch37](/claude-code-deep-dive/ja/parallel/subagents/)。
+- 実際のモデルは `/tasks` の行で確認できます（v2.1.242 以降）。サブエージェント自体は [サブエージェント](/claude-code-deep-dive/ja/parallel/subagents/)。
 
 <div class="src">
   出典: [sub-agents#choose-a-model](https://code.claude.com/docs/en/sub-agents#choose-a-model) · [#run-every-subagent-on-one-model](https://code.claude.com/docs/en/sub-agents#run-every-subagent-on-one-model) · [model-config#environment-variables](https://code.claude.com/docs/en/model-config#environment-variables)
@@ -425,7 +425,7 @@ claude --fallback-model sonnet,haiku
 * `availableModels` の外のエントリは読み込み時に除かれます。
 * 圧縮（compaction）にも適用されますが、主モデルよりコンテキストが小さいモデルには切り替えません。
 * サブエージェントにも適用されます（v2.1.247 以降）。セッションのモデルは変わりません。
-* 切り替えたターンは、キャッシュのない状態で始まります（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/)）。
+* 切り替えたターンは、キャッシュのない状態で始まります（[コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/)）。
 
 <div class="src">
   出典: [model-config#fallback-model-chains](https://code.claude.com/docs/en/model-config#fallback-model-chains) · [settings-reference#fallbackmodel](https://code.claude.com/docs/en/settings-reference#fallbackmodel) · [cli-reference](https://code.claude.com/docs/en/cli-reference)
@@ -496,7 +496,7 @@ claude --fallback-model sonnet,haiku
 | API・従量課金                | 利用可                   | 利用可               |
 
 - Haiku 5.5 は、Anthropic API ではすべてのプランで 1M です。
-- ネイティブ 1M のモデルは、既定で約 967K トークンで自動圧縮します。ゲートウェイが 200K で止まる場合は `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` を設定します。auto-compact window の設定経路と優先順位は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/) で扱います。
+- ネイティブ 1M のモデルは、既定で約 967K トークンで自動圧縮します。ゲートウェイが 200K で止まる場合は `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` を設定します。auto-compact window の設定経路と優先順位は [コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/) で扱います。
 
 <div class="src">
   出典: [model-config#extended-context](https://code.claude.com/docs/en/model-config#extended-context) · [#turn-off-1m-context](https://code.claude.com/docs/en/model-config#turn-off-1m-context) · [#context-window-behind-an-llm-gateway](https://code.claude.com/docs/en/model-config#context-window-behind-an-llm-gateway) · [#correct-the-window-for-a-gateway-or-custom-model-id](https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id) · [#haiku-5-5-context-window-and-pricing](https://code.claude.com/docs/en/model-config#haiku-5-5-context-window-and-pricing)

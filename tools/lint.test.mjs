@@ -11,12 +11,25 @@ import {
   checkCoverage,
   checkSources,
   checkLinks,
+  checkChapterNumbers,
 } from "./lib/lint-rules.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = (name) => readFileSync(join(here, "fixtures", name), "utf8");
 const deck = fixture("lint-deck.html");
 const HOOKS = { hookEvents: ["PreToolUse", "PostToolUse"] };
+
+await test("chapter numbers and appendix letters are reported in site pages", () => {
+  const pages = [
+    [
+      "/ja/a/",
+      '<meta name="description" content="詳細は Ch18 を参照"><p>全件は <a href="/x/">付録 A</a></p>',
+    ],
+    ["/ja/b/", '<p>詳細は <a href="/x/#ch18-merge">設定ファイル</a></p><p id="ch06-cache">Ch</p>'],
+    ["/ja/c/", "<script>const Ch1 = 1;</script><style>.Ch2{}</style><code>xCh3</code>"],
+  ];
+  assert.deepEqual(checkChapterNumbers(pages), ["/ja/a/: Ch18", "/ja/a/: 付録 A"]);
+});
 
 const find = (ids, kind, value) => ids.find((i) => i.kind === kind && i.value === value);
 const values = (ids, kind) => ids.filter((i) => i.kind === kind).map((i) => i.value);

@@ -156,7 +156,7 @@ managed-settings.json の例: `{ "autoUpdatesChannel": "stable", "minimumVersion
 | `DISABLE_UPDATES=1`                         | 手動の `claude update`・`claude install` を含む全経路（2.1.118 から）。自前の経路で配り、利用者に自己更新させないときに使う |
 | `CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE=1` | 逆に有効化する。Homebrew・WinGet でアップグレードを自動実行し、再起動を促す（2.1.129 から）                                 |
 | `FORCE_AUTOUPDATE_PLUGINS=1`                | 止めない。`DISABLE_AUTOUPDATER` の下でもプラグインの自動更新を続ける                                                        |
-| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`  | 自動更新を含む不要な通信全体（[Ch60](/claude-code-deep-dive/ja/enterprise/network-gateways/#ch60-allowlist)）               |
+| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`  | 自動更新を含む不要な通信全体（[ネットワークとゲートウェイ](/claude-code-deep-dive/ja/enterprise/network-gateways/#ch60-allowlist)）               |
 
 設定では `"env": { "DISABLE_AUTOUPDATER": "1" }` と書きます。ネイティブ版と npm 版では、`claude doctor` の `Auto-updates` 行が `disabled (set by env: DISABLE_AUTOUPDATER)` になれば反映済みです。
 

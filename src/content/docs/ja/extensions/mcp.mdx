@@ -15,13 +15,13 @@ Model Context Protocol（MCP）で外部のツールやデータを Claude Code 
 
 ### 接続したサーバーが提供するもの
 
-- **ツール**: `mcp__<server>__<tool>` の名前で Claude に渡ります。プラグインのサーバーは `mcp__plugin_<plugin-name>_<server-name>__<tool-name>` です（[Ch31](/claude-code-deep-dive/ja/extensions/plugins/)）。
+- **ツール**: `mcp__<server>__<tool>` の名前で Claude に渡ります。プラグインのサーバーは `mcp__plugin_<plugin-name>_<server-name>__<tool-name>` です（[プラグイン](/claude-code-deep-dive/ja/extensions/plugins/)）。
 - **リソース**: `@server:protocol://resource/path` で参照します。
 - **プロンプト**: `/servername:promptname (MCP)` としてコマンドになります。
 - **elicitation**: サーバーが作業の途中で入力を求めるダイアログです。
-- **channel**: サーバーがセッションへメッセージを送り込みます。`--channels` で有効にします（[Ch34](/claude-code-deep-dive/ja/extensions/channels/)）。
+- **channel**: サーバーがセッションへメッセージを送り込みます。`--channels` で有効にします（[Channels](/claude-code-deep-dive/ja/extensions/channels/)）。
 
-tool search が既定で有効です。起動時に読み込むのはツール名とサーバーの instructions だけで、定義は必要になったときに読み込みます。MCP ツールの権限ルールは [Ch22](/claude-code-deep-dive/ja/settings/permission-rules/) で扱います。
+tool search が既定で有効です。起動時に読み込むのはツール名とサーバーの instructions だけで、定義は必要になったときに読み込みます。MCP ツールの権限ルールは [権限ルール](/claude-code-deep-dive/ja/settings/permission-rules/) で扱います。
 
 ### サーバーの出どころ
 
@@ -34,7 +34,7 @@ tool search が既定で有効です。起動時に読み込むのはツール�
 | 組織が追加で提供     | managed settings の `managedMcpServers`                                                       |
 | 組織が固定（排他）   | システムパスの `managed-mcp.json`                                                             |
 | 実行単位             | `--mcp-config`、Agent SDK の `mcpServers`                                                     |
-| サブエージェント     | エージェントファイル内の inline 定義（[Ch37](/claude-code-deep-dive/ja/parallel/subagents/)） |
+| サブエージェント     | エージェントファイル内の inline 定義（[サブエージェント](/claude-code-deep-dive/ja/parallel/subagents/)） |
 
 <div class="src">
   出典: [mcp](https://code.claude.com/docs/en/mcp) · [mcp#plugin-provided-mcp-servers](https://code.claude.com/docs/en/mcp#plugin-provided-mcp-servers) · [managed-mcp](https://code.claude.com/docs/en/managed-mcp)
@@ -553,7 +553,7 @@ ENABLE_TOOL_SEARCH=auto:5 claude
 
 - **Form** はサーバーが定義した入力欄、**URL** はブラウザで開くリンクの確認です。
 - URL はコマンドライン引数で渡すため長さに上限があり、エスケープ不要なら約 8,000 文字です（`%` 等は 4 文字分）。超えると Decline しかできません。
-- 自動応答は `Elicitation` フックで行います（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）。クラウドセッションではカードで答えます。
+- 自動応答は `Elicitation` フックで行います（[Hooks](/claude-code-deep-dive/ja/extensions/hooks/)）。クラウドセッションではカードで答えます。
 - 宣言は、2026-07-28 の接続と利用者が設定したサーバー（v2.1.287 以降）で `elicitation: {form: {}, url: {}}`、コネクタなどでは `elicitation: {}`（Form のみ）です。Java MCP SDK 0.17.0 以前は拒否することがあります。
 
 <div class="src">
@@ -596,7 +596,7 @@ ENABLE_TOOL_SEARCH=auto:5 claude
 - <span class="undocumented">オプションは `-d, --debug` と `--verbose` です（`--help` だけに記載）。</span>
 - Bash・PowerShell の結果の `backgroundOutputPath` は、実行中コマンドの出力ファイルです（v2.1.295 以降）。
 - `--mcp-config <configs...>` は JSON ファイルか文字列を空白区切りで受け取ります。`-p` では接続待ちのサーバーを最初のターンの前に最大 `MCP_TIMEOUT`（30 秒）待ちます（v2.1.221 以降）。
-- `--strict-mcp-config` は `--mcp-config` のサーバーだけを使い、他の MCP 設定を無視します。allow/deny リストはどちらでも効きます。`managed-mcp.json` との関係は [Managed MCP](/claude-code-deep-dive/ja/extensions/mcp/#ch30-managed)、`--bare`・`--restricted` は [Ch44](/claude-code-deep-dive/ja/automation/headless/) で扱います。
+- `--strict-mcp-config` は `--mcp-config` のサーバーだけを使い、他の MCP 設定を無視します。allow/deny リストはどちらでも効きます。`managed-mcp.json` との関係は [Managed MCP](/claude-code-deep-dive/ja/extensions/mcp/#ch30-managed)、`--bare`・`--restricted` は [ヘッドレス実行](/claude-code-deep-dive/ja/automation/headless/) で扱います。
 
 ```text title="実測 2.1.321" frame="terminal"
 $ claude -p "Reply with OK" --output-format stream-json \
@@ -647,7 +647,7 @@ MCP config file not found: <cwd>/Reply with OK
 }
 ```
 
-空のマップでも `managedMcpServers` などの許可分は読み込みます。ファイルは全員が読めるため、`env` に秘密を書かず `${VAR}`・OAuth・`headersHelper` を使います。配信経路は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
+空のマップでも `managedMcpServers` などの許可分は読み込みます。ファイルは全員が読めるため、`env` に秘密を書かず `${VAR}`・OAuth・`headersHelper` を使います。配信経路は [管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
 
 - 置き場所は `/Library/Application Support/ClaudeCode/`（macOS）、`/etc/claude-code/`（Linux・WSL）、`C:\Program Files\ClaudeCode\`（Windows）です。書式は `.mcp.json` と同じで、server-managed settings では配れません。
 - 読み込むのは、このファイル、`managedMcpServers`、起動元アプリの in-process サーバー、許可した Claude in Chrome だけです。

@@ -40,7 +40,7 @@ GitHub は github.com のみで、push 権限と Claude GitHub App が必要で�
 
 ## Projects: 自分のマシンでスレッドを動かす <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
-- ローカルのデータベースや VPN の内側の API が必要なタスクは、スレッドを自分のマシンで動かせます。スレッドは Remote Control でつないだフォルダの Claude Code セッションになります（[Ch49](/claude-code-deep-dive/ja/platforms/remote-control/)）。
+- ローカルのデータベースや VPN の内側の API が必要なタスクは、スレッドを自分のマシンで動かせます。スレッドは Remote Control でつないだフォルダの Claude Code セッションになります（[Remote Control とモバイル](/claude-code-deep-dive/ja/platforms/remote-control/)）。
 
 - マシン側には Claude Code v2.1.280 以降が必要です。フォルダをつなぐ方法は 2 つです。
 
@@ -142,7 +142,7 @@ claude remote-control --spawn worktree
 ### 旧版からの移行
 
 - Team・Enterprise では、既存の Slack アプリと `@Claude` のハンドルがそのまま残ります。チャンネル・ワークスペース・組織既定で Claude Tag をオンにします。
-- Claude Tag のセッションは server-managed settings を受け取らず、使う環境は組織共有かセルフホストの環境だけです（[Ch51](/claude-code-deep-dive/ja/platforms/self-hosted/)）。
+- Claude Tag のセッションは server-managed settings を受け取らず、使う環境は組織共有かセルフホストの環境だけです（[セルフホスト環境](/claude-code-deep-dive/ja/platforms/self-hosted/)）。
 
 <div class="src">
   出典: [claude-tag/users/commands](https://claude.com/docs/claude-tag/users/commands) · [slack](https://code.claude.com/docs/en/slack) · [cloud-environments#what-carries-over-from-your-setup](https://code.claude.com/docs/en/cloud-environments#what-carries-over-from-your-setup)

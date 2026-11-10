@@ -96,7 +96,7 @@ claude --debug-file /tmp/claude-debug.log
 - `--debug-file` はデバッグを有効にし、`CLAUDE_CODE_DEBUG_LOGS_DIR` より優先します。既定の出力先は `~/.claude/debug/<session-id>.txt` です。
 - `DEBUG=1` は `--debug` と同じです。`CLAUDE_CODE_DEBUG_LOGS_DIR` は名前に反してファイルパスで、単独では有効になりません。
 - セッションの途中からは `/debug [description]`（Skill）でログを取り始め、Claude にログを読ませて診断させます。
-- フックが発火しないときは `claude --debug` で、イベント、照合した matcher、終了コードと出力を確かめます（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）。
+- フックが発火しないときは `claude --debug` で、イベント、照合した matcher、終了コードと出力を確かめます（[Hooks](/claude-code-deep-dive/ja/extensions/hooks/)）。
 
 ```text title="実測 2.1.321" frame="terminal"
 $ claude -p --setting-sources project \
@@ -128,7 +128,7 @@ $ claude -p --setting-sources project \
 <Steps>
 
 1. `/status` で、読まれたファイルと managed の経路を確かめる。
-2. settings-reference でキーの「Per-session overrides」行を読み、フラグや環境変数が上書きしていないかを確かめる（[Ch18](/claude-code-deep-dive/ja/settings/settings-files/#ch18-per-key)）。
+2. settings-reference でキーの「Per-session overrides」行を読み、フラグや環境変数が上書きしていないかを確かめる（[設定ファイル](/claude-code-deep-dive/ja/settings/settings-files/#ch18-per-key)）。
 3. `claude doctor` で、不正として捨てられたファイルとエントリを確かめる。
 4. `--setting-sources` で読むファイルを 1 つずつ絞り、`-p --output-format stream-json --verbose` の init にある `model` や `permissionMode` を比べる。プロンプトを `/advisor` のようなローカルコマンドにすると、モデルへのリクエストは送られない（実測）。
 5. デバッグログで、どの設定パスが存在し、どれが無いかを確かめる。
@@ -161,7 +161,7 @@ $ claude -p --setting-sources project \
 
 ### `--bare`（`CLAUDE_CODE_SIMPLE=1`）
 
-- 自動検出を省き、ツールは `Bash`・`Read`・`Edit` だけです。診断よりスクリプト向けで、詳細は [Ch44](/claude-code-deep-dive/ja/automation/headless/) です。
+- 自動検出を省き、ツールは `Bash`・`Read`・`Edit` だけです。診断よりスクリプト向けで、詳細は [ヘッドレス実行](/claude-code-deep-dive/ja/automation/headless/) です。
 
 ### clean-config で再現させる
 

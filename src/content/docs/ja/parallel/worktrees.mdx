@@ -50,7 +50,7 @@ claude -w feature-auth --tmux
 | `worktree.baseRef`            | `"fresh"`（既定。`origin/<default-branch>` から）か `"head"`（ローカル HEAD。未 push のコミットを含む）。ブランチ名は不可             |
 | `worktree.symlinkDirectories` | メインから symlink するディレクトリ。例 `["node_modules", ".cache"]`                                                                  |
 | `worktree.sparsePaths`        | sparse-checkout するディレクトリ。`.claude` を含める。共有 `.git/config` で `extensions.worktreeConfig` が有効になる                  |
-| `worktree.bgIsolation`        | 背景セッションの隔離 <Badge text="Preview" variant="tip" size="small" class="badge preview" />。[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/#ch38-worktree) |
+| `worktree.bgIsolation`        | 背景セッションの隔離 <Badge text="Preview" variant="tip" size="small" class="badge preview" />。[Agent View とバックグラウンド](/claude-code-deep-dive/ja/parallel/agent-view/#ch38-worktree) |
 | `worktree.location`           | Desktop の SSH セッション専用。CLI は無視する                                                                                         |
 
 - `"fresh"` は、24 時間取得していなければ既定ブランチを取得します（上限 5 秒）。remote か `origin/HEAD` が無ければローカル HEAD を使います。

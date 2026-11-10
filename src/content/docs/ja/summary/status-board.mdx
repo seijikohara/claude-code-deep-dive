@@ -15,35 +15,35 @@ import { Badge } from "@astrojs/starlight/components";
 
 ### <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />
 
-- Advisor（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/)）。docs 上は Anthropic API のみ
-- Agent Teams（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）。既定で無効
-- `--teammate-mode`（[Ch39](/claude-code-deep-dive/ja/parallel/agent-teams/)）
-- agent フック `type: "agent"`（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）。prompt フックは GA
-- サンドボックスの `network.tlsTerminate`（[Ch25](/claude-code-deep-dive/ja/settings/sandbox/)）
+- Advisor（[Advisor](/claude-code-deep-dive/ja/fundamentals/advisor/)）。docs 上は Anthropic API のみ
+- Agent Teams（[Agent Teams](/claude-code-deep-dive/ja/parallel/agent-teams/)）。既定で無効
+- `--teammate-mode`（[Agent Teams](/claude-code-deep-dive/ja/parallel/agent-teams/)）
+- agent フック `type: "agent"`（[Hooks](/claude-code-deep-dive/ja/extensions/hooks/)）。prompt フックは GA
+- サンドボックスの `network.tlsTerminate`（[サンドボックス](/claude-code-deep-dive/ja/settings/sandbox/)）
 
 ### <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" />
 
-- Opus 4.8 の fast mode（[Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）。2026-11-30 に削除予定
-- Claude Code in Slack（旧版）（[Ch55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)）
+- Opus 4.8 の fast mode（[Fast mode](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）。2026-11-30 に削除予定
+- Claude Code in Slack（旧版）（[Projects・Slack・Claude Tag](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)）
 
 ### <Badge text="Preview" variant="tip" size="small" class="badge preview" />
 
-- Agent view・バックグラウンドセッション（`claude agents`、`--bg`）、`/fork`（[Ch38](/claude-code-deep-dive/ja/parallel/agent-view/)）
-- Channels（[Ch34](/claude-code-deep-dive/ja/extensions/channels/)）
-- Computer use: CLI は macOS、Desktop は macOS と Windows（[Ch54](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）
-- フルスクリーン描画（[Ch17](/claude-code-deep-dive/ja/operation/display/)）
-- Ultrareview（`/code-review ultra`）（[Ch47](/claude-code-deep-dive/ja/automation/code-review/)）
-- Routines・クラウドのスケジュール実行（[Ch43](/claude-code-deep-dive/ja/parallel/scheduling/)）
-- Opus 5 の fast mode（[Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）
-- PowerShell ツール（[Ch21](/claude-code-deep-dive/ja/settings/tools/)）
+- Agent view・バックグラウンドセッション（`claude agents`、`--bg`）、`/fork`（[Agent View とバックグラウンド](/claude-code-deep-dive/ja/parallel/agent-view/)）
+- Channels（[Channels](/claude-code-deep-dive/ja/extensions/channels/)）
+- Computer use: CLI は macOS、Desktop は macOS と Windows（[Chrome と Computer use](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）
+- フルスクリーン描画（[表示とアクセシビリティ](/claude-code-deep-dive/ja/operation/display/)）
+- Ultrareview（`/code-review ultra`）（[コードレビュー](/claude-code-deep-dive/ja/automation/code-review/)）
+- Routines・クラウドのスケジュール実行（[スケジュール実行](/claude-code-deep-dive/ja/parallel/scheduling/)）
+- Opus 5 の fast mode（[Fast mode](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）
+- PowerShell ツール（[組み込みツール](/claude-code-deep-dive/ja/settings/tools/)）
 
 ### <Badge text="Removed" variant="danger" size="small" class="badge removed" />
 
-- Opus 4.7 の fast mode（2026-07-24）（[Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）
-- `/agents` ウィザード（2.1.198）（[Ch66](/claude-code-deep-dive/ja/summary/renames/)）
-- `/vim`、`/pr-comments`、`/ultraplan`（[Ch66](/claude-code-deep-dive/ja/summary/renames/)）
-- `TaskOutput` ツール（2.1.277）（[Ch66](/claude-code-deep-dive/ja/summary/renames/)）
-- OTel の `claude_code.safety_event`（2.1.312 で送信停止。docs には記載が残る）（[Ch61](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)）
+- Opus 4.7 の fast mode（2026-07-24）（[Fast mode](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）
+- `/agents` ウィザード（2.1.198）（[改名・廃止・削除](/claude-code-deep-dive/ja/summary/renames/)）
+- `/vim`、`/pr-comments`、`/ultraplan`（[改名・廃止・削除](/claude-code-deep-dive/ja/summary/renames/)）
+- `TaskOutput` ツール（2.1.277）（[改名・廃止・削除](/claude-code-deep-dive/ja/summary/renames/)）
+- OTel の `claude_code.safety_event`（2.1.312 で送信停止。docs には記載が残る）（[監視・コスト・分析](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)）
 
 <div class="src">
   出典: 各機能ページ冒頭の表記 — [advisor](https://code.claude.com/docs/en/advisor) · [agent-teams](https://code.claude.com/docs/en/agent-teams) · [hooks](https://code.claude.com/docs/en/hooks) · [agent-view](https://code.claude.com/docs/en/agent-view) · [channels](https://code.claude.com/docs/en/channels) · [computer-use](https://code.claude.com/docs/en/computer-use) · [fullscreen](https://code.claude.com/docs/en/fullscreen) · [ultrareview](https://code.claude.com/docs/en/ultrareview) · [routines](https://code.claude.com/docs/en/routines) · [fast-mode](https://code.claude.com/docs/en/fast-mode) · [tools-reference](https://code.claude.com/docs/en/tools-reference) · [slack](https://code.claude.com/docs/en/slack) · [commands](https://code.claude.com/docs/en/commands) · changelog 2.1.198, 2.1.277, 2.1.312
@@ -55,32 +55,32 @@ import { Badge } from "@astrojs/starlight/components";
 
 ### <Badge text="Beta" variant="note" size="small" class="badge beta" />
 
-- MCP tasks（[Ch30](/claude-code-deep-dive/ja/extensions/mcp/)）
-- Artifact テンプレート（[Ch35](/claude-code-deep-dive/ja/extensions/artifacts/)）
-- GitLab CI/CD（[Ch46](/claude-code-deep-dive/ja/automation/cicd/)）
-- Trusted Devices（[Ch49](/claude-code-deep-dive/ja/platforms/remote-control/)）
-- セルフホスト環境（[Ch51](/claude-code-deep-dive/ja/platforms/self-hosted/)）
-- Desktop の iOS Simulator ペイン、Linux 版 Desktop（[Ch52](/claude-code-deep-dive/ja/platforms/desktop/)）
-- JetBrains プラグイン（製品名が Claude Code \[Beta]）（[Ch53](/claude-code-deep-dive/ja/platforms/ide/)）
-- Projects、Claude Tag（[Ch55](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)）
-- OTel トレース（`ENABLE_BETA_TRACING_DETAILED`・`BETA_TRACING_ENDPOINT` を含む）、Contribution metrics（[Ch61](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)）
+- MCP tasks（[MCP](/claude-code-deep-dive/ja/extensions/mcp/)）
+- Artifact テンプレート（[Artifacts](/claude-code-deep-dive/ja/extensions/artifacts/)）
+- GitLab CI/CD（[CI/CD](/claude-code-deep-dive/ja/automation/cicd/)）
+- Trusted Devices（[Remote Control とモバイル](/claude-code-deep-dive/ja/platforms/remote-control/)）
+- セルフホスト環境（[セルフホスト環境](/claude-code-deep-dive/ja/platforms/self-hosted/)）
+- Desktop の iOS Simulator ペイン、Linux 版 Desktop（[Desktop](/claude-code-deep-dive/ja/platforms/desktop/)）
+- JetBrains プラグイン（製品名が Claude Code \[Beta]）（[IDE](/claude-code-deep-dive/ja/platforms/ide/)）
+- Projects、Claude Tag（[Projects・Slack・Claude Tag](/claude-code-deep-dive/ja/platforms/projects-slack-tag/)）
+- OTel トレース（`ENABLE_BETA_TRACING_DETAILED`・`BETA_TRACING_ENDPOINT` を含む）、Contribution metrics（[監視・コスト・分析](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)）
 
 ### 現在は GA（ラベルなし）
 
-- Auto mode（[Ch24](/claude-code-deep-dive/ja/settings/auto-mode/)）: What's New W13 では research preview
-- Dynamic workflows（[Ch41](/claude-code-deep-dive/ja/parallel/workflows/)）: What's New W22 では research preview
-- `/design`（[Ch12](/claude-code-deep-dive/ja/operation/commands/)）: What's New W34 では research preview
-- Remote Control（[Ch49](/claude-code-deep-dive/ja/platforms/remote-control/)）: What's New W34 で research preview を終了
-- Claude in Chrome（[Ch54](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）: 2.1.198 で GA
-- Fable 5.2・Opus 5.5 の fast mode（[Ch4](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）: 2.1.304 で Opus 5.5 の表記を外した
+- Auto mode（[Auto mode](/claude-code-deep-dive/ja/settings/auto-mode/)）: What's New W13 では research preview
+- Dynamic workflows（[Dynamic Workflows](/claude-code-deep-dive/ja/parallel/workflows/)）: What's New W22 では research preview
+- `/design`（[スラッシュコマンド完全ガイド](/claude-code-deep-dive/ja/operation/commands/)）: What's New W34 では research preview
+- Remote Control（[Remote Control とモバイル](/claude-code-deep-dive/ja/platforms/remote-control/)）: What's New W34 で research preview を終了
+- Claude in Chrome（[Chrome と Computer use](/claude-code-deep-dive/ja/platforms/chrome-computer-use/)）: 2.1.198 で GA
+- Fable 5.2・Opus 5.5 の fast mode（[Fast mode](/claude-code-deep-dive/ja/fundamentals/fast-mode/)）: 2.1.304 で Opus 5.5 の表記を外した
 
 Agent Teams は 2.1.32 で research preview として公開され、現在のページは experimental と記載しています。
 
 ### GA だが条件付きのもの
 
-- Mods（[Ch33](/claude-code-deep-dive/ja/extensions/mods/)）: 既定で有効。ターミナルは v2.1.287 以降
-- `claude plugin eval`（[Ch31](/claude-code-deep-dive/ja/extensions/plugins/)）: 本体は GA。manifest の `experimental` コンテナは「形が変わりうる」と記載
-- prompt フック（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）: GA。agent フックだけが Experimental
+- Mods（[Mods](/claude-code-deep-dive/ja/extensions/mods/)）: 既定で有効。ターミナルは v2.1.287 以降
+- `claude plugin eval`（[プラグイン](/claude-code-deep-dive/ja/extensions/plugins/)）: 本体は GA。manifest の `experimental` コンテナは「形が変わりうる」と記載
+- prompt フック（[Hooks](/claude-code-deep-dive/ja/extensions/hooks/)）: GA。agent フックだけが Experimental
 
 <div class="src">
   出典: [mcp](https://code.claude.com/docs/en/mcp) · [artifacts](https://code.claude.com/docs/en/artifacts) · [gitlab-ci-cd](https://code.claude.com/docs/en/gitlab-ci-cd) · [remote-control](https://code.claude.com/docs/en/remote-control) · [self-hosted-environments](https://code.claude.com/docs/en/self-hosted-environments) · [desktop-ios-simulator](https://code.claude.com/docs/en/desktop-ios-simulator) · [desktop-linux](https://code.claude.com/docs/en/desktop-linux) · [jetbrains](https://code.claude.com/docs/en/jetbrains) · [claude-projects](https://code.claude.com/docs/en/claude-projects) · [claude-tag](https://code.claude.com/docs/en/claude-tag) · [monitoring-usage](https://code.claude.com/docs/en/monitoring-usage) · [env-vars](https://code.claude.com/docs/en/env-vars) · [analytics](https://code.claude.com/docs/en/analytics) · [whats-new](https://code.claude.com/docs/en/whats-new)（W13・W22・W34） · [plugins/mods/overview](https://code.claude.com/docs/en/plugins/mods/overview) · [plugins/manifest-reference](https://code.claude.com/docs/en/plugins/manifest-reference) · changelog 2.1.32, 2.1.198, 2.1.304

@@ -1,11 +1,11 @@
 ---
 title: "設定ファイル"
-description: "Claude Code が読む設定ファイルの場所、優先順位、マージの規則を扱います。managed settings の配布と専用キーの詳細は Ch58 に任せ、この章ではファイルの重なり方だけを説明します。優先順位とマージは、空のディレクトリで -p を実行して確認しました。"
+description: "Claude Code が読む設定ファイルの場所、優先順位、マージの規則を扱います。managed settings の配布と専用キーの詳細は「管理設定」に任せ、この章ではファイルの重なり方だけを説明します。優先順位とマージは、空のディレクトリで -p を実行して確認しました。"
 sidebar:
   order: 18
 ---
 
-Claude Code が読む設定ファイルの場所、優先順位、マージの規則を扱います。managed settings の配布と専用キーの詳細は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) に任せ、この章ではファイルの重なり方だけを説明します。優先順位とマージは、空のディレクトリで `-p` を実行して確認しました。
+Claude Code が読む設定ファイルの場所、優先順位、マージの規則を扱います。managed settings の配布と専用キーの詳細は [管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/) に任せ、この章ではファイルの重なり方だけを説明します。優先順位とマージは、空のディレクトリで `-p` を実行して確認しました。
 
 <span id="ch18-overview" />
 
@@ -21,7 +21,7 @@ Claude Code が読む設定ファイルの場所、優先順位、マージの�
 
 - インストールしただけでは設定ファイルは作られません。`/config` で user 設定に保存される項目を変えると `~/.claude/settings.json` が、権限プロンプトで **Yes, and don't ask again** を選ぶと `.claude/settings.local.json` が作られます。
 - `/config` の保存先は、大半が `~/.claude/settings.json`、**Show tips** など一部が `.claude/settings.local.json`、global config が `~/.claude.json` です。`/config verbose=true` のように `key=value` でも設定できます。
-- 設定キーは 249 個です。索引のスコープ列の内訳は Any file 157、Managed 44、User or managed 31、User, local, or managed 4、User 1、Global config 12 です（[付録 A](/claude-code-deep-dive/ja/appendix/settings/)）。
+- 設定キーは 249 個です。索引のスコープ列の内訳は Any file 157、Managed 44、User or managed 31、User, local, or managed 4、User 1、Global config 12 です（[設定キー全件](/claude-code-deep-dive/ja/appendix/settings/)）。
 
 <div class="src">
   出典: [settings#settings-files-and-who-they-affect](https://code.claude.com/docs/en/settings#settings-files-and-who-they-affect) · [settings#use-the-/config-menu](https://code.claude.com/docs/en/settings#use-the-%2Fconfig-menu) · [settings-reference#settings-index](https://code.claude.com/docs/en/settings-reference#settings-index)
@@ -42,7 +42,7 @@ Claude Code が読む設定ファイルの場所、優先順位、マージの�
 - `CLAUDE_CONFIG_DIR` を設定すると、`~/.claude` 全体（設定、セッション履歴、プラグイン）を別の場所に置けます。
 - Windows の旧パス `C:\ProgramData\ClaudeCode\managed-settings.json` は読まれません。
 - managed のファイルはシンボリックリンクでも読まれます。リンク先がシステムディレクトリの外にあると、`/status` と `claude doctor` に警告が出ます（警告は 2.1.290 で追加）。
-- デバッグログでは、managed ファイル、`.claude/settings.json`、`.claude/settings.local.json` の順に存在を確かめる行が出ます（[Ch27](/claude-code-deep-dive/ja/settings/diagnostics/)）。
+- デバッグログでは、managed ファイル、`.claude/settings.json`、`.claude/settings.local.json` の順に存在を確かめる行が出ます（[診断](/claude-code-deep-dive/ja/settings/diagnostics/)）。
 
 <div class="src">
   出典: [managed-settings#where-each-mechanism-stores-the-policy](https://code.claude.com/docs/en/managed-settings#where-each-mechanism-stores-the-policy) · [settings#find-or-create-your-settings-files](https://code.claude.com/docs/en/settings#find-or-create-your-settings-files) · [changelog 2.1.290](https://code.claude.com/docs/en/changelog) · 実機確認 2.1.321
@@ -93,7 +93,7 @@ Claude Code が読む設定ファイルの場所、優先順位、マージの�
 - どの方式も `settings.json` と同じキーを運びます。MDM とファイルの 2 方式をまとめて endpoint-managed settings と呼びます。
 - Claude Desktop などの埋め込みホストは、SDK の `managedSettings` オプションでポリシーを追加できます。
 - クラウドセッションに届くのは server-managed settings だけです。デバイス上のファイルと MDM は届きません。
-- managed 専用キー、server-managed の承認ダイアログ、ポリシーが効いているかの確認手順は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
+- managed 専用キー、server-managed の承認ダイアログ、ポリシーが効いているかの確認手順は [管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
 
 <div class="src">
   出典: [managed-settings#choose-a-delivery-mechanism](https://code.claude.com/docs/en/managed-settings#choose-a-delivery-mechanism) · [settings#check-what-your-organization-enforces](https://code.claude.com/docs/en/settings#check-what-your-organization-enforces) · [settings#settings-in-cloud-sessions](https://code.claude.com/docs/en/settings#settings-in-cloud-sessions)
@@ -170,7 +170,7 @@ project に `{"model":"sonnet"}`、local に `{"model":"haiku"}` を置き、`-p
 | `autoCompactEnabled`      | `DISABLE_AUTO_COMPACT` とキーのどちらかが off にすると、もう一方では戻せない                      |
 
 - シェルの変数とキーの組ごとに、どちらを先に読むかが決まっています。各キーの「Per-session overrides」行に書かれています。
-- 設定ファイルの `env` ブロックは通常のキーなので、ファイルの段に従います（[Ch20](/claude-code-deep-dive/ja/settings/env-vars/)）。
+- 設定ファイルの `env` ブロックは通常のキーなので、ファイルの段に従います（[環境変数](/claude-code-deep-dive/ja/settings/env-vars/)）。
 
 | 起動のしかた                                                 | init の `model`     |
 | ------------------------------------------------------------ | ------------------- |

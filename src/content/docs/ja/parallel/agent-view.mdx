@@ -63,7 +63,7 @@ claude agents --permission-mode plan --model opus --effort high
 ```
 
 - dispatch 入力の `/effort` は `ultracode` を受け付けないので、このフラグで `--effort ultracode` を渡します。`--restricted`（v2.1.248 以降）と `--dangerously-skip-permissions` も使えます。
-- セッション内からは `/background`（別名 `/bg [prompt]`）で会話ごと背景へ送り、空のプロンプトで <kbd>←</kbd> を押すと背景へ送って agent view を開きます（`leftArrowOpensAgents`）。`/fork [prompt]` は会話のコピーを新しい背景セッションにします（[Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-branch)）。
+- セッション内からは `/background`（別名 `/bg [prompt]`）で会話ごと背景へ送り、空のプロンプトで <kbd>←</kbd> を押すと背景へ送って agent view を開きます（`leftArrowOpensAgents`）。`/fork [prompt]` は会話のコピーを新しい背景セッションにします（[セッション](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-branch)）。
 
 <div class="src">
   出典: [agent-view#dispatch-an-agent-from-agent-view](https://code.claude.com/docs/en/agent-view#dispatch-an-agent-from-agent-view) · [#dispatch-defaults](https://code.claude.com/docs/en/agent-view#dispatch-defaults) · [#from-inside-a-session](https://code.claude.com/docs/en/agent-view#from-inside-a-session) · [#permission-mode-model-and-effort](https://code.claude.com/docs/en/agent-view#permission-mode-model-and-effort)

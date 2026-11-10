@@ -64,7 +64,7 @@ sidebar:
 
 ### `cost` と `context_window`
 
-- `cost.total_cost_usd` はクライアント側の定価による推定です（`modelPricing` があればその表）。`/clear` で $0 に戻ります。コスト表示全般は [Ch61](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)。
+- `cost.total_cost_usd` はクライアント側の定価による推定です（`modelPricing` があればその表）。`/clear` で $0 に戻ります。コスト表示全般は [監視・コスト・分析](/claude-code-deep-dive/ja/enterprise/monitoring-costs/)。
 - `total_duration_ms` は再開をまたいで積算し、止まっていた時間は含みません。ほかに `total_api_duration_ms`・`total_lines_added`・`total_lines_removed`。
 - `total_input_tokens` は `input_tokens`＋`cache_creation_input_tokens`＋`cache_read_input_tokens`。`used_percentage` も入力だけで計算し、出力は含みません。
 - `current_usage` は最初の API 呼び出し前と `/compact` 直後に `null`。`used_percentage` も序盤は `null` になり得ます。
@@ -94,7 +94,7 @@ sidebar:
 - `rate_limits` は Pro・Max・Ultra か、支出上限を課す apps gateway の背後だけで、最初の応答のあとに出ます。窓ごとに独立して欠け、`resets_at` を過ぎた窓は消えます。
 - `spend_limit.used_percentage` は 100 を超え得ます。`used_usd`・`limit_usd`・`period`（`daily`/`weekly`/`monthly`）は約 5 分ごとの別リクエストで届くため、遅れて現れます（双方 v2.1.284 以降）。
 - `prompt_cache`（v2.1.251 以降）はメイン会話だけの統計で、サブエージェントを含みません。どのプロバイダでも動きます。フィールドは `warm` `caching_observed` `ttl` `expires_at` `requests` `misses` `expected_rebuilds` `hit_ratio` `cache_write_tokens` `miss_recache_tokens` `last_miss_at` `last_miss_cause` `miss_causes` `recache_tokens_if_cold` です。
-- ミスの定義は「キャッシュから読めた分の 5% 超かつ 2,000 トークン以上を再処理し、圧縮やツール結果のクリアで説明できないもの」です。原因名は `tools_changed`・`system_prompt_changed`・`ttl_expired_5m`・`likely_server_side` など（v2.1.260 以降）。キャッシュそのものは [Ch6](/claude-code-deep-dive/ja/fundamentals/context/)。
+- ミスの定義は「キャッシュから読めた分の 5% 超かつ 2,000 トークン以上を再処理し、圧縮やツール結果のクリアで説明できないもの」です。原因名は `tools_changed`・`system_prompt_changed`・`ttl_expired_5m`・`likely_server_side` など（v2.1.260 以降）。キャッシュそのものは [コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/)。
 
 <div class="src">
   出典: [statusline#available-data](https://code.claude.com/docs/en/statusline#available-data) · [#spend-limit-fields](https://code.claude.com/docs/en/statusline#spend-limit-fields) · [#prompt-cache-fields](https://code.claude.com/docs/en/statusline#prompt-cache-fields) · [#last-miss-cause](https://code.claude.com/docs/en/statusline#last-miss-cause)

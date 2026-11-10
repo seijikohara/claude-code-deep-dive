@@ -1,13 +1,13 @@
 ---
 title: "組み込みツール"
-description: "tools-reference に載る 46 ツール（現行 45 ＋削除済み TaskOutput）を用途別に並べ、主な上限、-p の init に出る 24 ツールとの差、起動モードとフラグによるツールセットの違いを扱います。ツール名は権限ルール、サブエージェントの tools、フックの matcher にそのまま書く文字列です。全件の説明は 付録 E にあります。"
+description: "tools-reference に載る 46 ツール（現行 45 ＋削除済み TaskOutput）を用途別に並べ、主な上限、-p の init に出る 24 ツールとの差、起動モードとフラグによるツールセットの違いを扱います。ツール名は権限ルール、サブエージェントの tools、フックの matcher にそのまま書く文字列です。全件の説明は「組み込みツール全件」にあります。"
 sidebar:
   order: 21
 ---
 
 import { Badge } from "@astrojs/starlight/components";
 
-tools-reference に載る 46 ツール（現行 45 ＋削除済み `TaskOutput`）を用途別に並べ、主な上限、`-p` の init に出る 24 ツールとの差、起動モードとフラグによるツールセットの違いを扱います。ツール名は権限ルール、サブエージェントの `tools`、フックの `matcher` にそのまま書く文字列です。全件の説明は [付録 E](/claude-code-deep-dive/ja/appendix/tools/) にあります。
+tools-reference に載る 46 ツール（現行 45 ＋削除済み `TaskOutput`）を用途別に並べ、主な上限、`-p` の init に出る 24 ツールとの差、起動モードとフラグによるツールセットの違いを扱います。ツール名は権限ルール、サブエージェントの `tools`、フックの `matcher` にそのまま書く文字列です。全件の説明は [組み込みツール全件](/claude-code-deep-dive/ja/appendix/tools/) にあります。
 
 <span id="ch21-list-1" />
 
@@ -76,7 +76,7 @@ tools-reference に載る 46 ツール（現行 45 ＋削除済み `TaskOutput`�
 | `ReadMcpResourceTool`                  | MCP リソースを読む                                              | 不要 | —    |
 | `WaitForMcpServers`                    | MCP の接続を待つ                                                | 不要 | —    |
 
-「不要」のファイル系ツール（`Read`・`Glob`・`Grep` など）も、作業ディレクトリの外では確認が出ます。`Bash` は読み取り専用コマンドの組み込みセットを確認なしで実行します。advisor はサーバー側のツールで、権限ルールやフックの `matcher` に書ける名前を持ちません（[Ch5](/claude-code-deep-dive/ja/fundamentals/advisor/)）。スケジュール系の詳細は [Ch43](/claude-code-deep-dive/ja/parallel/scheduling/) です。
+「不要」のファイル系ツール（`Read`・`Glob`・`Grep` など）も、作業ディレクトリの外では確認が出ます。`Bash` は読み取り専用コマンドの組み込みセットを確認なしで実行します。advisor はサーバー側のツールで、権限ルールやフックの `matcher` に書ける名前を持ちません（[Advisor](/claude-code-deep-dive/ja/fundamentals/advisor/)）。スケジュール系の詳細は [スケジュール実行](/claude-code-deep-dive/ja/parallel/scheduling/) です。
 
 <div class="src">
   出典: [tools-reference](https://code.claude.com/docs/en/tools-reference) · [#check-which-tools-are-available](https://code.claude.com/docs/en/tools-reference#check-which-tools-are-available) · 実機確認 2.1.321
@@ -147,7 +147,7 @@ Linux と WSL では `CLAUDE_CODE_TOOL_MEMORY_LIMIT`（例 `4G`）で `Bash`・`
 - `Bash` を外すと `Glob`・`Grep` が戻るのは docs どおりです。`Monitor` も一緒に消えました。docs のルール形式の表では、`Bash(...)` は `Bash` と `Monitor` の両方に適用されます。
 - settings の allow ルールに `Glob` を書いても戻りません。戻すのは `--tools` と `--allowedTools` です。
 - `--tools` は MCP ツールに効きません。MCP も外すには `--disallowedTools "mcp__*"` を使います。
-- 3 つの起動モードの全体の違いは [Ch44](/claude-code-deep-dive/ja/automation/headless/) で扱います。
+- 3 つの起動モードの全体の違いは [ヘッドレス実行](/claude-code-deep-dive/ja/automation/headless/) で扱います。
 
 <div class="src">
   出典: [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · [tools-reference#glob-tool-behavior](https://code.claude.com/docs/en/tools-reference#glob-tool-behavior) · [#configure-tools-with-permission-rules-and-hooks](https://code.claude.com/docs/en/tools-reference#configure-tools-with-permission-rules-and-hooks) · 実機確認 2.1.321

@@ -42,7 +42,7 @@ Claude が書いた JavaScript のスクリプトを、ランタイムがバッ�
 - プロンプトにキーワード `ultracode` を入れるか、"use a workflow" のように頼むと、そのタスクを workflow にします。例: `ultracode: audit every API endpoint under src/routes/ for missing auth checks`
 - キーワードが効くのは、人が入力したプロンプトだけです。`-p` のプロンプト、human の印が無い SDK 入力、スケジュールタスクのプロンプト、webhook や PR コメントの中継では効きません。
 - 取り消しは <kbd>Option</kbd>+<kbd>W</kbd>（macOS）・<kbd>Alt</kbd>+<kbd>W</kbd> か、キーワード直後の Backspace です。`/config` の **Ultracode keyword trigger** で無効にできます。
-- Ultracode が ON だと、Claude が実質的なタスクごとに workflow を計画し、トークンと時間が増えます。ON の間は `Large workflow` 警告・同時サブエージェント上限・auto mode の初回承認が働きません。切り替えは [Ch3](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-ultracode) を参照してください。
+- Ultracode が ON だと、Claude が実質的なタスクごとに workflow を計画し、トークンと時間が増えます。ON の間は `Large workflow` 警告・同時サブエージェント上限・auto mode の初回承認が働きません。切り替えは [Effort と思考](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-ultracode) を参照してください。
 
 CLI の承認プロンプトの選択肢: **Yes, run it** / **Yes, and don't ask again for `<name>` in `<path>`**（名前で実行した workflow のみ）/ **View raw script** / **No**。<kbd>Ctrl</kbd>+<kbd>G</kbd> でエディタ、<kbd>Tab</kbd> でコメントです。
 

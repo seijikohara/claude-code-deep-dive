@@ -1,11 +1,11 @@
 ---
 title: "管理設定"
-description: "組織のポリシーを配る managed settings を、配布経路ごとの保存形式から扱います。複数ソースの合成規則、全ソースから読むキー、policyHelper、不正値の fail-closed、managed 専用キー、server-managed settings の取得・キャッシュ・承認ダイアログまでを説明します。設定階層全体の優先順位は Ch18 で扱います。"
+description: "組織のポリシーを配る managed settings を、配布経路ごとの保存形式から扱います。複数ソースの合成規則、全ソースから読むキー、policyHelper、不正値の fail-closed、managed 専用キー、server-managed settings の取得・キャッシュ・承認ダイアログまでを説明します。設定階層全体の優先順位は「設定ファイル」で扱います。"
 sidebar:
   order: 58
 ---
 
-組織のポリシーを配る managed settings を、配布経路ごとの保存形式から扱います。複数ソースの合成規則、全ソースから読むキー、`policyHelper`、不正値の fail-closed、managed 専用キー、server-managed settings の取得・キャッシュ・承認ダイアログまでを説明します。設定階層全体の優先順位は [Ch18](/claude-code-deep-dive/ja/settings/settings-files/#ch18-precedence) で扱います。
+組織のポリシーを配る managed settings を、配布経路ごとの保存形式から扱います。複数ソースの合成規則、全ソースから読むキー、`policyHelper`、不正値の fail-closed、managed 専用キー、server-managed settings の取得・キャッシュ・承認ダイアログまでを説明します。設定階層全体の優先順位は [設定ファイル](/claude-code-deep-dive/ja/settings/settings-files/#ch18-precedence) で扱います。
 
 <span id="ch58-delivery" />
 
@@ -19,7 +19,7 @@ sidebar:
 | HKCU               | `HKCU\SOFTWARE\Policies\ClaudeCode`。利用者が書けるので admin ソースではない                                                                                          |
 
 - 旧パス `C:\ProgramData\ClaudeCode\` は読みません。ファイルはシンボリックリンクでも読み、リンク先がシステムディレクトリの外なら警告します。
-- ターミナル・IDE 拡張・Code タブ・Agent SDK が読みます。Anthropic 運用のクラウドセッションは server-managed だけを読みます（間隔は [Ch18](/claude-code-deep-dive/ja/settings/settings-files/#ch18-delivery)）。
+- ターミナル・IDE 拡張・Code タブ・Agent SDK が読みます。Anthropic 運用のクラウドセッションは server-managed だけを読みます（間隔は [設定ファイル](/claude-code-deep-dive/ja/settings/settings-files/#ch18-delivery)）。
 
 | 分類           | managed からだけ読むキー                                                                                                                                               |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -48,7 +48,7 @@ sidebar:
 
 ### ソース間の `"merge"`（v2.1.242 以降）
 
-- 既定の `"first-wins"` は、policy key を届ける最上位のソースだけを使います（[Ch18](/claude-code-deep-dive/ja/settings/settings-files/#ch18-managed-order)）。
+- 既定の `"first-wins"` は、policy key を届ける最上位のソースだけを使います（[設定ファイル](/claude-code-deep-dive/ja/settings/settings-files/#ch18-managed-order)）。
 - 最上位のソースに置きます。下位の許可ルールやフックも加わるので、下位がすべて管理者の手にあるときだけ使います。
 
 | キーの種類        | `"merge"` での扱い                             | 例                                                                                 |
@@ -136,7 +136,7 @@ HKCU は走査に含めません。
 - **fail-closed**（v2.1.282 以降）: `allowManagedPermissionRulesOnly`・`disableAutoMode` など制限値が 1 つのキーは、不正なら制限値として読みます（`was present but invalid`）。例外は `disableAllHooks`（捨てる）です。
 - `deny`・`ask` が読めない間は `allow` を保留し、不正な `permissions.defaultMode` は `default` とします。
 
-落とした項目は起動時のダイアログ、`-p` の stderr、`claude doctor` に出ます。選ばれた経路は `/status` の `Setting sources`・`Skipped sources` で見ます（[Ch27](/claude-code-deep-dive/ja/settings/diagnostics/#ch27-status)）。
+落とした項目は起動時のダイアログ、`-p` の stderr、`claude doctor` に出ます。選ばれた経路は `/status` の `Setting sources`・`Skipped sources` で見ます（[診断](/claude-code-deep-dive/ja/settings/diagnostics/#ch27-status)）。
 
 | キー                                                                                                                     | 値全体が不正なとき                         |
 | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |

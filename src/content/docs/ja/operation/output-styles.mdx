@@ -22,7 +22,7 @@ sidebar:
 - `/output-style <style>` は大文字小文字を区別しません。引数なしで一覧を出します（v2.1.269 以降。`-p`・SDK・Remote Control でも動く）。
 - `/config` の **Output style** とコマンドは、`.claude/settings.local.json` に保存します。
 - 設定値 `"outputStyle": "Explanatory"` は大文字小文字を区別します。`explanatory` は Default になります。
-- 途中の切り替えは次のメッセージから効きます（v2.1.251 以降）。キャッシュへの影響は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/) で扱います。
+- 途中の切り替えは次のメッセージから効きます（v2.1.251 以降）。キャッシュへの影響は [コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/) で扱います。
 
 ```text title="実測 2.1.321" frame="terminal"
 $ claude -p "/output-style"

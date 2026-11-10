@@ -20,7 +20,7 @@ Claude Code が組み込みで持つ保護とプロンプトインジェクシ�
 - **インジェクション検出・フェイルクローズ**: Manual mode では解析しきれないコマンドと、どのルールにも一致しないコマンドを確認します。`Bash(git *)` のような部分一致の allow では省略されません。
 - **認証情報**: macOS は Keychain、Linux はモード `0600` のファイルに保管します。
 
-### auto mode 側の対策（[Ch24](/claude-code-deep-dive/ja/settings/auto-mode/#ch24-decision-order)）
+### auto mode 側の対策（[Auto mode](/claude-code-deep-dive/ja/settings/auto-mode/#ch24-decision-order)）
 
 - 分類器へのリクエストからツール結果を除き、読んだ内容が分類器を直接操作できないようにします。
 - サーバー側のプローブが、Claude が読む前のツール結果を走査します。
@@ -32,7 +32,7 @@ Claude Code が組み込みで持つ保護とプロンプトインジェクシ�
 - クラウドセッションの GitHub 資格情報は VM に入りません。
 - 脆弱性は公開せず HackerOne で報告します。
 
-保護の多くは「Manual mode では」と条件付きです。対話セッションの組み込み開始モードは auto です（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/#ch23-starting-mode)）。
+保護の多くは「Manual mode では」と条件付きです。対話セッションの組み込み開始モードは auto です（[パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/#ch23-starting-mode)）。
 
 <div class="src">
   出典: [security#built-in-protections](https://code.claude.com/docs/en/security#built-in-protections) · [#protect-against-prompt-injection](https://code.claude.com/docs/en/security#protect-against-prompt-injection) · [#mcp-security](https://code.claude.com/docs/en/security#mcp-security) · [#cloud-execution-security](https://code.claude.com/docs/en/security#cloud-execution-security) · [permission-modes#how-the-classifier-evaluates-actions](https://code.claude.com/docs/en/permission-modes#how-the-classifier-evaluates-actions)
@@ -61,7 +61,7 @@ CLAUDE_CODE_RESTRICTED=1 claude -p "query"
 
 - v2.1.248 以降で使えます。`CLAUDE_CODE_RESTRICTED` は設定ファイルの `env` ブロックでは無視されます。
 - クラウドセッションを作ろうとすると `Cloud sessions cannot be created from a --restricted session: they would not enforce it.` で拒否されます。
-- 実機の `-p` では `Bash`・`Monitor`・`CronCreate`・`RemoteTrigger`・`Workflow` が消え、`Glob`・`Grep` が現れました。docs は「コードを実行するツール」という一般的な表現だけです。init の詳細は [Ch44](/claude-code-deep-dive/ja/automation/headless/) が扱います。
+- 実機の `-p` では `Bash`・`Monitor`・`CronCreate`・`RemoteTrigger`・`Workflow` が消え、`Glob`・`Grep` が現れました。docs は「コードを実行するツール」という一般的な表現だけです。init の詳細は [ヘッドレス実行](/claude-code-deep-dive/ja/automation/headless/) が扱います。
 
 <div class="src">
   出典: [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · [permission-modes#protected-paths](https://code.claude.com/docs/en/permission-modes#protected-paths) · [env-vars](https://code.claude.com/docs/en/env-vars) · [errors](https://code.claude.com/docs/en/errors#cloud-sessions-cannot-be-created-from-a-restricted-session) · `claude --help` · changelog 2.1.248, 2.1.290 · 実機確認 2.1.321
@@ -84,7 +84,7 @@ CLAUDE_CODE_RESTRICTED=1 claude -p "query"
 - バージョンを固定するには、Dockerfile で `npm install -g @anthropic-ai/claude-code@X.Y.Z` を実行し、`containerEnv` に `DISABLE_AUTOUPDATER=1` を設定します。
 - 再ビルドで認証を失わないよう、`~/.claude` に名前付きボリュームをマウントし、`CLAUDE_CONFIG_DIR` を同じパスに設定します。
 
-* **組織ポリシー**: Dockerfile で `/etc/claude-code/managed-settings.json` へコピーできます。ただしリポジトリに書き込める人なら誰でもこの手順を消せます。回避されたくない場合は server-managed settings か MDM で配ります（[Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/)）。
+* **組織ポリシー**: Dockerfile で `/etc/claude-code/managed-settings.json` へコピーできます。ただしリポジトリに書き込める人なら誰でもこの手順を消せます。回避されたくない場合は server-managed settings か MDM で配ります（[管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/)）。
 * **通信制限**: 参照用コンテナの `init-firewall.sh` が外向き通信を許可先に絞ります。`runArgs` で `NET_ADMIN` と `NET_RAW` を付けます。
 * **確認なしの実行**: 非 root ユーザーで動くので `--dangerously-skip-permissions` を渡せます。root で起動すると CLI は拒否します。
 * 参照用コンテナは「保守されたベースイメージではなく動作例」とされています。
@@ -137,7 +137,7 @@ CLAUDE_CODE_RESTRICTED=1 claude -p "query"
 - `/feedback`・`/bug`・`/share` で送ったトランスクリプトは 5 年保持されます。
 - ローカルのトランスクリプトは `~/.claude/projects/` に平文で 30 日保存されます。期間は `cleanupPeriodDays` で変えます。
 - Bedrock・Agent Platform・Foundry・Claude Platform on AWS では、メトリクス・エラー報告・`/feedback` が既定で無効です。WebFetch のドメイン安全確認はプロバイダによらず、ホスト名だけを `api.anthropic.com` に送ります（`skipWebFetchPreflight` で無効化）。
-- テレメトリの無効化は [Ch61](/claude-code-deep-dive/ja/enterprise/monitoring-costs/) が扱います。
+- テレメトリの無効化は [監視・コスト・分析](/claude-code-deep-dive/ja/enterprise/monitoring-costs/) が扱います。
 
 ### Zero Data Retention（ZDR）
 

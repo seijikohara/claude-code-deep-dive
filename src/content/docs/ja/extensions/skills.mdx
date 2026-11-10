@@ -1,13 +1,13 @@
 ---
 title: "Skills"
-description: "SKILL.md で Claude に手順や知識を足す仕組みです。この章では、配置と名前の解決、frontmatter の全フィールド、呼び出し制御、引数と動的コンテキスト注入、allowed-tools と信頼モデル、context: fork、説明文の予算、可視性と権限ルールを扱います。バンドル Skill の一覧は Ch12 にあります。"
+description: "SKILL.md で Claude に手順や知識を足す仕組みです。この章では、配置と名前の解決、frontmatter の全フィールド、呼び出し制御、引数と動的コンテキスト注入、allowed-tools と信頼モデル、context: fork、説明文の予算、可視性と権限ルールを扱います。バンドル Skill の一覧は「スラッシュコマンド完全ガイド」にあります。"
 sidebar:
   order: 29
 ---
 
 import { FileTree } from "@astrojs/starlight/components";
 
-`SKILL.md` で Claude に手順や知識を足す仕組みです。この章では、配置と名前の解決、frontmatter の全フィールド、呼び出し制御、引数と動的コンテキスト注入、`allowed-tools` と信頼モデル、`context: fork`、説明文の予算、可視性と権限ルールを扱います。バンドル Skill の一覧は [Ch12](/claude-code-deep-dive/ja/operation/commands/#ch12-catalog-bundled-1) にあります。
+`SKILL.md` で Claude に手順や知識を足す仕組みです。この章では、配置と名前の解決、frontmatter の全フィールド、呼び出し制御、引数と動的コンテキスト注入、`allowed-tools` と信頼モデル、`context: fork`、説明文の予算、可視性と権限ルールを扱います。バンドル Skill の一覧は [スラッシュコマンド完全ガイド](/claude-code-deep-dive/ja/operation/commands/#ch12-catalog-bundled-1) にあります。
 
 <span id="ch29-overview" />
 
@@ -362,7 +362,7 @@ hooks:
 - 呼び出し時に登録され、後のターンも含めセッションの終わりまで動きます（サブエージェントのフックは実行中だけ）。`once: true` は最初の成功後に外れ、Skill の frontmatter でだけ有効です。
 - プロジェクトの Skill のフックは、未信頼フォルダの `-p` でも呼び出し時に登録されます。
 - Skill 自身の `UserPromptSubmit` フックは、呼び出したプロンプトの次から動きます（2.1.299）。
-- 出どころごとの上限と plugin-only ロックは [Ch28](/claude-code-deep-dive/ja/extensions/hooks/#ch28-frontmatter-env) を参照してください。
+- 出どころごとの上限と plugin-only ロックは [Hooks](/claude-code-deep-dive/ja/extensions/hooks/#ch28-frontmatter-env) を参照してください。
 
 <FileTree>
 
@@ -481,7 +481,7 @@ allow ルールは、Skill 自身の名前と呼び出しに使った名前に�
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `disableBundledSkills`、`CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1` | バンドル Skill と Workflow を外す。`/init` などはモデルから隠れる。片方が止めると他方で戻せない                 |
 | `--disable-slash-commands`                                     | このセッションの Skill とコマンドをすべて無効にする                                                             |
-| `--bare`                                                       | Skill の自動探索をしない。`--add-dir` の Skill は読む（[Ch44](/claude-code-deep-dive/ja/automation/headless/)） |
+| `--bare`                                                       | Skill の自動探索をしない。`--add-dir` の Skill は読む（[ヘッドレス実行](/claude-code-deep-dive/ja/automation/headless/)） |
 | `--safe-mode`                                                  | Skill を読まない。managed の Skill も読まない                                                                   |
 | `CLAUDE_CODE_DISABLE_POLICY_SKILLS=1`                          | システム全体の managed skills ディレクトリを読まない                                                            |
 | `strictPluginOnlyCustomization` の `"skills"`                  | user・project・`--add-dir`・同期の Skill とコマンドを止める。バンドル・managed・プラグインは残る                |
@@ -510,7 +510,7 @@ DENIED
 
 | 確認したこと                       | 結果                                                                                                                                                                                               |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| init への出現                      | プロジェクトの Skill が `skills` と `slash_commands` の先頭に並ぶ。`disable-model-invocation: true` でも載る。バンドル 19 件は [Ch12](/claude-code-deep-dive/ja/operation/commands/#ch12-headless) |
+| init への出現                      | プロジェクトの Skill が `skills` と `slash_commands` の先頭に並ぶ。`disable-model-invocation: true` でも載る。バンドル 19 件は [スラッシュコマンド完全ガイド](/claude-code-deep-dive/ja/operation/commands/#ch12-headless) |
 | `--disable-slash-commands`         | `skills`・`slash_commands` が空配列になり、`terminal_slash_commands` のキー自体が出ない                                                                                                            |
 | 置換（`/lab-args 42 "feature x"`） | `A0=[42] A1=[feature x] A2=[$2] ISSUE=[42] BRANCH=[feature x] EXTRA=[] PRICE=[$1.00] EFF=[medium]`。未指定の `$2` は残り、`$extra` は空、`\$1.00` は `$1.00`                                       |
 | `!` の注入                         | モデルに渡る前に `injected-42` へ置換された                                                                                                                                                        |

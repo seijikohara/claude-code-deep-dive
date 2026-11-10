@@ -21,7 +21,7 @@ Claude Code は、自分で書く CLAUDE.md と Claude が書く auto memory の
 | 読み込み | 毎セッション                                                 | 毎セッション（先頭 200 行または 25KB）                      |
 | 用途     | コーディング規約、ワークフロー、プロジェクトのアーキテクチャ | 好み、Claude への訂正、コードから導けないプロジェクトの文脈 |
 
-- どちらも強制される設定ではなく、文脈として扱われます。Claude の判断に関係なく止めたい操作は、`PreToolUse` フックで止めます（[Ch28](/claude-code-deep-dive/ja/extensions/hooks/)）。
+- どちらも強制される設定ではなく、文脈として扱われます。Claude の判断に関係なく止めたい操作は、`PreToolUse` フックで止めます（[Hooks](/claude-code-deep-dive/ja/extensions/hooks/)）。
 - CLAUDE.md の内容はシステムプロンプトには入らず、その後のユーザーメッセージとして届きます。システムプロンプトの水準で渡したい指示は `--append-system-prompt` を使います。
 
 CLAUDE.md に追記する目安（docs）:
@@ -36,7 +36,7 @@ CLAUDE.md に追記する目安（docs）:
 :::danger[食い違い]
 **memory ページ**: この節の表の用途に「project architecture」を、CLAUDE.md に書く事実に「project layout」を挙げています。
 
-**best-practices ページ**: 「アーキテクチャとファイル構成を CLAUDE.md に書く」を不要になった助言としています（[Ch11](/claude-code-deep-dive/ja/fundamentals/best-practices/)）。memory ページ自身も、`/doctor` はディレクトリ構成やアーキテクチャ概要を削ると書いています。
+**best-practices ページ**: 「アーキテクチャとファイル構成を CLAUDE.md に書く」を不要になった助言としています（[ベストプラクティスと大規模リポジトリ](/claude-code-deep-dive/ja/fundamentals/best-practices/)）。memory ページ自身も、`/doctor` はディレクトリ構成やアーキテクチャ概要を削ると書いています。
 :::
 
 <div class="src">
@@ -91,7 +91,7 @@ $ cd mono/pkg && claude -p "/context all"
 - 単一ファイルへの `cat`・`head` など、読み取りとみなす Bash コマンドも対象です。Bash での読み取りは 2.1.293、Write・Edit は 2.1.288 で修正されました。
 - 読み込むとターミナルに `Loaded` 行とパスが出ます。起動時のファイルではないため、`/context all` の Memory files には出ません。試すときはシェルでファイルを作り、Claude にそのディレクトリのファイルを読ませます。
 - ブロック単位の HTML コメント（`<!-- maintainer notes -->`）は、注入前に取り除かれます。コードブロック内のコメントと、Read ツールで開いたときの表示は残ります（2.1.72）。
-- `/compact` の後、ルートの CLAUDE.md はディスクから読み直して再注入されます。サブディレクトリの分と `paths` 付き rule は、必要時にまた読みます（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/#ch06-survives)）。
+- `/compact` の後、ルートの CLAUDE.md はディスクから読み直して再注入されます。サブディレクトリの分と `paths` 付き rule は、必要時にまた読みます（[コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/#ch06-survives)）。
 
 | 対象                                                                                    | 上限                                                                                   | 超えたとき                                                                                          |
 | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -227,7 +227,7 @@ $ cd mono/pkg && claude -p "Use the Read tool on src/a.ts, then reply with only 
 - 行の順は `/context all` の並び（[スコープの実測](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-scopes)）と一致せず、同じ実行を 2 回すると順番も変わりました。docs はこのフックを非同期で動くと記載しています。順序は `/context all` で確かめます。
 
 * `load_reason` は `session_start`・`nested_traversal`・`path_glob_match`・`include`・`compact` のいずれかで、matcher はこの値に一致させます（例: `"matcher": "path_glob_match|nested_traversal"`）。
-* 読み込みを止める・変える制御はありません。`AGENTS.md` を直接読んだときは発火しません。入力フィールドの一覧は [Ch28](/claude-code-deep-dive/ja/extensions/hooks/)、`compact` の実測は [Ch6](/claude-code-deep-dive/ja/fundamentals/context/#ch06-hook-order) です。
+* 読み込みを止める・変える制御はありません。`AGENTS.md` を直接読んだときは発火しません。入力フィールドの一覧は [Hooks](/claude-code-deep-dive/ja/extensions/hooks/)、`compact` の実測は [コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/#ch06-hook-order) です。
 
 <div class="src">
   出典: [hooks#instructionsloaded](https://code.claude.com/docs/en/hooks#instructionsloaded) · [memory#claude-isn’t-following-my-claude-md](https://code.claude.com/docs/en/memory#claude-isn’t-following-my-claude-md) · 実機確認 2.1.321
@@ -347,7 +347,7 @@ $ CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1 \
 - user・project・local・managed のどの層にも書け、配列は層をまたいでマージされます。自分だけの除外は `.claude/settings.local.json` に書きます。
 - managed の CLAUDE.md は、どの層のパターンでも除外できません。
 - symlink 経由の rule は、`.claude/rules/` 側のパスとリンク先のどちらに一致しても除外されます（2.1.239 より前はリンク先だけ）。
-- 除外リストは静的です。対象を日ごとに変えるなら、そのパッケージで起動します（[Ch11](/claude-code-deep-dive/ja/fundamentals/best-practices/#ch11-large-codebases)）。
+- 除外リストは静的です。対象を日ごとに変えるなら、そのパッケージで起動します（[ベストプラクティスと大規模リポジトリ](/claude-code-deep-dive/ja/fundamentals/best-practices/#ch11-large-codebases)）。
 
 <div class="src">
   出典: [memory#load-from-additional-directories](https://code.claude.com/docs/en/memory#load-from-additional-directories) · [#exclude-specific-claude-md-files](https://code.claude.com/docs/en/memory#exclude-specific-claude-md-files) · [large-codebases](https://code.claude.com/docs/en/large-codebases#grant-access-across-packages-or-repositories) · [#exclude-irrelevant-claude-md-files](https://code.claude.com/docs/en/large-codebases#exclude-irrelevant-claude-md-files) · 実機確認 2.1.321
@@ -385,7 +385,7 @@ managed settings での例（docs）: ``{ "claudeMd": "Always run `make lint` be
 | データ取り扱い・コンプライアンスの注意 | managed CLAUDE.md                       |
 | Claude への振る舞いの指示              | managed CLAUDE.md                       |
 
-managed settings の配布方法は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
+managed settings の配布方法は [管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/) で扱います。
 
 <div class="src">
   出典: [memory#deploy-organization-wide-claude-md](https://code.claude.com/docs/en/memory#deploy-organization-wide-claude-md) · [settings-reference#claudemd](https://code.claude.com/docs/en/settings-reference#claudemd) · [sub-agents#what-loads-at-startup](https://code.claude.com/docs/en/sub-agents#what-loads-at-startup) · [changelog 2.1.260](https://code.claude.com/docs/en/changelog)
@@ -421,7 +421,7 @@ Claude は作業しながら 4 種類のメモを残し、種類を frontmatter 
 - 上限に近づくと短くするよう促し、超えると書き込みは成功させてエラーを返します（2.1.210 から）。frontmatter と HTML コメントは計測しません。
 - エラー例（docs）: `Error: this write left the memory index at MEMORY.md at 214 lines, over its 200-line read limit. … Rewrite it to under 140 lines now: …`
 - 書き込み時に frontmatter の `modified` へ ISO 8601 の時刻を記録します。`Saved 2 memories`・`Recalled 2 memories` の表示は、ここへの読み書きです。
-- メイン会話の auto memory は、fork 以外のサブエージェントに渡りません（自前のメモリは `memory` フィールド、[Ch37](/claude-code-deep-dive/ja/parallel/subagents/)）。
+- メイン会話の auto memory は、fork 以外のサブエージェントに渡りません（自前のメモリは `memory` フィールド、[サブエージェント](/claude-code-deep-dive/ja/parallel/subagents/)）。
 
 <div class="src">
   出典: [memory#auto-memory](https://code.claude.com/docs/en/memory#auto-memory) · [#storage-location](https://code.claude.com/docs/en/memory#storage-location) · [#how-it-works](https://code.claude.com/docs/en/memory#how-it-works) · [errors#memory-index-is-over-its-read-limit](https://code.claude.com/docs/en/errors#memory-index-is-over-its-read-limit) · [changelog 2.1.210](https://code.claude.com/docs/en/changelog)

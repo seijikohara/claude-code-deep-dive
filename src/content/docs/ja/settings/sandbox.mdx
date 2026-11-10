@@ -209,7 +209,7 @@ managed settings での強制の例:
 - managed（または `--settings`）の `allowUnsandboxedCommands: false` か、managed の `allowManagedDomainsOnly: true` でサンドボックスは管理者必須になります。リポジトリの `excludedCommands`・`allowedDomains`・プロキシポート・`allowWrite` などの緩める設定は無視されます（v2.1.285 以降）。
 - managed 専用: `allowManagedReadPathsOnly`・`allowManagedDomainsOnly`・`bwrapPath`・`socatPath`。
 - 弱める設定は managed で `false` に固定します: `enableWeakerNestedSandbox`・`enableWeakerNetworkIsolation`・`network.allowAllUnixSockets`・`network.allowLocalBinding`・`allowAppleEvents`・`allowNestedUserNamespaces`。
-- `failIfUnavailable` のある Windows ネイティブ機は起動しません。OS 別に配るか WSL2 に移します。配布方法は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/)。
+- `failIfUnavailable` のある Windows ネイティブ機は起動しません。OS 別に配るか WSL2 に移します。配布方法は [管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/)。
 
 <div class="src">
   出典: [sandboxing#protect-credentials](https://code.claude.com/docs/en/sandboxing#protect-credentials) · [#mask-credentials](https://code.claude.com/docs/en/sandboxing#mask-credentials) · [#enforce-sandboxing-with-managed-settings](https://code.claude.com/docs/en/sandboxing#enforce-sandboxing-with-managed-settings) · [#keep-developers-from-widening-the-policy](https://code.claude.com/docs/en/sandboxing#keep-developers-from-widening-the-policy) · [settings-reference](https://code.claude.com/docs/en/settings-reference#sandbox-bwrappath)
@@ -238,7 +238,7 @@ docs は「リスクを下げるが完全な隔離境界ではない」として
 
 - Bash サンドボックスだけでは無人実行に不十分です。`--dangerously-skip-permissions` は常にコンテナ・VM・sandbox runtime の中で動かします。
 - sandbox runtime は docs で「beta research preview」とされています。`npm install -g @anthropic-ai/sandbox-runtime` の後 `srt claude` で起動し、設定は `~/.srt-settings.json` です。
-- Claude Code 自身が強制するのは Bash サンドボックスだけです。dev container は慣習であり、強制の境界ではありません（[Ch26](/claude-code-deep-dive/ja/settings/security/#ch26-devcontainer)）。
+- Claude Code 自身が強制するのは Bash サンドボックスだけです。dev container は慣習であり、強制の境界ではありません（[セキュリティ](/claude-code-deep-dive/ja/settings/security/#ch26-devcontainer)）。
 
 <div class="src">
   出典: [sandboxing#limitations](https://code.claude.com/docs/en/sandboxing#limitations) · [sandbox-environments](https://code.claude.com/docs/en/sandbox-environments) · changelog 2.1.319, 2.1.321

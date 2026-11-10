@@ -13,7 +13,7 @@ Claude Code は、プロジェクトの `.claude/` とホームの `~/.claude/` 
 
 | プロジェクトの `.claude/` と `~/.claude/` の両方 | 役割                                                                          |
 | ------------------------------------------------ | ----------------------------------------------------------------------------- |
-| `CLAUDE.md`                                      | 毎セッション読む指示（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/)） |
+| `CLAUDE.md`                                      | 毎セッション読む指示（[メモリ](/claude-code-deep-dive/ja/fundamentals/memory/)） |
 | `rules/*.md`                                     | トピック別の指示。`paths` で対象を絞れる                                      |
 | `settings.json`                                  | 権限、フック、環境変数、モデルの既定値                                        |
 | `skills/<name>/SKILL.md`                         | `/name` または自動で呼ぶ Skill                                                |
@@ -34,7 +34,7 @@ Claude Code は、プロジェクトの `.claude/` とホームの `~/.claude/` 
 | `~/.claude/` 側だけ                 | 役割                                                                                  |
 | ----------------------------------- | ------------------------------------------------------------------------------------- |
 | `~/.claude.json`                    | アプリの状態、アカウント、UI 設定、個人の MCP サーバー                                |
-| `projects/<project>/memory/`        | auto memory（[Ch9](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-auto-memory)） |
+| `projects/<project>/memory/`        | auto memory（[メモリ](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-auto-memory)） |
 | `keybindings.json`・`themes/*.json` | キー割り当て、カラーテーマ                                                            |
 | `plugins/`                          | マーケットプレイスとインストール済みプラグイン                                        |
 
@@ -61,7 +61,7 @@ Claude Code は、プロジェクトの `.claude/` とホームの `~/.claude/` 
 | `skills/.trash/`・`plugins/.trash/`                    | claude.ai の同期で外れたもの                             |
 | `image-cache/`・`todos/`・`statsig/`・`logs/`          | 旧版のディレクトリ                                       |
 
-- **保持期間**: この節の表の対象は `cleanupPeriodDays`（既定 30 日、最小 1）を過ぎると消えます（[Ch7](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-retention)）。
+- **保持期間**: この節の表の対象は `cleanupPeriodDays`（既定 30 日、最小 1）を過ぎると消えます（[セッション](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-retention)）。
 - **独自の規則**: `sessions/` は実行中のセッションごとに 1 ファイルで、終了時に消えます。Desktop・Cowork のトランスクリプトは期限なしで残り、`desktopSessionCleanupPeriodDays` で期限を付けます。
 - **auto memory**: `projects/<project>/memory/` は sweep の対象外です。保持期間中ずっと空のときだけディレクトリを消します（2.1.228 より前は中のフォルダを消すことがあった）。
 - **削除するまで残る**: `history.jsonl`（<kbd>↑</kbd>・<kbd>Ctrl</kbd>+<kbd>R</kbd>・`!` 補完）、`stats-cache.json`（`/usage`）、`remote-settings.json`、`cache/changelog.md`、`policy-limits.json`

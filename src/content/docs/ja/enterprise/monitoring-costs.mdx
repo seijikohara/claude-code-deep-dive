@@ -103,7 +103,7 @@ OTel のログとして送り、`prompt.id` で束ねます。
 - OTel とは別に、Anthropic へ運用メトリクスとエラー報告を送ります。4 つのクラウドプロバイダでは既定で無効です。
 - `DISABLE_TELEMETRY`: メトリクスを止め、feature flag の取得も止めます。`0`・`false` でも止まり、戻すには unset します。`DO_NOT_TRACK=1` も同じ効果です（こちらは `0` で有効のまま）。
 - `DISABLE_ERROR_REPORTING`: エラー報告を止めます（`0`・`false` でも止まる）。
-- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`: 自動更新、テレメトリ、エラー報告、`/feedback` などをまとめて止めます。feature flag が止まると Remote Control なども使えません（[Ch20](/claude-code-deep-dive/ja/settings/env-vars/#ch20-feature-flags)）。
+- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`: 自動更新、テレメトリ、エラー報告、`/feedback` などをまとめて止めます。feature flag が止まると Remote Control なども使えません（[環境変数](/claude-code-deep-dive/ja/settings/env-vars/#ch20-feature-flags)）。
 
 :::danger[食い違い]
 エラー報告を止める変数が食い違います。data-usage は `DISABLE_ERROR_REPORTING` だけ、network-config は `DISABLE_ERROR_REPORTING` か `DISABLE_TELEMETRY` と書きます。確実に止めるには、両ページが認める `DISABLE_ERROR_REPORTING` か `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` を使います。
@@ -155,7 +155,7 @@ Console の推奨レート（組織全体の上限として設定）。
 
 ### ZDR
 
-- 資格のある Enterprise 向けで、標準プランに含まれず、管理画面からは有効にできません（[Ch26](/claude-code-deep-dive/ja/settings/security/#ch26-data)）。
+- 資格のある Enterprise 向けで、標準プランに含まれず、管理画面からは有効にできません（[セキュリティ](/claude-code-deep-dive/ja/settings/security/#ch26-data)）。
 
 ### HIPAA 構成（local mode）
 

@@ -164,7 +164,7 @@ Effort level: auto (currently medium)      → exit 0
 
 - 対話セッションで `low`〜`xhigh` を既定として保存すると、user 設定の `modelSettings` にモデル別に書かれます（v2.1.251 以降。それ以前はトップレベルの `effortLevel`）。
 - キーは正規名（例: `claude-opus-5-5`）です。エイリアス、日付付き ID、`[1m]` 付き ID、認識できるプロバイダ ID も同じエントリに対応します。
-- エントリには `effortLevel`、`maxEffortLevel`、`autoCompactWindow`（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/)）を書けます。
+- エントリには `effortLevel`、`maxEffortLevel`、`autoCompactWindow`（[コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/)）を書けます。
 
 ### 優先順位
 
@@ -223,11 +223,11 @@ Current effort level: max (…)
 
 ## effort が効く場面と、送られない場合
 
-- effort が送られるのは、レベル表のモデルと、`effort` 能力を宣言したピン留めモデル（`ANTHROPIC_DEFAULT_*_MODEL_SUPPORTED_CAPABILITIES`、[Ch2](/claude-code-deep-dive/ja/fundamentals/models/)）です。
+- effort が送られるのは、レベル表のモデルと、`effort` 能力を宣言したピン留めモデル（`ANTHROPIC_DEFAULT_*_MODEL_SUPPORTED_CAPABILITIES`、[モデル選択](/claude-code-deep-dive/ja/fundamentals/models/)）です。
 - `CLAUDE_CODE_ALWAYS_ENABLE_EFFORT=1` は、認識できないモデル ID にも effort を送ります（ゲートウェイ向け）。API が effort を拒否するモデル（Opus 4.1、Sonnet 4.5、Haiku 4.5 以前）は除外されます。
 - Anthropic API で思考を OFF にしている場合、その組み合わせを受け付けないモデル（Opus 5 など）には、高いレベルの代わりに `high` を送ります。
-- effort の変更は、多くのモデルでプロンプトキャッシュを無効にします。API キーかサブスクリプションでは、Fable 5.1 以降・Opus 5.5・Sonnet 5.5・Haiku 5.5 のキャッシュは残ります。ただし Bedrock・Agent Platform・Claude apps gateway・HIPAA 構成などでは無効になります（[Ch6](/claude-code-deep-dive/ja/fundamentals/context/)）。
-- 安全分類器による自動フォールバックの後は、フラグが立ったリクエストのレベルを引き継ぎます（[Ch2](/claude-code-deep-dive/ja/fundamentals/models/)）。
+- effort の変更は、多くのモデルでプロンプトキャッシュを無効にします。API キーかサブスクリプションでは、Fable 5.1 以降・Opus 5.5・Sonnet 5.5・Haiku 5.5 のキャッシュは残ります。ただし Bedrock・Agent Platform・Claude apps gateway・HIPAA 構成などでは無効になります（[コンテキスト管理](/claude-code-deep-dive/ja/fundamentals/context/)）。
+- 安全分類器による自動フォールバックの後は、フラグが立ったリクエストのレベルを引き継ぎます（[モデル選択](/claude-code-deep-dive/ja/fundamentals/models/)）。
 
 ### effort を送らない
 
@@ -276,7 +276,7 @@ Effort level: auto
 
 ## Ultracode
 
-Ultracode は effort のレベルではなく、Claude Code の設定です。ON の間、Claude は実質的なタスクに dynamic workflow を組みます（中身は [Ch41](/claude-code-deep-dive/ja/parallel/workflows/)）。どの effort レベルでも動きます。
+Ultracode は effort のレベルではなく、Claude Code の設定です。ON の間、Claude は実質的なタスクに dynamic workflow を組みます（中身は [Dynamic Workflows](/claude-code-deep-dive/ja/parallel/workflows/)）。どの effort レベルでも動きます。
 
 | 方法                                                     | effort レベル              |
 | -------------------------------------------------------- | -------------------------- |
@@ -353,7 +353,7 @@ Ultracode on
 Skill・サブエージェントの `effort` も、`maxEffortLevel` と組織の上限を超えられません。
 :::
 
-モデルの選び方は [Ch2](/claude-code-deep-dive/ja/fundamentals/models/)、サブエージェントそのものは [Ch37](/claude-code-deep-dive/ja/parallel/subagents/) を参照してください。
+モデルの選び方は [モデル選択](/claude-code-deep-dive/ja/fundamentals/models/)、サブエージェントそのものは [サブエージェント](/claude-code-deep-dive/ja/parallel/subagents/) を参照してください。
 
 <div class="src">
   出典: [sub-agents#choose-an-effort-level](https://code.claude.com/docs/en/sub-agents#choose-an-effort-level) · [model-config#effort-level-of-subagents-and-teammates](https://code.claude.com/docs/en/model-config#effort-level-of-subagents-and-teammates) · [skills#frontmatter-reference](https://code.claude.com/docs/en/skills#frontmatter-reference) · changelog 2.1.316（`CLAUDE_CODE_SUBAGENT_EFFORT` はリファレンス未掲載）· changelog 2.1.317

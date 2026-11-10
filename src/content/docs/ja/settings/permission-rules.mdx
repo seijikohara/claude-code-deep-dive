@@ -13,7 +13,7 @@ allow・ask・deny の権限ルールを扱います。確認プロンプトと�
 
 ## 権限の層: ツール種別ごとの既定
 
-Manual mode で実行前に確認するかどうか（他のモードの違いは [Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)）:
+Manual mode で実行前に確認するかどうか（他のモードの違いは [パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/)）:
 
 | ツール種別                             | 承認                                           | 「Yes, and don't ask again」   |
 | -------------------------------------- | ---------------------------------------------- | ------------------------------ |
@@ -29,11 +29,11 @@ Manual mode で実行前に確認するかどうか（他のモードの違い�
 
 ### 判断に関わる層
 
-- **パーミッションモード**: 確認なしで動く範囲の基準（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/)）
+- **パーミッションモード**: 確認なしで動く範囲の基準（[パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/)）
 - **権限ルール**: `permissions.allow`・`ask`・`deny` で特定のツールや引数を事前承認・確認・拒否（この章）
 - **PreToolUse フックと mod**: 実行時に独自のロジックで判断（[後述](/claude-code-deep-dive/ja/settings/permission-rules/#ch22-hooks-mods)）
-- **auto mode の分類器**: 確認の代わりに別モデルが審査（[Ch24](/claude-code-deep-dive/ja/settings/auto-mode/)）
-- **サンドボックス**: シェルコマンドのファイル・ネットワークを OS が制限（[Ch25](/claude-code-deep-dive/ja/settings/sandbox/)）
+- **auto mode の分類器**: 確認の代わりに別モデルが審査（[Auto mode](/claude-code-deep-dive/ja/settings/auto-mode/)）
+- **サンドボックス**: シェルコマンドのファイル・ネットワークを OS が制限（[サンドボックス](/claude-code-deep-dive/ja/settings/sandbox/)）
 
 * `.claudeignore` は効果がありません。中身は `Read` の deny ルールに移します。`permissions.deny` は非推奨の `ignorePatterns` を置き換えるキーです。
 
@@ -56,7 +56,7 @@ Manual mode の Bash 確認の例（docs の画面）には 4 つの選択肢が
 - ファイル変更の承認はファイルに保存されず、セッション終了まで有効です。
 - git の外や Windows では、リポジトリルート以外に保存されることがあります。
 - コマンドの前方一致を保存すると、空白区切りの形（`npm test *`）で書かれます。
-- 3 番目の選択肢は auto mode が使えるときだけ出ます（[Ch23](/claude-code-deep-dive/ja/settings/permission-modes/#ch23-switch)）。
+- 3 番目の選択肢は auto mode が使えるときだけ出ます（[パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/#ch23-switch)）。
 
 * **複合コマンド**: 承認が必要だったサブコマンドごとに別のルールを保存します（最大 5 個）。`git status && npm test` なら `npm test` のルールだけです。作業ディレクトリ外への `cd` はそのパスの Read ルールになります。
 * **1 回限りの承認しか出ない確認**: 選択肢が許す範囲をすべて表示できないとき、Claude Code は「今後は確認しない」系の選択肢を出しません。必要なら `/permissions` でルールを書きます。
@@ -73,7 +73,7 @@ Manual mode の Bash 確認の例（docs の画面）には 4 つの選択肢が
 - すべてのルールと、それぞれの出所の `settings.json` を一覧します。ルールの追加・削除、作業ディレクトリの管理、auto mode の拒否の確認ができます。別名は `/allowed-tools` です。
 - Claude の作業中にも開けます。ルールの変更は同じターンの次のツール呼び出しから効きます（v2.1.234 以降。それ以前はターン終了まで保留）。
 - `/permissions` で足したルールの `/path` は、保存先の設定ファイルを基準に解決されます。
-- **Recently blocked** タブ: auto mode が止めた操作を <kbd>r</kbd> で承認し再試行させます。**Auto mode** タブ: 分類器のルールと environment を編集します（v2.1.246 以降。auto が使えるときのみ）。詳細は [Ch24](/claude-code-deep-dive/ja/settings/auto-mode/#ch24-config-2)。
+- **Recently blocked** タブ: auto mode が止めた操作を <kbd>r</kbd> で承認し再試行させます。**Auto mode** タブ: 分類器のルールと environment を編集します（v2.1.246 以降。auto が使えるときのみ）。詳細は [Auto mode](/claude-code-deep-dive/ja/settings/auto-mode/#ch24-config-2)。
 - ルール削除とディレクトリ削除の確認は既定で No です（2.1.280）。
 
 * deny・ask ルールのツール名が既知のツールに一致しないと、起動時に警告します。`_` か `*` を含む名前と、`TaskOutput` のような削除済みツールは対象外です。
@@ -131,11 +131,11 @@ project 設定 `"deny": ["Bash(ls *)"]`、user 設定なしの `-p`。`--allowed
 
 ## スコープ間の優先と managed 専用のロック
 
-- 権限ルールは他の設定と同じ優先順位に従い、managed settings が最上位です。コマンドライン引数を含め、どの層も managed のルールを上書きできません（優先順位は [Ch18](/claude-code-deep-dive/ja/settings/settings-files/)）。
+- 権限ルールは他の設定と同じ優先順位に従い、managed settings が最上位です。コマンドライン引数を含め、どの層も managed のルールを上書きできません（優先順位は [設定ファイル](/claude-code-deep-dive/ja/settings/settings-files/)）。
 - どこかの層で deny されたツールは、他の層では allow できません。user の allow は project の deny に負け、逆も同じです。deny はどのスコープのものも allow より先に評価されるためです。
 - managed の deny は `--allowedTools` で上書きできません。`--disallowedTools` は managed の上にさらに制限を足せます。
 - `disableBypassPermissionsMode` はどのスコープでも効きます。user 設定に書けば自分自身を bypass から締め出せます。
-- 配布方法と managed 専用キーの全体は [Ch58](/claude-code-deep-dive/ja/enterprise/managed-settings/) が扱います。
+- 配布方法と managed 専用キーの全体は [管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/) が扱います。
 
 ### `allowManagedPermissionRulesOnly`（managed 専用）
 
@@ -157,7 +157,7 @@ project 設定 `"deny": ["Bash(ls *)"]`、user 設定なしの `-p`。`--allowed
 - exit 2 で止めるフックはルール評価より前に呼び出しを止めるので、allow ルールにも勝ちます。docs は、`"Bash"` を allow し、特定のコマンドだけフックで止める構成を例示しています。
 - plan mode では、フックの `"allow"` は読み取り専用以外の呼び出しに効きません（`ExitPlanMode` を除く）。`updatedInput` は適用されます。
 - `requiresUserInteraction` の MCP ツール、ネットワークパスの読み取り、組織が `ask` にしたコネクタは、フックが `"allow"` を返しても確認します。
-- フックの仕様は [Ch28](/claude-code-deep-dive/ja/extensions/hooks/) が扱います。
+- フックの仕様は [Hooks](/claude-code-deep-dive/ja/extensions/hooks/) が扱います。
 
 mod の `tool.check` は PreToolUse フックの後に答えます。結果はセッションの条件で変わります。
 
@@ -167,7 +167,7 @@ mod の `tool.check` は PreToolUse フックの後に答えます。結果は�
 | どれもない（API キーや `CLAUDE_CODE_OAUTH_TOKEN` の利用を含む）                   | deny やフックのブロックを越えて承認できる。ask の確認も出ない                                                        |
 
 - どの条件でも: auto mode では分類器を通さず実行、plan mode では読み取り専用以外を承認できない、`dontAsk` ではモードだけが拒否する呼び出しを承認できる。
-- mod 自身のツール呼び出しの扱いは 2.1.321 で変わりました。詳細は [Ch33](/claude-code-deep-dive/ja/extensions/mods/)。
+- mod 自身のツール呼び出しの扱いは 2.1.321 で変わりました。詳細は [Mods](/claude-code-deep-dive/ja/extensions/mods/)。
 
 <div class="src">
   出典: [permissions#extend-permissions-with-hooks](https://code.claude.com/docs/en/permissions#extend-permissions-with-hooks) · [#precedence-among-rules-hooks-and-mods](https://code.claude.com/docs/en/permissions#precedence-among-rules-hooks-and-mods) · [#hook-approvals-in-plan-mode](https://code.claude.com/docs/en/permissions#hook-approvals-in-plan-mode) · changelog 2.1.321
@@ -267,7 +267,7 @@ Bash ルールは Claude が書いたコマンド文字列に一致します。�
 | `Bash(rm *)`       | `rm -rf build/`            | `/bin/rm -rf build/`, `bash -c 'rm -rf build/'`                             |
 | `Bash(git push *)` | `git push origin main`     | `git -C . push origin main`, `git -c push.default=current push origin main` |
 
-文字列によらない強制にはサンドボックス（[Ch25](/claude-code-deep-dive/ja/settings/sandbox/)）、コマンド全体を独自に検査するには PreToolUse フックを使います。
+文字列によらない強制にはサンドボックス（[サンドボックス](/claude-code-deep-dive/ja/settings/sandbox/)）、コマンド全体を独自に検査するには PreToolUse フックを使います。
 
 - 組み込みの読み取り専用コマンドは全モードで確認なしに動きます: `ls`・`cat`・`echo`・`pwd`・`head`・`tail`・`grep`・`find`・`wc`・`which`・`diff`・`stat`・`du`・`cd`・読み取り専用の `git` など。一覧は変更できず、確認させたいときは ask か deny を足します。
 
@@ -407,7 +407,7 @@ artifact の読み取りは、`claude.ai` か `*.claudeusercontent.com` を含�
 ### Agent
 
 - `Agent(Explore)`・`Agent(Plan)`・`Agent(my-custom-agent)` でサブエージェントを指定します。deny に書くか `--disallowedTools` で無効にします。
-- auto mode に入ると `Agent` の allow ルールは外されます（[Ch24](/claude-code-deep-dive/ja/settings/auto-mode/#ch24-decision-order)）。
+- auto mode に入ると `Agent` の allow ルールは外されます（[Auto mode](/claude-code-deep-dive/ja/settings/auto-mode/#ch24-decision-order)）。
 
 ```json
 { "permissions": { "deny": ["Agent(Explore)"] } }

@@ -26,20 +26,20 @@ Import Starlight components once per page, right after the frontmatter:
 import { Badge, Steps } from "@astrojs/starlight/components";
 ```
 
-| Need                              | Markup                                                                                                                     |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Status of a non-GA feature        | `<Badge text="Experimental" variant="caution" size="small" class="badge experimental" />`. Use the ledger's label.         |
-| Note, warning, conflict           | `:::note[補足]`, `:::caution[注意]`, `:::danger[食い違い]` … `:::`. A conflict quotes both readings and their sources.     |
-| A procedure the reader performs   | `<Steps>` around an ordered list. Precedence and evaluation orders stay plain ordered lists: they are rankings, not steps. |
-| A directory layout                | `<FileTree>` around a nested list. Text after the name is a comment; `…` is a placeholder. Escape `<` as `&lt;`.           |
-| The same example in two languages | `<Tabs syncKey="sdk-lang">` with one `<TabItem label="Python">` per language, so the reader's choice carries across pages. |
-| Links to the chapters of a part   | `<CardGrid>` with `<LinkCard title description href />` (part overview pages and the landing page)                         |
-| The contents of a named file      | A code block with `title="<path as the prose names it>"`                                                                   |
-| Output observed on the binary     | A code block with `title="実測 2.1.321" frame="terminal"`. Quote real output only; redact paths and IDs.                   |
-| Keys                              | `<kbd>Ctrl</kbd>+<kbd>O</kbd>`                                                                                             |
-| An item seen only in the binary   | `<span class="undocumented">…</span>` with an Undocumented badge                                                           |
-| A generated table                 | `<DataTable spec={{ data: "env", columns: [...] }} />` (see `src/components/DataTable.astro`)                              |
-| A link to another chapter         | `/claude-code-deep-dive/ja/<part>/<chapter>/#<section id>`                                                                 |
+| Need                              | Markup                                                                                                                                                                                                                                       |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status of a non-GA feature        | `<Badge text="Experimental" variant="caution" size="small" class="badge experimental" />`. Use the ledger's label.                                                                                                                           |
+| Note, warning, conflict           | `:::note[補足]`, `:::caution[注意]`, `:::danger[食い違い]` … `:::`. A conflict quotes both readings and their sources.                                                                                                                       |
+| A procedure the reader performs   | `<Steps>` around an ordered list. Precedence and evaluation orders stay plain ordered lists: they are rankings, not steps.                                                                                                                   |
+| A directory layout                | `<FileTree>` around a nested list. Text after the name is a comment; `…` is a placeholder. Escape `<` as `&lt;`.                                                                                                                             |
+| The same example in two languages | `<Tabs syncKey="sdk-lang">` with one `<TabItem label="Python">` per language, so the reader's choice carries across pages.                                                                                                                   |
+| Links to the chapters of a part   | `<CardGrid>` with `<LinkCard title description href />` (part overview pages and the landing page)                                                                                                                                           |
+| The contents of a named file      | A code block with `title="<path as the prose names it>"`                                                                                                                                                                                     |
+| Output observed on the binary     | A code block with `title="実測 2.1.321" frame="terminal"`. Quote real output only; redact paths and IDs.                                                                                                                                     |
+| Keys                              | `<kbd>Ctrl</kbd>+<kbd>O</kbd>`                                                                                                                                                                                                               |
+| An item seen only in the binary   | `<span class="undocumented">…</span>` with an Undocumented badge                                                                                                                                                                             |
+| A generated table                 | `<DataTable spec={{ data: "env", columns: [...] }} />` (see `src/components/DataTable.astro`)                                                                                                                                                |
+| A link to another chapter         | `[<page title>](/claude-code-deep-dive/ja/<part>/<chapter>/#<section id>)`. The text is the page title, as the sidebar shows it. Never "Ch12" or "付録 A": the site shows no numbers. In plain text (`description`), write 「<page title>」. |
 
 Status labels and badge variants:
 
