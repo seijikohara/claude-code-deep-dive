@@ -5,11 +5,29 @@ sidebar:
   order: 1
 ---
 
+import Diagram from "../../../../components/diagrams/Diagram.astro";
+import Cycle from "../../../../components/diagrams/Cycle.astro";
+import Phase from "../../../../components/diagrams/Phase.astro";
+import Loop from "../../../../components/diagrams/Loop.astro";
+
 Claude Code はモデルの外側でツールとコンテキストを管理する「ハーネス」です。この章では、エージェントループ、起動時にコンテキストへ載るもの、機能ごとのコンテキストコスト、`/context` の読み方、Claude Code が自動で差し込む system reminder を扱います。
 
 <span id="ch01-loop" />
 
 ## エージェントループとハーネス
+
+
+<Diagram>
+<Cycle title="Claude Code（agentic harness）">
+  <Phase label="提供するもの">ファイルアクセス、シェル実行、権限チェック、メモリの読み込み</Phase>
+  <Cycle title="エージェントループ">
+    <Loop steps={["コンテキスト収集", "行動", "結果の検証"]} back="前の手順で得た情報から次の手順を決める" />
+    <Phase label="推論">モデル</Phase>
+    <Phase label="行動">ツール</Phase>
+  </Cycle>
+  <Phase label="リクエストごとに送り直す">システムプロンプト、プロジェクトのコンテキスト、過去のメッセージとツール結果、新しいメッセージ</Phase>
+</Cycle>
+</Diagram>
 
 - タスクは「コンテキスト収集 → 行動 → 結果の検証」の 3 段階で進みます。段階は混ざり合い、Claude が前の手順で得た情報から次の手順を決めます。
 - ループはモデル（推論）とツール（行動）で動きます。モデルの外側でツールを提供し、モデルが見るコンテキストを管理する層が Claude Code です。この層を **agentic harness** と呼びます。

@@ -62,12 +62,16 @@ Diagrams are Astro components in `src/components/diagrams/`, written in HTML and
 - The components hold no words of their own. Every label comes from the page as a prop or as slot content, so each locale writes its diagram in its own language. Identifiers (event names, keys, paths) stay verbatim in backticks.
 - Import them per page: `import Stack from "../../../../components/diagrams/Stack.astro";`
 
-| Component   | Use for                                                                             | Markup                                                                                                      |
-| ----------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `<Diagram>` | The frame of every diagram, with an optional `caption`                              | `<Diagram caption="…">…</Diagram>`                                                                          |
-| `<Stack>`   | A precedence order drawn as layers, strongest first, with labels for both ends      | `<Stack high="強い" low="弱い">` around a Markdown ordered list (blank lines inside the tags)               |
-| `<Cycle>`   | A repeating cycle (session, turn, loop) as a box; nest cycles to show inner loops   | `<Cycle title="ターン" repeat="セッション中に繰り返す">…</Cycle>`; omit `repeat` for a cycle that runs once |
-| `<Phase>`   | One row inside a cycle: when (`label`) and what fires (inline Markdown on one line) | ``<Phase label="開始">`UserPromptSubmit` → `UserPromptExpansion`</Phase>``                                  |
+| Component    | Use for                                                                             | Markup                                                                                                      |
+| ------------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `<Diagram>`  | The frame of every diagram, with an optional `caption`                              | `<Diagram caption="…">…</Diagram>`                                                                          |
+| `<Stack>`    | A precedence order drawn as layers, strongest first, with labels for both ends      | `<Stack high="強い" low="弱い">` around a Markdown ordered list (blank lines inside the tags)               |
+| `<Cycle>`    | A repeating cycle (session, turn, loop) as a box; nest cycles to show inner loops   | `<Cycle title="ターン" repeat="セッション中に繰り返す">…</Cycle>`; omit `repeat` for a cycle that runs once |
+| `<Phase>`    | One row inside a cycle: when (`label`) and what fires (inline Markdown on one line) | ``<Phase label="開始">`UserPromptSubmit` → `UserPromptExpansion`</Phase>``                                  |
+| `<Loop>`     | Steps that repeat in order, with an arrow back to the first                         | `<Loop steps={["収集", "行動", "検証"]} back="…" />`                                                        |
+| `<Flow>`     | An evaluation order in which each step decides or passes the call on                | `<Flow start="ツール呼び出し">` around a Markdown ordered list                                              |
+| `<Groups>`   | Items grouped side by side (who coordinates, where it runs)                         | `<Groups>` around a nested Markdown list: group names at the top level, members nested                      |
+| `<Sequence>` | Segments in a fixed order, with an example of what a change invalidates             | `<Sequence segments={[…]} start="…" end="…" changedFrom={2} example="…" keptLabel="…" redoneLabel="…" />`   |
 
 ## Writing rules
 

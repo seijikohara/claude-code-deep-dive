@@ -1,0 +1,58 @@
+---
+/**
+ * Draw a nested Markdown list as side-by-side groups. Each top-level item is a group: its first
+ * line is the group name, and its nested items are the members.
+ *
+ *   <Groups>
+ *
+ *   - **You coordinate**
+ *     - Agent View: …
+ *   - **Claude coordinates**
+ *     - Subagents: …
+ *
+ *   </Groups>
+ */
+---
+
+<div class="groups"><slot /></div>
+
+<style>
+  .groups > :global(ul) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.75rem;
+  }
+  .groups > :global(ul > li) {
+    margin: 0;
+    border: 1px solid var(--ccdd-hairline);
+    border-radius: 0.875rem;
+    padding: 0.7rem 0.8rem 0.8rem;
+    background-color: var(--ccdd-surface);
+    font-size: var(--sl-text-sm);
+    line-height: 1.7;
+  }
+  .groups > :global(ul > li > strong:first-child) {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--sl-color-white);
+  }
+  .groups :global(ul ul) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.4rem;
+  }
+  .groups :global(ul ul > li) {
+    margin: 0;
+    border-radius: 0.6rem;
+    padding: 0.4rem 0.6rem;
+    background-color: color-mix(in srgb, var(--sl-color-accent-low) 55%, var(--ccdd-surface));
+  }
+  .groups :global(code) {
+    font-size: 0.85em;
+  }
+</style>

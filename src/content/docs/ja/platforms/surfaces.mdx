@@ -6,6 +6,9 @@ sidebar:
 ---
 
 import { Badge } from "@astrojs/starlight/components";
+import Diagram from "../../../../components/diagrams/Diagram.astro";
+import Groups from "../../../../components/diagrams/Groups.astro";
+
 
 Claude Code は同じエンジンを CLI・Desktop・IDE・Web・モバイルで動かします。この章では、各サーフェスの役割、サーフェス間の機能差、プロバイダとプランによる可用性、端末を離れて作業する手段の違いを整理します。
 
@@ -118,6 +121,24 @@ Console の API キーやサードパーティプロバイダからは使えま�
 <span id="ch48-away" />
 
 ## 端末を離れて作業する手段の比較
+
+
+<Diagram caption="Claude が動く場所で分けた手段">
+<Groups>
+
+- **自分のマシン**
+  - **Dispatch**（Desktop）
+  - **Remote Control**（CLI・Desktop・VS Code）
+  - **Channels**（CLI） <Badge text="Preview" variant="tip" size="small" class="badge preview" />
+  - **スケジュールタスク**（CLI・Desktop）
+- **クラウド**
+  - **Slack**（Anthropic のクラウド） <Badge text="Deprecated" variant="danger" size="small" class="badge deprecated" />
+  - **スケジュールタスク**（クラウド）
+- **自組織のインフラ**
+  - **セルフホスト環境** <Badge text="Beta" variant="note" size="small" class="badge beta" />
+
+</Groups>
+</Diagram>
 
 | 手段                                                   | きっかけ                                             | Claude が動く場所                     | 準備                                                                                                   | 詳細                                                            |
 | ------------------------------------------------------ | ---------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |

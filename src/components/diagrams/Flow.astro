@@ -1,0 +1,87 @@
+---
+/**
+ * Draw an ordered Markdown list as a top-down flow of checks, joined by arrows. Use it for an
+ * evaluation order in which each step either decides or passes the call on:
+ *
+ *   <Flow start="Tool call">
+ *
+ *   1. **Hooks**: deny, or pass on
+ *   2. **Deny rules**: …
+ *
+ *   </Flow>
+ */
+interface Props {
+  /** What enters the flow, shown above the first step. */
+  start?: string;
+}
+const { start } = Astro.props;
+---
+
+<div class="flow">
+  {start && <span class="start">{start}</span>}
+  <div class="steps"><slot /></div>
+</div>
+
+<style>
+  .flow {
+    display: grid;
+    justify-items: start;
+    gap: 0.5rem;
+  }
+  .start {
+    border-radius: 999px;
+    padding: 0.1rem 0.75rem;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    color: var(--sl-color-accent-high);
+    background-color: var(--sl-color-accent-low);
+  }
+  .steps {
+    width: 100%;
+  }
+  .steps :global(ol) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1.4rem;
+    counter-reset: step;
+  }
+  .steps :global(li) {
+    counter-increment: step;
+    position: relative;
+    margin: 0;
+    border: 1px solid var(--ccdd-hairline);
+    border-radius: 0.75rem;
+    padding: 0.55rem 0.9rem 0.55rem 2.6rem;
+    font-size: var(--sl-text-sm);
+    line-height: 1.75;
+    background-color: var(--ccdd-surface);
+  }
+  .steps :global(li::before) {
+    content: counter(step);
+    position: absolute;
+    inset-inline-start: 0.85rem;
+    top: 0.55rem;
+    font-weight: 700;
+    color: var(--sl-color-accent);
+  }
+  /* A short down arrow in the gap below every step but the last. */
+  .steps :global(li:not(:last-child)::after) {
+    content: "";
+    position: absolute;
+    inset-inline-start: 1.2rem;
+    bottom: -1.3rem;
+    width: 0.55rem;
+    height: 1.15rem;
+    background-color: var(--sl-color-accent);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 18'%3E%3Cpath d='M4.5 0v16M1 12.5l3.5 4 3.5-4' fill='none' stroke='black' stroke-width='1.4'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+  .steps :global(li strong:first-child) {
+    color: var(--sl-color-white);
+  }
+  .steps :global(code) {
+    font-size: 0.85em;
+  }
+</style>
