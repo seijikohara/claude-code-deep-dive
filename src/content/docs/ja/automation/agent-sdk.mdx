@@ -6,6 +6,9 @@ sidebar:
 ---
 
 import { TabItem, Tabs } from "@astrojs/starlight/components";
+import Diagram from "../../../../components/diagrams/Diagram.astro";
+import Flow from "../../../../components/diagrams/Flow.astro";
+
 
 Claude Code をライブラリとして TypeScript と Python から使う SDK です。この章では、パッケージと認証、最小例、ループの上限とメッセージ型、CLI と既定値が違うオプション、セッションと SessionStore、権限・フック・カスタムツール・MCP、サブエージェントとシステムプロンプト、運用時のコストと分離を扱います。SDK のコード例は docs からの転記で、実行はしていません。
 
@@ -283,12 +286,18 @@ docs の例の冒頭部分です。この後、2 秒待って画像付きの 2 �
 
 ### 評価の 6 段階
 
+<Diagram>
+<Flow start="ツール呼び出し">
+
 1. **フック**: 拒否するか次へ渡す。`allow` を返しても deny・ask ルールは評価される
 2. **deny ルール**（`disallowedTools`・設定）: `bypassPermissions` でも拒否
 3. **ask ルール**: `canUseTool` へ回す。`AskUserQuestion` と `requiresUserInteraction` の MCP ツールもここで止まる
 4. **モード**: `bypassPermissions` は承認、`acceptEdits` はファイル操作を承認、`default`・`dontAsk` は次へ
 5. **allow ルール**（`allowedTools`・設定）と、作業ディレクトリ内の読み取りなど自己承認する呼び出し
 6. **`canUseTool`**: `dontAsk` では呼ばれず拒否。`permissionPrompts: 'none'` でも呼ばれない
+
+</Flow>
+</Diagram>
 
 モード未指定の SDK は v2.1.302 以降 `default` で始まり、コールバックがなければ承認待ちは拒否です（[パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/)）。`bypassPermissions` などでは、TS が `CLAUDE_SDK_CAN_USE_TOOL_SHADOWED` 警告を出します。
 

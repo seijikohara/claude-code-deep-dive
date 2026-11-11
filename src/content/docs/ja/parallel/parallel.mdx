@@ -6,6 +6,9 @@ sidebar:
 ---
 
 import { Badge } from "@astrojs/starlight/components";
+import Diagram from "../../../../components/diagrams/Diagram.astro";
+import Groups from "../../../../components/diagrams/Groups.astro";
+
 
 Claude Code が複数のタスクを同時に進める 5 つの手段を並べ、誰が調整するか、ワーカー同士がどう通信するか、同じファイルをどう扱うかで比較します。表の手段名から、それぞれを詳しく扱う章へ移れます。
 
@@ -34,6 +37,21 @@ Claude Code が複数のタスクを同時に進める 5 つの手段を並べ�
 <span id="ch36-choose" />
 
 ## 選び方: 調整役・通信・ファイル競合で比較する
+
+
+<Diagram caption="調整役で分けた手段。Projects はこの比較に含まれません。">
+<Groups>
+
+- **あなたが調整する**
+  - **Agent View** <Badge text="Preview" variant="tip" size="small" class="badge preview" />: 独立したタスクを渡し、あとで確認する。結果はあなたにだけ届く
+- **Claude が調整する**
+  - **サブエージェント**: 1 つの会話の中で委譲し、結果を集める
+  - **Agent Teams** <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />: lead が計画・割り当て・監督する。チームメイト同士が直接送信する
+- **スクリプトが調整する**
+  - **Workflows**: スクリプトが計画を持つ。最終結果だけが会話に入る
+
+</Groups>
+</Diagram>
 
 | 手段                                                             | 調整役                                                    | 通信と結果の届け先                                                        | 同じファイルを触るとき                                        |
 | ---------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------- |

@@ -1,0 +1,143 @@
+---
+/**
+ * Draw an ordered sequence of segments as a bar, front to back. With `changedFrom`, draw a
+ * second bar for an example change: segments before it stay, that segment and everything after
+ * it are marked as redone. Fits prefix rules such as the prompt cache.
+ */
+interface Props {
+  /** Segment names, front first. */
+  segments: string[];
+  /** Label for the front end of the bar. */
+  start: string;
+  /** Label for the back end of the bar. */
+  end: string;
+  /** 1-based index of the segment that changes in the example bar. */
+  changedFrom?: number;
+  /** Caption of the example bar, e.g. "When the project context changes". */
+  example?: string;
+  /** Legend for segments that stay. */
+  keptLabel?: string;
+  /** Legend for segments that are redone. */
+  redoneLabel?: string;
+}
+const { segments, start, end, changedFrom, example, keptLabel, redoneLabel } = Astro.props;
+const redone = (i: number) => changedFrom !== undefined && i + 1 >= changedFrom;
+---
+
+<div class="sequence">
+  <div class="ends" aria-hidden="true"><span>{start}</span><span>{end}</span></div>
+  <ol class="bar">{segments.map((s) => <li>{s}</li>)}</ol>
+  {
+    changedFrom !== undefined && (
+      <>
+        {example && <p class="example">{example}</p>}
+        <ol class="bar">
+          {segments.map((s, i) => (
+            <li class={redone(i) ? "redone" : "kept"}>{s}</li>
+          ))}
+        </ol>
+        <p class="legend">
+          {keptLabel && (
+            <span class="kept">
+              <i />
+              {keptLabel}
+            </span>
+          )}
+          {redoneLabel && (
+            <span class="redone">
+              <i />
+              {redoneLabel}
+            </span>
+          )}
+        </p>
+      </>
+    )
+  }
+</div>
+
+<style>
+  .sequence {
+    display: grid;
+    gap: 0.45rem;
+  }
+  .ends {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    color: var(--sl-color-accent);
+  }
+  .ends span:last-child::after {
+    content: " →";
+  }
+  .ends span:first-child::before {
+    content: "← ";
+  }
+  .bar {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+  }
+  .bar li {
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0;
+    border: 1px solid var(--ccdd-hairline);
+    padding: 0.55rem 0.7rem;
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    text-align: center;
+    color: var(--sl-color-white);
+    background-color: var(--ccdd-surface);
+  }
+  .bar li + li {
+    border-inline-start: 0;
+  }
+  .bar li:first-child {
+    border-start-start-radius: 0.75rem;
+    border-end-start-radius: 0.75rem;
+  }
+  .bar li:last-child {
+    flex-grow: 1.6;
+    border-start-end-radius: 0.75rem;
+    border-end-end-radius: 0.75rem;
+  }
+  .bar li.kept,
+  .legend .kept i {
+    background-color: color-mix(in srgb, var(--sl-color-accent-low) 80%, var(--ccdd-surface));
+  }
+  .bar li.redone,
+  .legend .redone i {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--ccdd-experimental) 22%, transparent) 0 6px,
+      transparent 6px 12px
+    );
+  }
+  .example {
+    margin: 0.4rem 0 0;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+    margin: 0;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .legend i {
+    display: inline-block;
+    width: 1.1rem;
+    height: 0.75rem;
+    border: 1px solid var(--ccdd-hairline);
+    border-radius: 3px;
+  }
+</style>

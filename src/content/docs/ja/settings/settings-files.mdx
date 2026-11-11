@@ -5,6 +5,9 @@ sidebar:
   order: 18
 ---
 
+import Diagram from "../../../../components/diagrams/Diagram.astro";
+import Stack from "../../../../components/diagrams/Stack.astro";
+
 Claude Code が読む設定ファイルの場所、優先順位、マージの規則を扱います。managed settings の配布と専用キーの詳細は [管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/) に任せ、この章ではファイルの重なり方だけを説明します。優先順位とマージは、空のディレクトリで `-p` を実行して確認しました。
 
 <span id="ch18-overview" />
@@ -103,11 +106,17 @@ Claude Code が読む設定ファイルの場所、優先順位、マージの�
 
 ## 優先順位: 上の段が同じキーを上書きする
 
+<Diagram>
+<Stack high="強い" low="弱い">
+
 1. **Managed**: 自分のファイルや `--settings` では上書きできません。`--model` などのフラグも、組織が許可したモデルからしか選べません。managed の `model` は開始時の既定値で、ロックではありません。ロックは `availableModels` と `deniedModels` です。
 2. **コマンドライン**: `--settings <file-or-json>`。そのセッションだけに効き、指定しなかったキーはファイルの値のままです。
 3. **Project local**: `.claude/settings.local.json`
 4. **Shared project**: `.claude/settings.json`
 5. **User**: `~/.claude/settings.json`
+
+</Stack>
+</Diagram>
 
 環境変数と、`--model` のような個別フラグはこの段に含まれません。キーごとに優先順位が決まります（[環境変数とフラグはキー単位で優先する](/claude-code-deep-dive/ja/settings/settings-files/#ch18-per-key)）。
 
@@ -133,10 +142,16 @@ project に `{"model":"sonnet"}`、local に `{"model":"haiku"}` を置き、`-p
 
 ### ソースの順位（高い順）
 
+<Diagram>
+<Stack high="高い" low="低い">
+
 1. **Remote**: server-managed settings、または Claude apps gateway。Anthropic API へ対象の認証情報で直接認証した場合、gateway に `/login` した場合などだけ取得します。他のプロバイダや、`ANTHROPIC_BASE_URL` が Anthropic 以外を指す場合は 2 から始まります。
 2. **MDM・OS ポリシー**: macOS の plist、または HKLM
 3. **ファイル**: `managed-settings.json` と `managed-settings.d/*.json` を合成したもの
 4. **HKCU**: 上位に admin ドキュメントが無く、埋め込みホストが制限キーを渡していないときだけ使います。
+
+</Stack>
+</Diagram>
 
 1〜3 を admin ソースと呼びます。HKCU はユーザーが書けるので含みません。
 

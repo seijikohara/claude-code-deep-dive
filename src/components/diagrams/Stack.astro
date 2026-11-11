@@ -1,0 +1,110 @@
+---
+/**
+ * Draw an ordered Markdown list as stacked layers, strongest first, with a rail that names both
+ * ends. Write the list in the page; the component only styles it:
+ *
+ *   <Stack high="Wins" low="Overridden">
+ *
+ *   1. **Managed**: …
+ *   2. **User**: …
+ *
+ *   </Stack>
+ */
+interface Props {
+  /** Label for the top of the rail (the layer that wins). */
+  high: string;
+  /** Label for the bottom of the rail (the layer that gives way). */
+  low: string;
+}
+const { high, low } = Astro.props;
+---
+
+<div class="stack">
+  <div class="rail" aria-hidden="true">
+    <span>{high}</span>
+    <svg viewBox="0 0 12 100" preserveAspectRatio="none" class="line">
+      <path d="M6 0V96" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"
+      ></path>
+    </svg>
+    <svg viewBox="0 0 12 8" width="12" height="8" class="head">
+      <path d="M1 1l5 6 5-6" fill="none" stroke="currentColor" stroke-width="1.5"></path>
+    </svg>
+    <span>{low}</span>
+  </div>
+  <div class="layers"><slot /></div>
+</div>
+
+<style>
+  .stack {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.9rem;
+  }
+  .rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    color: var(--sl-color-accent);
+    writing-mode: horizontal-tb;
+  }
+  .rail span {
+    white-space: nowrap;
+  }
+  .line {
+    flex: 1;
+    width: 12px;
+    min-height: 2rem;
+  }
+  .head {
+    margin-top: -0.4rem;
+  }
+  .layers :global(ol) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.45rem;
+    counter-reset: layer;
+  }
+  .layers :global(li) {
+    counter-increment: layer;
+    position: relative;
+    margin: 0;
+    border: 1px solid var(--ccdd-hairline);
+    border-radius: 0.75rem;
+    padding: 0.6rem 0.9rem 0.6rem 2.6rem;
+    font-size: var(--sl-text-sm);
+    line-height: 1.75;
+    background-color: var(--ccdd-surface);
+  }
+  .layers :global(li::before) {
+    content: counter(layer);
+    position: absolute;
+    inset-inline-start: 0.85rem;
+    top: 0.6rem;
+    font-weight: 700;
+    color: var(--sl-color-accent);
+  }
+  /* The stronger the layer, the more accent it carries. */
+  .layers :global(li:nth-child(1)) {
+    background-color: color-mix(in srgb, var(--sl-color-accent-low) 100%, var(--ccdd-surface));
+  }
+  .layers :global(li:nth-child(2)) {
+    background-color: color-mix(in srgb, var(--sl-color-accent-low) 70%, var(--ccdd-surface));
+  }
+  .layers :global(li:nth-child(3)) {
+    background-color: color-mix(in srgb, var(--sl-color-accent-low) 45%, var(--ccdd-surface));
+  }
+  .layers :global(li:nth-child(4)) {
+    background-color: color-mix(in srgb, var(--sl-color-accent-low) 25%, var(--ccdd-surface));
+  }
+  .layers :global(li strong:first-child) {
+    color: var(--sl-color-white);
+  }
+  .layers :global(code) {
+    font-size: 0.85em;
+  }
+</style>

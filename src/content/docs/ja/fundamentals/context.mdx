@@ -6,6 +6,9 @@ sidebar:
 ---
 
 import { Badge } from "@astrojs/starlight/components";
+import Diagram from "../../../../components/diagrams/Diagram.astro";
+import Sequence from "../../../../components/diagrams/Sequence.astro";
+
 
 会話がウィンドウを埋めていくときの制御を扱います。`/clear`・`/compact`・自動圧縮・アイドル圧縮の違い、auto-compact window の設定と優先順位、圧縮で残るもの、圧縮フックの発火順、プロンプトキャッシュの層・TTL・無効化条件を、実測を交えて説明します。
 
@@ -361,6 +364,19 @@ fallback で 1M から 200K に落ちたことが原因なら、エラーがそ�
 | システムプロンプト | コアの指示、ツール定義                     | 読み込むツール定義の集合が変わる            |
 | プロジェクト文脈   | CLAUDE.md、auto memory、スコープなし rules | セッション開始時、`/clear`・`/compact` の後 |
 | 会話               | メッセージ、応答、ツール結果               | 毎ターン                                    |
+
+
+<Diagram>
+<Sequence
+  segments={["システムプロンプト", "プロジェクト文脈", "会話"]}
+  start="先頭（変わりにくい）"
+  end="末尾（毎ターン変わる）"
+  changedFrom={2}
+  example="例: プロジェクト文脈が変わったとき"
+  keptLabel="キャッシュと一致する prefix"
+  redoneLabel="変わった層から後ろを再計算"
+/>
+</Diagram>
 
 - モデルごと、速度（fast mode）ごとにキャッシュは別です。effort もほとんどのモデルでレベルごとに別です。例外は API キーかサブスクリプションでの Fable 5.1 以降、Opus 5.5、Sonnet 5.5、Haiku 5.5 です。
 
