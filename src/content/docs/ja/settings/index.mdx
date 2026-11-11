@@ -7,6 +7,7 @@ sidebar:
 ---
 
 import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+import { facts } from "../../../../facts.mjs";
 
 設定ファイルの優先順位、設定キーと環境変数、組み込みツール、権限ルール、パーミッションモード、Auto mode、サンドボックス、セキュリティ、診断を扱います。
 
@@ -19,12 +20,12 @@ import { CardGrid, LinkCard } from "@astrojs/starlight/components";
   <LinkCard
     title="設定キー早見表"
     href="/claude-code-deep-dive/ja/settings/settings-keys/"
-    description="249 個の設定キーから、日常の調整でよく触るものを分野別に抜き出しました。"
+    description={`${facts.settingsKeys} 個の設定キーから、日常の調整でよく触るものを分野別に抜き出しました。`}
   />
   <LinkCard
     title="環境変数"
     href="/claude-code-deep-dive/ja/settings/env-vars/"
-    description="env-vars リファレンスに載る 402 個の環境変数から、上級者がよく使うものを分野別に抜き出します。"
+    description={`env-vars リファレンスに載る ${facts.envVars} 個の環境変数から、上級者がよく使うものを分野別に抜き出します。`}
   />
   <LinkCard
     title="組み込みツール"

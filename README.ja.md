@@ -52,7 +52,7 @@ pnpm check        # 整形・lint・型検査・単体テスト
 サイトの検査:
 
 ```sh
-pnpm build && pnpm lint:site    # 個人情報・付録の網羅・出典・内部リンク
+pnpm build && pnpm lint:site    # 個人情報・付録の網羅・出典・内部リンク・対象版と件数
 CCDD_RESEARCH=/path/to/research node tools/lint.mjs --site dist   # 識別子の照合も行う
 ```
 
@@ -64,6 +64,7 @@ CCDD_RESEARCH=/path/to/research node tools/lint.mjs --site dist   # 識別子の
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `src/content/docs/`              | Starlight のページ（ルートに英語のトップ、`ja/` に日本語版。部ごとのディレクトリに、概要ページ `index.mdx` と 1 章 1 つの MDX） |
 | `src/components/DataTable.astro` | `data/` から生成する表（付録、コマンドカタログ）                                                                                |
+| `src/facts.mjs`                  | 対象版と、各ページが繰り返す件数（`docs/authoring-guide.md` を参照）                                                            |
 | `src/styles/site.css`            | Starlight に重ねるデザイン                                                                                                      |
 | `data/`                          | 付録の表（名前、日本語の要約、ステータス、ドキュメントのアンカー）                                                              |
 | `tools/`                         | サイトの lint、データの抽出と日本語化のツール                                                                                   |

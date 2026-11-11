@@ -14,12 +14,14 @@ hero:
       icon: external
 ---
 
-import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+import { Card, CardGrid, Code, LinkCard } from "@astrojs/starlight/components";
+import { facts } from "../../facts.mjs";
 
-```console title="claude --version"
-$ claude --version
-2.1.321 (Claude Code)
-```
+<Code
+  lang="console"
+  title="claude --version"
+  code={`$ claude --version\n${facts.targetVersion} (Claude Code)`}
+/>
 
 ## Editions
 
@@ -27,14 +29,14 @@ $ claude --version
   <LinkCard
     title="Japanese edition"
     href="/claude-code-deep-dive/ja/"
-    description="Complete. 76 chapters, from the agent loop to enterprise operation, plus complete tables of all 249 settings keys, 402 environment variables, CLI flags and subcommands, 33 hook events, and 46 built-in tools."
+    description={`Complete. ${facts.chapters.total} chapters, from the agent loop to enterprise operation, plus complete tables of all ${facts.settingsKeys} settings keys, ${facts.envVars} environment variables, CLI flags and subcommands, ${facts.hookEvents} hook events, and ${facts.tools} built-in tools.`}
   />
   <Card title="English edition">In preparation.</Card>
 </CardGrid>
 
 ## How the reference is checked
 
-- Facts come from the official docs (228 pages), the changelog, `--help` output, and headless runs of 2.1.321.
+- Facts come from the official docs ({facts.docsPages} pages), the changelog, `--help` output, and headless runs of {facts.targetVersion}.
 - Every section names its sources. Features that are not generally available carry a status label: Beta, Preview, Experimental, Undocumented, Deprecated, or Removed.
 - Where the docs, the changelog, and the binary disagree, the page shows both readings.
 - An independent reviewer checked every chapter against the sources before publication.

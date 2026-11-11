@@ -11,7 +11,7 @@
     "preview": "astro preview",
     "lint": "oxlint --deny-warnings",
     "lint:fix": "oxlint --deny-warnings --fix",
-    "lint:site": "node tools/lint.mjs --site dist --only=privacy,coverage,sources,links",
+    "lint:site": "node tools/lint.mjs --site dist --only=privacy,coverage,sources,links,facts",
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
     "typecheck": "astro sync && tsc --noEmit",

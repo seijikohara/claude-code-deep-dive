@@ -7,6 +7,7 @@ sidebar:
 ---
 
 import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+import { facts } from "../../../../facts.mjs";
 
 実験的機能とプレビューの一覧、未公開の実験フラグ候補、2.1.x のタイムラインと直近 25 リリース、改名と削除、ドキュメントと実機の食い違い、アップグレードチェックリスト、参考資料をまとめます。
 
@@ -14,7 +15,7 @@ import { CardGrid, LinkCard } from "@astrojs/starlight/components";
   <LinkCard
     title="実験的・プレビュー機能一覧"
     href="/claude-code-deep-dive/ja/summary/status-board/"
-    description="2.1.321 時点で一般提供（GA）でない機能を、ステータス別に一覧します。"
+    description={`${facts.targetVersion} 時点で一般提供（GA）でない機能を、ステータス別に一覧します。`}
   />
   <LinkCard
     title="未公開の実験フラグ候補"

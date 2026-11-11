@@ -52,7 +52,7 @@ pnpm check        # format, lint, type check, and unit tests
 Site checks:
 
 ```sh
-pnpm build && pnpm lint:site    # privacy, appendix coverage, sources, internal links
+pnpm build && pnpm lint:site    # privacy, appendix coverage, sources, internal links, facts
 CCDD_RESEARCH=/path/to/research node tools/lint.mjs --site dist   # also checks identifiers
 ```
 
@@ -64,6 +64,7 @@ The identifier check (`--only=ids`) and data extraction (`tools/extract.mjs`) ne
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `src/content/docs/`              | Starlight pages: the English home at the root, and the Japanese edition under `ja/`: one directory per part, an overview page (`index.mdx`) and one MDX file per chapter |
 | `src/components/DataTable.astro` | Renders the generated tables (appendix, command catalog) from `data/`                                                                                                    |
+| `src/facts.mjs`                  | The release the reference covers and the totals that pages repeat (see `docs/authoring-guide.md`)                                                                        |
 | `src/styles/site.css`            | Site theme on top of Starlight                                                                                                                                           |
 | `data/`                          | Appendix tables (names, Japanese summaries, statuses, docs anchors)                                                                                                      |
 | `tools/`                         | Site lint, and the data extraction and translation tools                                                                                                                 |
