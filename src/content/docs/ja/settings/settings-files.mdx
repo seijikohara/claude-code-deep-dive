@@ -24,7 +24,7 @@ Claude Code が読む設定ファイルの場所、優先順位、マージの�
 
 - インストールしただけでは設定ファイルは作られません。`/config` で user 設定に保存される項目を変えると `~/.claude/settings.json` が、権限プロンプトで **Yes, and don't ask again** を選ぶと `.claude/settings.local.json` が作られます。
 - `/config` の保存先は、大半が `~/.claude/settings.json`、**Show tips** など一部が `.claude/settings.local.json`、global config が `~/.claude.json` です。`/config verbose=true` のように `key=value` でも設定できます。
-- 設定キーは 249 個です。索引のスコープ列の内訳は Any file 157、Managed 44、User or managed 31、User, local, or managed 4、User 1、Global config 12 です（[設定キー全件](/claude-code-deep-dive/ja/appendix/settings/)）。
+- 索引のスコープ列では、半数以上のキーが Any file（4 種のファイルすべてに書ける）です。ほかは Managed、User or managed、User, local, or managed、User、Global config に限られます（[設定キー全件](/claude-code-deep-dive/ja/appendix/settings/)）。
 
 <div class="src">
   出典: [settings#settings-files-and-who-they-affect](https://code.claude.com/docs/en/settings#settings-files-and-who-they-affect) · [settings#use-the-/config-menu](https://code.claude.com/docs/en/settings#use-the-%2Fconfig-menu) · [settings-reference#settings-index](https://code.claude.com/docs/en/settings-reference#settings-index)

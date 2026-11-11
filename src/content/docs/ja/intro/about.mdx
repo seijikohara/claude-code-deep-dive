@@ -5,6 +5,7 @@ sidebar:
 ---
 
 import { Badge } from "@astrojs/starlight/components";
+import { version } from "../../../../version.mjs";
 
 <span id="intro-reading" />
 
@@ -12,8 +13,8 @@ import { Badge } from "@astrojs/starlight/components";
 
 ### 対象と情報源
 
-- 対象はインストール済みの `2.1.321` だけです。
-- 情報源は 2 つです。公式ドキュメント（code.claude.com/docs、英語版 228 ページ）と、実機での確認結果です。
+- 対象はインストール済みの <code>{version}</code> だけです。
+- 情報源は 2 つです。公式ドキュメント（code.claude.com/docs の英語版）と、実機での確認結果です。
 - 実機確認には `--help`、ヘッドレス実行（`-p`）、起動時の init イベントを使いました。
 - 記憶や推測による記述はありません。
 

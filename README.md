@@ -2,7 +2,7 @@
 
 [日本語](README.ja.md)
 
-A reference site on every feature of Claude Code **2.1.321**: commands, settings, extension points, multi-agent features, platforms, enterprise operation, and experimental options.
+A reference site on every feature of Claude Code: commands, settings, extension points, multi-agent features, platforms, enterprise operation, and experimental options.
 Each fact comes from the official documentation, the changelog, or a run of the installed binary.
 
 The site is published at <https://seijikohara.github.io/claude-code-deep-dive/>.
@@ -11,7 +11,7 @@ The site is published at <https://seijikohara.github.io/claude-code-deep-dive/>.
 
 | Edition  | Status                                                                                             |
 | -------- | -------------------------------------------------------------------------------------------------- |
-| Japanese | Complete: 76 chapters, fact-reviewed                                                               |
+| Japanese | Complete, fact-reviewed                                                                            |
 | English  | In preparation. The site already routes English as the primary language and Japanese under `/ja/`. |
 
 ## What the reference covers
@@ -26,7 +26,7 @@ The site is published at <https://seijikohara.github.io/claude-code-deep-dive/>.
 - Part VII: Platforms: Desktop, web and cloud sessions, Remote Control, IDEs, Chrome, Slack, Claude Tag, Projects
 - Part VIII: Enterprise: installation, authentication, managed settings, cloud providers, gateways, monitoring and costs
 - Part IX: Summary: status board, timeline, recent releases, renames and removals, docs-versus-binary conflicts
-- Part X: Complete appendices: all 249 settings keys, 402 environment variables, CLI flags and subcommands, 33 hook events, and 46 built-in tools
+- Part X: Complete appendices: every settings key, environment variable, CLI flag and subcommand, hook event, and built-in tool
 
 ## How the reference is checked
 
@@ -64,6 +64,7 @@ The identifier check (`--only=ids`) and data extraction (`tools/extract.mjs`) ne
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `src/content/docs/`              | Starlight pages: the English home at the root, and the Japanese edition under `ja/`: one directory per part, an overview page (`index.mdx`) and one MDX file per chapter |
 | `src/components/DataTable.astro` | Renders the generated tables (appendix, command catalog) from `data/`                                                                                                    |
+| `src/version.mjs`                | The Claude Code release the reference covers; pages and the site config read it from here                                                                                |
 | `src/styles/site.css`            | Site theme on top of Starlight                                                                                                                                           |
 | `data/`                          | Appendix tables (names, Japanese summaries, statuses, docs anchors)                                                                                                      |
 | `tools/`                         | Site lint, and the data extraction and translation tools                                                                                                                 |

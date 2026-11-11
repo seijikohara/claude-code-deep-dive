@@ -73,6 +73,24 @@ Diagrams are Astro components in `src/components/diagrams/`, written in HTML and
 | `<Groups>`   | Items grouped side by side (who coordinates, where it runs)                         | `<Groups>` around a nested Markdown list: group names at the top level, members nested                      |
 | `<Sequence>` | Segments in a fixed order, with an example of what a change invalidates             | `<Sequence segments={[…]} start="…" end="…" changedFrom={2} example="…" keptLabel="…" redoneLabel="…" />`   |
 
+## The target release and totals
+
+The Claude Code release this reference covers lives in one place: `src/version.mjs`.
+
+- In a page body, write `{version}` and import it at the top of the page: `import { version } from "../../../../version.mjs";` for a chapter page (one `../` less per level up). In a JSX attribute, use a template literal.
+- Frontmatter, `404.md`, the READMEs, and `package.json` cannot read it. Do not write the release there; the landing pages show it in the `claude --version` block.
+- Verification stamps (「実測 2.1.321」, 「実機確認 2.1.321」) and history (「2.1.321 で追加」, 「changelog 2.1.300」) are not the target release. Write them as they are: they stay true after the target moves.
+- Pages that describe one research snapshot (the 2.1.x timeline, the recent releases, the upgrade checklist, the binary-string candidates) keep their release range as written. A new target release means new research for those pages.
+
+Do not state totals that a reader does not need, such as the number of settings keys, chapters, or docs pages. Say 「全件」 or name the set instead; the tables show their own rows. Keep a number only when it carries the point, for example a count that a comparison or an observed run reports.
+
+### Moving to a new release
+
+1. Refresh the docs mirror and regenerate `data/*.json` (`tools/extract.mjs`, `tools/apply-ja.mjs`).
+2. Set `version` in `src/version.mjs`.
+3. Re-check the facts on the new release, and update each verification stamp after its fact is checked again. `grep -rn "実測\|実機確認" src/content/docs` lists the stamps.
+4. Update the snapshot pages listed above.
+
 ## Writing rules
 
 - Plain engineering Japanese, one idea per sentence. Bullets in です・ます; table cells in short plain form.
