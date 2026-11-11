@@ -14,6 +14,7 @@ import {
   checkLinks,
   checkSiteLinks,
   checkChapterNumbers,
+  checkLinkLabels,
 } from "./lib/lint-rules.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -226,6 +227,8 @@ function run(argv) {
         `links: ${numbers.length} chapter numbers or appendix letters (use the page title)`,
         numbers,
       );
+      const vague = checkLinkLabels(pages, SITE_BASE);
+      report(`links: ${vague.length} links whose text does not name the target`, vague);
     }
   }
 

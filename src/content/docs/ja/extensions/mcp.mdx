@@ -54,7 +54,7 @@ tool search が既定で有効です。起動時に読み込むのはツール�
 | `logout <name>`                                 | 保存済みの OAuth 資格情報を消す。認可サーバーが対応していればトークンを失効させる                                                                                                                                               |
 | `remove [-s <scope>] <name>`                    | スコープ省略時は定義のあるスコープから消す。トークンとクライアント登録は消すが**失効はさせない**ので、先に `logout` を実行する                                                                                                  |
 | `reset-project-choices`                         | このプロジェクトの `.mcp.json` サーバーへの承認と拒否をすべて戻す                                                                                                                                                               |
-| `serve [options]`                               | Claude Code 自身を stdio MCP サーバーとして起動する（[後述](/claude-code-deep-dive/ja/extensions/mcp/#ch30-serve)）                                                                                                             |
+| `serve [options]`                               | Claude Code 自身を stdio MCP サーバーとして起動する（[`claude mcp serve`・`--mcp-config`・`--strict-mcp-config`](/claude-code-deep-dive/ja/extensions/mcp/#ch30-serve)）                                                                                                             |
 
 サーバー名に使える文字は英数字・`-`・`_` だけです。同じスコープに同じ名前で追加すると `MCP server sentry already exists in local config` のように失敗します。
 

@@ -109,7 +109,7 @@ Claude Code が読む設定ファイルの場所、優先順位、マージの�
 4. **Shared project**: `.claude/settings.json`
 5. **User**: `~/.claude/settings.json`
 
-環境変数と、`--model` のような個別フラグはこの段に含まれません。キーごとに優先順位が決まります（[2 つ後の節](/claude-code-deep-dive/ja/settings/settings-files/#ch18-per-key)）。
+環境変数と、`--model` のような個別フラグはこの段に含まれません。キーごとに優先順位が決まります（[環境変数とフラグはキー単位で優先する](/claude-code-deep-dive/ja/settings/settings-files/#ch18-per-key)）。
 
 project に `{"model":"sonnet"}`、local に `{"model":"haiku"}` を置き、`-p` の init イベントの `model` を読みました。
 

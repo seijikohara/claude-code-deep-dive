@@ -296,7 +296,7 @@ allowed-tools: Bash(git add *) Bash(git commit *) Bash(git status *)
 
 ### 信頼モデル
 
-- **ワークスペースの信頼は `allowed-tools` を止めません。**&#x4E00;度も信頼していないフォルダの `-p` でも、プロジェクトの Skill の付与が効きます（[実測](/claude-code-deep-dive/ja/extensions/skills/#ch29-lab)）。リポジトリの Skill は実行前に中身を確認します。
+- **ワークスペースの信頼は `allowed-tools` を止めません。**&#x4E00;度も信頼していないフォルダの `-p` でも、プロジェクトの Skill の付与が効きます（[実機検証: init への出現と実行](/claude-code-deep-dive/ja/extensions/skills/#ch29-lab)）。リポジトリの Skill は実行前に中身を確認します。
 - `allowManagedPermissionRulesOnly`（managed、v2.1.282 以降）は、project・personal・`--add-dir` の Skill などの `allowed-tools` を無視します。無視した Skill は `/status` に出ます。managed とバンドルの Skill は付与を保ちます。
 - `strictPluginOnlyCustomization` が `hooks` を含むと、`hooks` を宣言した personal・project の Skill は `allowed-tools` を失い、フックも動きません（2.1.304）。
 - 修正の履歴: 対話ツール（`AskUserQuestion` など）を `allowed-tools` に入れると空の回答で自動許可された問題（2.1.69）、managed の ask ルールを `allowed-tools` が迂回できた問題（2.1.74）。

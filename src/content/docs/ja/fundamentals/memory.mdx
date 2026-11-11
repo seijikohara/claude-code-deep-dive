@@ -281,7 +281,7 @@ $ cd mono/pkg && claude -p "Use the Read tool on src/a.ts, then reply with only 
 | 作業ディレクトリ外への `@path`             | 承認を求める | 承認済みのときだけ、確認なしで読む         |
 
 - 直接読めないセッション: v2.1.277 より前、`/plugin` で組み込みプラグインを無効にした場合、v2.1.276 以前から更新した直後の一部。2.1.281 より前は Bedrock やテレメトリ無効の場合も。
-- その場合は隣の CLAUDE.md で import します（右上）。`ln -s AGENTS.md CLAUDE.md` でも読めますが、Edit・Write は symlink 越しに書かず、Windows では symlink がテキストとして checkout されることがあります。
+- その場合は隣の CLAUDE.md で import します（すぐ下の CLAUDE.md の例）。`ln -s AGENTS.md CLAUDE.md` でも読めますが、Edit・Write は symlink 越しに書かず、Windows では symlink がテキストとして checkout されることがあります。
 - `/init` は `.cursor/rules/`・`.github/copilot-instructions.md` などを取り込み、`/import` は AGENTS.md などを CLAUDE.md へ 1 回だけ複写します。
 
 ```markdown title="CLAUDE.md"

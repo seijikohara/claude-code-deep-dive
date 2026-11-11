@@ -505,7 +505,7 @@ manifest の `version`、エントリの `version` の順に使います。ど�
 | `list`              | `--json`。`--available`・`--data-size` は `--json` が必要                                                                             |
 | `details`           | 読み込み済みのプラグインだけ。フラグなし                                                                                              |
 | `test`              | Mod のテスト（[Mods](/claude-code-deep-dive/ja/extensions/mods/)）                                                                    |
-| `eval`・`eval init` | exit 2・130・143 を追加（[後述](/claude-code-deep-dive/ja/extensions/plugins/#ch31-evals-run)）。init は `--bare`・`-i`・`--eval-dir` |
+| `eval`・`eval init` | exit 2・130・143 を追加（[Plugin evals: 実行・CI・隔離](/claude-code-deep-dive/ja/extensions/plugins/#ch31-evals-run)）。init は `--bare`・`-i`・`--eval-dir` |
 
 - `claude plugins` は別名です。終了コードは成功 0、失敗 1 です。
 - `install`・`uninstall`・`update`・`enable`・`disable` と marketplace の add・remove・update の `--json` は、stdout の最終行に `command`・`outcome`・`message` を持つ 1 オブジェクトを出します。

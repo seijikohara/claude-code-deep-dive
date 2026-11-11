@@ -16,7 +16,7 @@ Claude Code を配る方法と、版を管理する仕組みを扱います。�
 | ネイティブ（推奨） | `curl -fsSL https://claude.ai/install.sh \| bash` `irm https://claude.ai/install.ps1 \| iex` | インストール時の指定が既定。以後は `autoUpdatesChannel`          | する（バックグラウンド）    |
 | Homebrew           | `brew install --cask claude-code`                                                            | cask 名。`claude-code` は stable、`claude-code@latest` は latest | しない。opt-in あり         |
 | WinGet             | `winget install Anthropic.ClaudeCode`                                                        | ―                                                                | しない。opt-in あり         |
-| apt・dnf・apk      | 署名付きリポジトリ（[後述](/claude-code-deep-dive/ja/enterprise/install/#ch56-packages)）    | リポジトリの URL                                                 | しない（root が必要なため） |
+| apt・dnf・apk      | 署名付きリポジトリ（[パッケージマネージャー: apt・dnf・apk と npm](/claude-code-deep-dive/ja/enterprise/install/#ch56-packages)）    | リポジトリの URL                                                 | しない（root が必要なため） |
 | npm                | `npm install -g @anthropic-ai/claude-code`                                                   | `autoUpdatesChannel`                                             | する                        |
 
 - チャンネルは 2 つです。`latest`（既定）は公開直後の版、`stable` はおよそ 1 週間前の版で、大きな退行のあった版を飛ばします。

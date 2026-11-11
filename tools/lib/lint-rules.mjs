@@ -295,10 +295,6 @@ export function checkLinks(html) {
 }
 
 /**
- * Return the internal links of a built site that point at a missing page or a missing id.
- * `pages` maps a site path (e.g. "/ja/fundamentals/advisor/") to that page's HTML; `base` is the site base path.
- */
-/**
  * Return chapter numbers ("Ch12") and appendix letters ("付録 A") in built pages. The sidebar shows
  * page titles only, so a reader cannot map a number to a page; references must use the title.
  */
@@ -313,6 +309,30 @@ export function checkChapterNumbers(pages) {
   return found;
 }
 
+/** Link text that does not tell the reader where the link goes. */
+const VAGUE_LABEL = /^(\d+|後述|前述|上記|下記|こちら|ここ|\d+ つ[前後]の節|次の節|前の節|実測)$/;
+
+/**
+ * Return internal links whose text is a bare number or a word like 後述 instead of the target's
+ * title. `base` is the site base path; in-page links (`#id`) count as internal.
+ */
+export function checkLinkLabels(pages, base) {
+  const found = [];
+  for (const [path, html] of pages) {
+    for (const m of html.matchAll(/<a\b[^>]*\shref="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+      const href = m[1];
+      if (!href.startsWith(`${base}/`) && !href.startsWith("#")) continue;
+      const label = decodeEntities(m[2].replace(/<[^>]*>/g, "")).trim();
+      if (VAGUE_LABEL.test(label)) found.push(`${path}: "${label}" -> ${href}`);
+    }
+  }
+  return found;
+}
+
+/**
+ * Return the internal links of a built site that point at a missing page or a missing id.
+ * `pages` maps a site path (e.g. "/ja/fundamentals/advisor/") to that page's HTML; `base` is the site base path.
+ */
 export function checkSiteLinks(pages, base) {
   const idsByPath = new Map();
   for (const [path, html] of pages) {
