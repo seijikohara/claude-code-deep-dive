@@ -6,6 +6,10 @@ sidebar:
 ---
 
 import { Badge } from "@astrojs/starlight/components";
+import Diagram from "../../../../components/diagrams/Diagram.astro";
+import Cycle from "../../../../components/diagrams/Cycle.astro";
+import Phase from "../../../../components/diagrams/Phase.astro";
+
 
 33 イベントの設定・入出力・決定制御・非同期実行・安全性を扱います（全件表は [Hook イベント全件](/claude-code-deep-dive/ja/appendix/hooks/)）。
 
@@ -52,13 +56,24 @@ matcher で Bash に絞り、`if` で `rm` のサブコマンドにさらに絞�
 
 ### セッション内の順序
 
-1. `Setup`（`--init-only`、または `-p` で `--init`・`--maintenance` のときだけ）
-2. `SessionStart`
-3. ターン開始: `UserPromptSubmit`、コマンド入力なら `UserPromptExpansion`
-4. ツール呼び出しごと: `PreToolUse`、`PermissionRequest`、`PostToolUse` または `PostToolUseFailure`。並列バッチの後に `PostToolBatch`
-5. ループの中: `SubagentStart`/`SubagentStop`、`TaskCreated`/`TaskCompleted`、MCP ツール実行中の `Elicitation`/`ElicitationResult`、auto mode の拒否で `PermissionDenied`
-6. ターン終了: `Stop`（API エラーなら `StopFailure`）、`TeammateIdle`
-7. `PreCompact`、`PostCompact`、最後に `SessionEnd`
+<Diagram caption="公式ドキュメントのライフサイクル図の説明をもとに作成。流れの外で発火するイベントは次の表のとおりです。">
+<Cycle title="セッション">
+  <Phase label="開始">`Setup`（`--init-only`、または `-p` で `--init`・`--maintenance` のときだけ）→ `SessionStart`</Phase>
+  <Cycle title="ターン" repeat="セッション中に繰り返す">
+    <Phase label="開始">`UserPromptSubmit` → `UserPromptExpansion`（コマンド入力のとき）</Phase>
+    <Cycle title="エージェントループ" repeat="ツール呼び出しごとに繰り返す">
+      <Phase label="ツール呼び出し">`PreToolUse` → `PermissionRequest` → `PostToolUse` または `PostToolUseFailure`</Phase>
+      <Phase label="auto mode の拒否">`PermissionDenied`（`PermissionRequest` からの分岐）</Phase>
+      <Phase label="MCP ツール実行中">`Elicitation` → `ElicitationResult`</Phase>
+      <Phase label="並列バッチの後">`PostToolBatch`</Phase>
+      <Phase label="ループの中">`SubagentStart`/`SubagentStop`、`TaskCreated`/`TaskCompleted`</Phase>
+    </Cycle>
+    <Phase label="終了">`Stop`（API エラーなら `StopFailure`）</Phase>
+  </Cycle>
+  <Phase label="その後">`TeammateIdle` → `PreCompact` → `PostCompact`</Phase>
+  <Phase label="終了">`SessionEnd`</Phase>
+</Cycle>
+</Diagram>
 
 ### 流れの外で発火するもの
 

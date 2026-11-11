@@ -1,0 +1,87 @@
+---
+/**
+ * Draw one repeating cycle (a session, a turn, a loop) as a box. Cycles nest: put a <Cycle>
+ * inside another to show a loop that runs within the outer one. Rows go in <Phase> children.
+ * The box is a labeled group, not a <section>: tools/lint.mjs treats each <section> as a page
+ * section that needs its own source line.
+ */
+interface Props {
+  /** Name of the cycle, e.g. "Session". */
+  title: string;
+  /** How often the cycle repeats, e.g. "per prompt". Omit for a cycle that runs once. */
+  repeat?: string;
+}
+const { title, repeat } = Astro.props;
+---
+
+<div class="cycle" role="group" aria-label={title}>
+  <div class="head">
+    <span class="title">{title}</span>
+    {
+      repeat && (
+        <span class="repeat">
+          <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+            <path
+              d="M13 8a5 5 0 1 1-1.46-3.54M13 2.5V5h-2.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          {repeat}
+        </span>
+      )
+    }
+  </div>
+  <div class="body"><slot /></div>
+</div>
+
+<style>
+  .cycle {
+    border: 1px solid var(--ccdd-hairline);
+    border-radius: 0.875rem;
+    background-color: var(--ccdd-surface);
+    padding: 0.75rem 0.9rem 0.9rem;
+    min-width: 0;
+  }
+  /* Each nested level gets a little more of the accent, so depth reads at a glance. */
+  .cycle .cycle {
+    background-color: color-mix(in srgb, var(--sl-color-accent-low) 45%, var(--ccdd-surface));
+    border-color: color-mix(in srgb, var(--sl-color-accent) 22%, var(--ccdd-hairline));
+  }
+  .cycle .cycle .cycle {
+    background-color: color-mix(in srgb, var(--sl-color-accent-low) 85%, var(--ccdd-surface));
+  }
+  .head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.75rem;
+    margin-bottom: 0.6rem;
+  }
+  .title {
+    font-weight: 700;
+    color: var(--sl-color-white);
+  }
+  .repeat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    padding: 0.05rem 0.6rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-accent-high);
+    background-color: var(--sl-color-accent-low);
+  }
+  .body {
+    display: grid;
+    gap: 0.6rem;
+  }
+  @media (max-width: 36rem) {
+    .cycle {
+      padding: 0.65rem 0.6rem 0.75rem;
+    }
+  }
+</style>

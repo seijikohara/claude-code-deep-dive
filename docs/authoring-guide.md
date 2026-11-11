@@ -54,6 +54,21 @@ Status labels and badge variants:
 
 The `class` keeps the site's status style (a colored square and a word) and lets `tools/lint.mjs` find Undocumented items.
 
+## Diagrams
+
+Diagrams are Astro components in `src/components/diagrams/`, written in HTML and CSS without a diagram library. They use the site's color tokens, so they follow light and dark mode, and their text stays searchable and selectable.
+
+- Draw only relationships the page already states and cites. A diagram restates sourced facts; it never adds one.
+- The components hold no words of their own. Every label comes from the page as a prop or as slot content, so each locale writes its diagram in its own language. Identifiers (event names, keys, paths) stay verbatim in backticks.
+- Import them per page: `import Stack from "../../../../components/diagrams/Stack.astro";`
+
+| Component   | Use for                                                                             | Markup                                                                                                      |
+| ----------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `<Diagram>` | The frame of every diagram, with an optional `caption`                              | `<Diagram caption="…">…</Diagram>`                                                                          |
+| `<Stack>`   | A precedence order drawn as layers, strongest first, with labels for both ends      | `<Stack high="強い" low="弱い">` around a Markdown ordered list (blank lines inside the tags)               |
+| `<Cycle>`   | A repeating cycle (session, turn, loop) as a box; nest cycles to show inner loops   | `<Cycle title="ターン" repeat="セッション中に繰り返す">…</Cycle>`; omit `repeat` for a cycle that runs once |
+| `<Phase>`   | One row inside a cycle: when (`label`) and what fires (inline Markdown on one line) | ``<Phase label="開始">`UserPromptSubmit` → `UserPromptExpansion`</Phase>``                                  |
+
 ## Writing rules
 
 - Plain engineering Japanese, one idea per sentence. Bullets in です・ます; table cells in short plain form.

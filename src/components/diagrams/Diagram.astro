@@ -1,0 +1,27 @@
+---
+/**
+ * Frame a diagram as a figure with an optional caption.
+ * All visible text comes from the page (props and slot), so each locale writes its own words.
+ */
+interface Props {
+  caption?: string;
+}
+const { caption } = Astro.props;
+---
+
+<figure class="diagram not-content">
+  <slot />
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .diagram {
+    margin-block: 1.5rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+  figcaption {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+</style>

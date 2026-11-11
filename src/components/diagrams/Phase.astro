@@ -1,0 +1,46 @@
+---
+/**
+ * One row inside a <Cycle>: an optional label (when it happens) and inline content (what fires).
+ */
+interface Props {
+  label?: string;
+}
+const { label } = Astro.props;
+---
+
+<div class:list={["phase", { "no-label": !label }]}>
+  {label && <span class="label">{label}</span>}
+  <div class="content"><slot /></div>
+</div>
+
+<style>
+  .phase {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, max-content) minmax(0, 1fr);
+    gap: 0.2rem 0.9rem;
+    align-items: baseline;
+    font-size: var(--sl-text-sm);
+    line-height: 1.9;
+  }
+  .phase.no-label {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .label {
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    color: var(--sl-color-gray-3);
+  }
+  /* Event names are short identifiers; breaking one across lines makes it unreadable. */
+  .content :global(code) {
+    font-size: 0.85em;
+    white-space: nowrap;
+  }
+  .content :global(p) {
+    margin: 0;
+  }
+  @media (max-width: 36rem) {
+    .phase {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>
