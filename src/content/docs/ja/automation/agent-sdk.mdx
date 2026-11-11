@@ -371,7 +371,7 @@ async with ClaudeSDKClient(options=options) as client:
 
 ### イベントの対応
 
-- 33 イベントのうち、Python で使えるのは 10 個です: `PreToolUse`・`PostToolUse`・`PostToolUseFailure`・`UserPromptSubmit`・`Stop`・`SubagentStart`・`SubagentStop`・`PreCompact`・`PermissionRequest`・`Notification`。
+- Python で使えるイベントは次の 10 個です: `PreToolUse`・`PostToolUse`・`PostToolUseFailure`・`UserPromptSubmit`・`Stop`・`SubagentStart`・`SubagentStop`・`PreCompact`・`PermissionRequest`・`Notification`。
 - 残る 23 個（`SessionStart`・`SessionEnd`・`PostToolBatch`・`Setup` など）は TS だけです。Python では `SessionStart`・`SessionEnd` を設定ファイルのシェルフックとしてだけ使えます。
 
 ### コールバックの失敗

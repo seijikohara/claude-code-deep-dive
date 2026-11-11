@@ -6,7 +6,6 @@ sidebar:
 ---
 
 import { Badge } from "@astrojs/starlight/components";
-import { facts } from "../../../../facts.mjs";
 
 本資料の情報源と調査方法、各節の出典表記の読み方をまとめます。
 
@@ -22,7 +21,7 @@ import { facts } from "../../../../facts.mjs";
 
 ### 調査方法（2026-11-10、2.1.321）
 
-- **ドキュメントのミラー**: 索引に載る英語版 {facts.docsPages} ページを Markdown で取得し、すべての事実をページ内の記述と照合しました。
+- **ドキュメントのミラー**: 索引に載る英語版の全ページを Markdown で取得し、すべての事実をページ内の記述と照合しました。
 - **`--help` の保存**: `claude --help` と各サブコマンドの help を 60 ファイル保存しました。
 - **ヘッドレスの init イベント**: `--safe-mode --setting-sources project` と最小限の環境変数で `-p` を実行し、`system/init` を保存しました。ツール 24、コマンド 55 などの数はこの実行の値です。
 - **実験**: 分野別の空ディレクトリで `--no-session-persistence --setting-sources project` を付け、主に `--model haiku` で実行しました。課金や設定変更を伴うコマンド（`ultrareview`、クラウドセッション、インストール・更新など）は help の確認だけです。

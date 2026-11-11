@@ -73,26 +73,23 @@ Diagrams are Astro components in `src/components/diagrams/`, written in HTML and
 | `<Groups>`   | Items grouped side by side (who coordinates, where it runs)                         | `<Groups>` around a nested Markdown list: group names at the top level, members nested                      |
 | `<Sequence>` | Segments in a fixed order, with an example of what a change invalidates             | `<Sequence segments={[…]} start="…" end="…" changedFrom={2} example="…" keptLabel="…" redoneLabel="…" />`   |
 
-## Versions and totals
+## The target release and totals
 
-A release number or a total means one of three things. Each kind is maintained differently.
+The Claude Code release this reference covers lives in one place: `src/version.mjs`.
 
-| Kind                                                      | Example                                                      | How to write it                                                                                                                                                    |
-| --------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| The release this reference covers, and totals of the data | 「Claude Code 2.1.321 の全機能」, 「設定キー 249」           | Read it from `src/facts.mjs`: `{facts.targetVersion}`, `{facts.settingsKeys}` (import `facts` at the top of the page). In a JSX attribute, use a template literal. |
-| A verification stamp                                      | 「実測 2.1.321」, 「実機確認 2.1.321」                       | Write the release the fact was checked on. Never replace it with `facts`: a stamp stays true after the target moves.                                               |
-| History                                                   | 「2.1.321 で追加」, 「v2.1.242 以降」, 「changelog 2.1.300」 | Write the release. It never changes.                                                                                                                               |
+- In a page body, write `{version}` and import it at the top of the page: `import { version } from "../../../../version.mjs";` for a chapter page (one `../` less per level up). In a JSX attribute, use a template literal.
+- Frontmatter, `404.md`, the READMEs, and `package.json` cannot read it. Do not write the release there; the landing pages show it in the `claude --version` block.
+- Verification stamps (「実測 2.1.321」, 「実機確認 2.1.321」) and history (「2.1.321 で追加」, 「changelog 2.1.300」) are not the target release. Write them as they are: they stay true after the target moves.
+- Pages that describe one research snapshot (the 2.1.x timeline, the recent releases, the upgrade checklist, the binary-string candidates) keep their release range as written. A new target release means new research for those pages.
 
-- Frontmatter, `404.md`, the READMEs, `package.json`, and `astro.config.ts` cannot read `facts`. Write the value there; `tools/lint.mjs` (check `facts`) fails when it disagrees with `src/facts.mjs`.
-- Write the number, not `facts`, when it is part of your own analysis: the 95 commands placed on the command maps, 「現行 45 のうち 23」. The lint then fails when the data moves, which is the cue to redo the analysis, not just the number.
-- Pages that describe one research snapshot (the 2.1.x timeline, the 25 recent releases, the upgrade checklist, the binary-string candidates) keep their release range as written. A new target release means new research for those pages.
+Do not state totals that a reader does not need, such as the number of settings keys, chapters, or docs pages. Say 「全件」 or name the set instead; the tables show their own rows. Keep a number only when it carries the point, for example a count that a comparison or an observed run reports.
 
 ### Moving to a new release
 
 1. Refresh the docs mirror and regenerate `data/*.json` (`tools/extract.mjs`, `tools/apply-ja.mjs`).
-2. Set `TARGET_VERSION`, and `DOCS_PAGES` if the docs index changed, in `src/facts.mjs`.
-3. Run `pnpm build && pnpm lint:site`. Fix every `facts` finding; each one is a written value or an analysis that no longer matches.
-4. The `facts` line also counts verification stamps by release. Re-check the facts behind stamps older than the target and update each stamp after its fact is checked again.
+2. Set `version` in `src/version.mjs`.
+3. Re-check the facts on the new release, and update each verification stamp after its fact is checked again. `grep -rn "実測\|実機確認" src/content/docs` lists the stamps.
+4. Update the snapshot pages listed above.
 
 ## Writing rules
 

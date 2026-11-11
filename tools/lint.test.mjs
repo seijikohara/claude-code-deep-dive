@@ -13,9 +13,6 @@ import {
   checkLinks,
   checkChapterNumbers,
   checkLinkLabels,
-  checkFacts,
-  countStamps,
-  pageText,
 } from "./lib/lint-rules.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -33,46 +30,6 @@ await test("chapter numbers and appendix letters are reported in site pages", ()
     ["/ja/c/", "<script>const Ch1 = 1;</script><style>.Ch2{}</style><code>xCh3</code>"],
   ];
   assert.deepEqual(checkChapterNumbers(pages), ["/ja/a/: Ch18", "/ja/a/: 付録 A"]);
-});
-
-const FACTS = {
-  targetVersion: "2.1.321",
-  docsPages: 228,
-  settingsKeys: 249,
-  envVars: 402,
-  hookEvents: 33,
-  tools: 46,
-  currentTools: 45,
-  builtinCommands: 95,
-  chapters: { total: 76, byPart: {} },
-};
-
-await test("stated totals and the target release are checked against the facts", () => {
-  const ok = [
-    "page",
-    "Claude Code 2.1.321 の全機能。設定キー 249・環境変数 402・Hook イベント 33・組み込みツール 46 の全件表",
-  ];
-  assert.deepEqual(checkFacts([ok], FACTS), []);
-  const stale = [
-    "README.md",
-    "Every feature of Claude Code **2.1.300**: all 250 settings keys, 76 chapters",
-  ];
-  assert.deepEqual(checkFacts([stale], FACTS), [
-    'README.md: "Claude Code **2.1.300**" (targetVersion is 2.1.321)',
-    'README.md: "250 settings keys" (settingsKeys is 249)',
-  ]);
-});
-
-await test("history and verification stamps are not statements of the target release", () => {
-  const text = "Claude Code 2.1.300 で追加。Claude Code 2.1.113 以降。実測 2.1.300 の出力";
-  assert.deepEqual(checkFacts([["page", text]], FACTS), []);
-  assert.deepEqual([...countStamps([["page", text]])], [["2.1.300", 1]]);
-});
-
-await test("page text keeps meta descriptions and drops scripts and tags", () => {
-  const html =
-    '<meta name="description" content="設定キー 249・"><script>var x="Ch1"</script><p>a &amp; <b>b</b></p>';
-  assert.equal(pageText(html).trim(), "設定キー 249・ a & b");
 });
 
 await test("internal links labeled with a bare number or 後述 are reported", () => {

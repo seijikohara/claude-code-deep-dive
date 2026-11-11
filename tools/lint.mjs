@@ -1,10 +1,9 @@
-// Lint the built site: identifiers against the research corpus, privacy, data coverage, source
-// footers, internal links, and stated facts (target release and totals) against src/facts.mjs.
-// Usage: CCDD_RESEARCH=<research dir> node tools/lint.mjs --site dist [--only=ids,privacy,coverage,sources,links,facts]
+// Lint the built deck: identifiers against the research corpus, privacy, data coverage, and source footers.
+// Usage: CCDD_RESEARCH=<research dir> node tools/lint.mjs [--html index.html] [--only=ids,privacy,coverage,sources]
 // Exit status: 0 when clean, 1 on any finding, 2 on a usage or configuration error.
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { dirname, join, resolve, relative } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
   extractIdentifiers,
@@ -16,22 +15,10 @@ import {
   checkSiteLinks,
   checkChapterNumbers,
   checkLinkLabels,
-  checkFacts,
-  countStamps,
-  pageText,
 } from "./lib/lint-rules.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const CHECKS = ["ids", "privacy", "coverage", "sources", "links", "facts"];
-
-// src/facts.mjs reads data/ from the working directory, as the Astro build does; load it from the
-// repository root wherever the lint runs.
-const workdir = process.cwd();
-process.chdir(root);
-const { facts } = await import(pathToFileURL(join(root, "src/facts.mjs")).href);
-process.chdir(workdir);
-/** Files outside the built site that state facts and cannot read src/facts.mjs. */
-const FACT_FILES = ["README.md", "README.ja.md", "package.json", "astro.config.ts"];
+const CHECKS = ["ids", "privacy", "coverage", "sources", "links"];
 const PRIVACY_FILE = join(root, "tools/privacy-patterns.local.json");
 
 class UsageError extends Error {}
@@ -243,22 +230,6 @@ function run(argv) {
       const vague = checkLinkLabels(pages, SITE_BASE);
       report(`links: ${vague.length} links whose text does not name the target`, vague);
     }
-  }
-
-  if (opts.only.includes("facts") && opts.site) {
-    const sources = [
-      ...pages.map(([path, page]) => [path, pageText(page)]),
-      ...FACT_FILES.map((f) => [f, readFileSync(join(root, f), "utf8")]),
-    ];
-    const wrong = checkFacts(sources, facts);
-    report(`facts: ${wrong.length} statements that disagree with src/facts.mjs`, wrong);
-    // Stamps are not findings: they record where a fact was checked. List releases other than
-    // the target so a release bump shows how much is left to re-check.
-    const stamps = [...countStamps(sources)].toSorted((a, b) => b[1] - a[1]);
-    const older = stamps.filter(([v]) => v !== facts.targetVersion);
-    lines.push(
-      `facts: verification stamps ${stamps.map(([v, n]) => `${v} x${n}`).join(", ") || "none"} (target ${facts.targetVersion}${older.length ? `; ${older.reduce((a, [, n]) => a + n, 0)} on other releases` : ""})`,
-    );
   }
 
   lines.push(findings === 0 ? "OK: no findings" : `FAIL: ${findings} findings`);

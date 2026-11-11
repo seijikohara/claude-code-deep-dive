@@ -1,5 +1,6 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import { version } from "./src/version.mjs";
 
 // Sidebar groups follow the parts of the reference. Each group lists the chapter pages
 // in its directory, ordered by the `sidebar.order` frontmatter (the chapter number).
@@ -30,8 +31,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Claude Code Deep Dive",
-      description:
-        "A reference on every feature of Claude Code 2.1.321, checked against the official documentation and the installed binary.",
+      description: `A reference on every feature of Claude Code ${version}, checked against the official documentation and the installed binary.`,
       // English is the primary language at the site root; the Japanese edition lives under /ja/.
       defaultLocale: "root",
       locales: {

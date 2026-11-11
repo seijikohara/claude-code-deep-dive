@@ -2,7 +2,7 @@
   "name": "claude-code-deep-dive",
   "version": "0.0.1",
   "private": true,
-  "description": "A reference on every feature of Claude Code 2.1.321, checked against the official docs and the installed binary.",
+  "description": "A reference on every feature of Claude Code, checked against the official docs and the installed binary.",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
     "preview": "astro preview",
     "lint": "oxlint --deny-warnings",
     "lint:fix": "oxlint --deny-warnings --fix",
-    "lint:site": "node tools/lint.mjs --site dist --only=privacy,coverage,sources,links,facts",
+    "lint:site": "node tools/lint.mjs --site dist --only=privacy,coverage,sources,links",
     "format": "oxfmt --write",
     "format:check": "oxfmt --check",
     "typecheck": "astro sync && tsc --noEmit",

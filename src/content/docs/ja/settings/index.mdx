@@ -7,7 +7,6 @@ sidebar:
 ---
 
 import { CardGrid, LinkCard } from "@astrojs/starlight/components";
-import { facts } from "../../../../facts.mjs";
 
 設定ファイルの優先順位、設定キーと環境変数、組み込みツール、権限ルール、パーミッションモード、Auto mode、サンドボックス、セキュリティ、診断を扱います。
 
@@ -20,17 +19,17 @@ import { facts } from "../../../../facts.mjs";
   <LinkCard
     title="設定キー早見表"
     href="/claude-code-deep-dive/ja/settings/settings-keys/"
-    description={`${facts.settingsKeys} 個の設定キーから、日常の調整でよく触るものを分野別に抜き出しました。`}
+    description="設定キーの中から、日常の調整でよく触るものを分野別に抜き出しました。"
   />
   <LinkCard
     title="環境変数"
     href="/claude-code-deep-dive/ja/settings/env-vars/"
-    description={`env-vars リファレンスに載る ${facts.envVars} 個の環境変数から、上級者がよく使うものを分野別に抜き出します。`}
+    description="env-vars リファレンスに載る環境変数から、上級者がよく使うものを分野別に抜き出します。"
   />
   <LinkCard
     title="組み込みツール"
     href="/claude-code-deep-dive/ja/settings/tools/"
-    description="tools-reference に載る 46 ツール（現行 45 ＋削除済み TaskOutput）を用途別に並べ、主な上限、-p の init に出る 24 ツールとの差、起動モードとフラグによるツールセットの違いを扱います。"
+    description="tools-reference に載る全ツール（削除済みの TaskOutput を含む）を用途別に並べ、主な上限、-p の init に出るツールとの差、起動モードとフラグによるツールセットの違いを扱います。"
   />
   <LinkCard
     title="権限ルール"

@@ -1,10 +1,10 @@
 ---
 title: Home
-description: A reference on every feature of Claude Code 2.1.321, checked against the official documentation and the installed binary.
+description: A reference on every feature of Claude Code, checked against the official documentation and the installed binary.
 template: splash
 hero:
   title: Claude Code Deep Dive
-  tagline: Every feature of Claude Code 2.1.321 in one reference. Each fact comes from the official documentation, the changelog, or a run of the installed binary.
+  tagline: Every feature of Claude Code in one reference. Each fact comes from the official documentation, the changelog, or a run of the installed binary.
   actions:
     - text: Read the Japanese edition
       link: /claude-code-deep-dive/ja/
@@ -15,12 +15,12 @@ hero:
 ---
 
 import { Card, CardGrid, Code, LinkCard } from "@astrojs/starlight/components";
-import { facts } from "../../facts.mjs";
+import { version } from "../../version.mjs";
 
 <Code
   lang="console"
   title="claude --version"
-  code={`$ claude --version\n${facts.targetVersion} (Claude Code)`}
+  code={`$ claude --version\n${version} (Claude Code)`}
 />
 
 ## Editions
@@ -29,14 +29,14 @@ import { facts } from "../../facts.mjs";
   <LinkCard
     title="Japanese edition"
     href="/claude-code-deep-dive/ja/"
-    description={`Complete. ${facts.chapters.total} chapters, from the agent loop to enterprise operation, plus complete tables of all ${facts.settingsKeys} settings keys, ${facts.envVars} environment variables, CLI flags and subcommands, ${facts.hookEvents} hook events, and ${facts.tools} built-in tools.`}
+    description="Complete. From the agent loop to enterprise operation, plus complete tables of settings keys, environment variables, CLI flags and subcommands, hook events, and built-in tools."
   />
   <Card title="English edition">In preparation.</Card>
 </CardGrid>
 
 ## How the reference is checked
 
-- Facts come from the official docs ({facts.docsPages} pages), the changelog, `--help` output, and headless runs of {facts.targetVersion}.
+- Facts come from the official docs, the changelog, `--help` output, and headless runs of {version}.
 - Every section names its sources. Features that are not generally available carry a status label: Beta, Preview, Experimental, Undocumented, Deprecated, or Removed.
 - Where the docs, the changelog, and the binary disagree, the page shows both readings.
 - An independent reviewer checked every chapter against the sources before publication.
