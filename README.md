@@ -16,23 +16,25 @@ The site is published at <https://seijikohara.github.io/claude-code-deep-dive/>.
 
 ## What the reference covers
 
-- Part 0: Introduction
-- Part I: Fundamentals: the agent loop, models and effort, fast mode, Advisor, context management, sessions, checkpoints, memory
-- Part II: Operation: every slash command, keyboard input, keybindings, status line, output styles, display
-- Part III: Settings and safety: settings files, keys, environment variables, built-in tools, permissions, permission modes, auto mode, sandboxing, diagnostics
-- Part IV: Extensions: hooks, skills, MCP, plugins and marketplaces, mods, channels, artifacts
-- Part V: Parallel work: subagents, agent view, agent teams, cross-session messaging, dynamic workflows, worktrees, scheduled tasks
-- Part VI: Automation: headless mode, the Agent SDK, CI/CD, code review
-- Part VII: Platforms: Desktop, web and cloud sessions, Remote Control, IDEs, Chrome, Slack, Claude Tag, Projects
-- Part VIII: Enterprise: installation, authentication, managed settings, cloud providers, gateways, monitoring and costs
-- Part IX: Summary: status board, timeline, recent releases, renames and removals, docs-versus-binary conflicts
-- Part X: Complete appendices: every settings key, environment variable, CLI flag and subcommand, hook event, and built-in tool
+- Introduction
+- Practice guide: recommended ways to work, from the official docs and Anthropic's publications
+- Fundamentals: the agent loop, models and effort, fast mode, Advisor, context management, sessions, checkpoints, memory
+- Operation: every slash command, keyboard input, keybindings, status line, output styles, display
+- Settings and safety: settings files, keys, environment variables, built-in tools, permissions, permission modes, auto mode, sandboxing, diagnostics
+- Extensions: hooks, skills, MCP, plugins and marketplaces, mods, channels, artifacts
+- Parallel work: subagents, agent view, agent teams, cross-session messaging, dynamic workflows, worktrees, scheduled tasks
+- Automation: headless mode, the Agent SDK, CI/CD, code review
+- Platforms: Desktop, web and cloud sessions, Remote Control, IDEs, Chrome, Slack, Claude Tag, Projects
+- Enterprise: installation, authentication, managed settings, cloud providers, gateways, monitoring and costs
+- Summary: status board, timeline, recent releases, renames and removals, docs-versus-binary conflicts
+- Complete appendices: every settings key, environment variable, CLI flag and subcommand, hook event, and built-in tool
 
 ## How the reference is checked
 
 - Every section names its sources: docs pages with anchors, changelog versions, and `実機確認 2.1.321` (verified on 2.1.321) where a fact was observed on the binary.
 - Features that are not generally available carry a status label: Beta, Preview, Experimental, Undocumented, Deprecated, or Removed.
 - Where the docs, the changelog, and the binary disagree, the page shows both readings.
+- The practice guide also cites the Claude developer docs and Anthropic's own publications (the Anthropic Engineering blog, the claude.dev blog by Anthropic's developers, and the anthropics GitHub repositories). From those publications it keeps only recommendations that the official docs support.
 - An independent reviewer checked every chapter against the sources.
 - `tools/lint.mjs --site dist` checks the built site: identifiers against the research corpus, private data, coverage of the appendix tables, a source line per section, and internal links.
 

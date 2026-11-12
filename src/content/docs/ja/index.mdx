@@ -32,9 +32,14 @@ import { version } from "../../../version.mjs";
     description={`この資料の読み方と、Claude Code ${version} の全体像です。`}
   />
   <LinkCard
+    title="実践ガイド"
+    href="/claude-code-deep-dive/ja/guide/"
+    description="公式ドキュメントと Anthropic の発信が勧める使い方を、目的別にまとめます。"
+  />
+  <LinkCard
     title="基礎の深掘り"
     href="/claude-code-deep-dive/ja/fundamentals/"
-    description="エージェントループの仕組み、モデル選択、Effort と思考、Fast mode、Advisor、コンテキスト管理、セッション、チェックポイント、メモリ、.claude ディレクトリ、ベストプラクティスと大規模リポジトリを扱います。"
+    description="エージェントループの仕組み、モデル選択、Effort と思考、Fast mode、Advisor、コンテキスト管理、セッション、チェックポイント、メモリ、.claude ディレクトリを扱います。"
   />
   <LinkCard
     title="操作"
@@ -88,6 +93,7 @@ import { version } from "../../../version.mjs";
 - 情報源は、公式ドキュメント、changelog、`--help` の出力、{version} のヘッドレス実行の結果です。
 - すべての節に出典を記載し、一般提供前の機能にはステータス（Beta・Preview・Experimental・Undocumented・Deprecated・Removed）を付けています。
 - ドキュメント・changelog・実機の記述が食い違う箇所では、両方の説を並べて示します。
+- 実践ガイドは、Claude の開発者向け公式ドキュメントと Anthropic の発信（Anthropic Engineering、claude.dev、GitHub の anthropics リポジトリ）も参照します。Anthropic の発信からは、公式ドキュメントで裏付けが取れた推奨だけを載せます。
 - 公開前に、執筆者とは別の確認者が全章を出典と照合しました。
 
 非公式のリファレンスです。Anthropic とは関係がなく、Anthropic の承認も受けていません。

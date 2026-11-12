@@ -1,0 +1,178 @@
+---
+title: "拡張の作り方"
+description: "Skill・フック・MCP サーバー・プラグインを自分で作るときに、公式ドキュメントと Anthropic の発信が勧める作り方をまとめます。どの拡張を選ぶか、Skill の説明文と本文、フックと MCP ツールの設計、プラグインでの配布と評価を扱います。"
+sidebar:
+  order: 7
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+Skill・フック・MCP サーバー・プラグインを自分で作るときに、公式ドキュメントと Anthropic の発信が勧める作り方をまとめます。どの拡張を選ぶか、Skill の説明文と本文、フックと MCP ツールの設計、プラグインでの配布と評価を扱います。
+
+<span id="gd7-choose" />
+
+## 困りごとが出てから、それに合う拡張を足す
+
+公式ドキュメントは、最初からすべてを設定せず、きっかけが出たときに拡張を足すことを勧めています。多くのチームはおおむね次の順で足すとしています。
+
+| きっかけ                                               | 足すもの                             |
+| ------------------------------------------------------ | ------------------------------------ |
+| 同じ規約やコマンドを 2 回間違えた                      | CLAUDE.md に書く                     |
+| タスクを始めるたびに同じプロンプトを打つ               | 利用者が起動する Skill にする        |
+| 同じ手順書や多段の手順を 3 回目に貼った                | Skill にする                         |
+| Claude から見えないブラウザのタブからデータを写している | そのシステムを MCP サーバーでつなぐ  |
+| シンボルの定義や参照を探すために多くのファイルを読む   | 言語の code intelligence プラグイン  |
+| 脇道の作業の出力が会話にあふれ、後で見返さない         | サブエージェントに回す               |
+| 頼まなくても毎回起きてほしいことがある                 | フックを書く                         |
+| 2 つ目のリポジトリで同じ設定が要る                      | プラグインにまとめる                 |
+
+- 公式ドキュメントは、同じきっかけを既存の拡張を直す合図にもしています。繰り返す間違いやレビューで毎回付く指摘は、チャットで一度訂正するのではなく、CLAUDE.md を直します。手で調整し続けているワークフローは、Skill の改訂が要る合図です。
+- 似た機能の分け方として、公式ドキュメントは次の点を挙げています。
+  - **フックと Skill**: 毎回同じように起き、Claude の判断が要らない処理はフックにします。手順の当てはめ方を Claude に判断させたい作業や、知識として渡す内容は Skill にします。
+  - **MCP と Skill**: MCP は外部サービスへの接続とツールを渡します。そのツールの上手な使い方（スキーマやクエリの型など）は Skill で教えます。
+  - **CLAUDE.md と Skill**: 毎回知っているべきことは CLAUDE.md に、ときどき要る参照資料や `/<name>` で起動するワークフローは Skill に置きます。
+  - **Skill とサブエージェント**: Skill はどのコンテキストにも読み込める再利用可能な内容です。サブエージェントは別のコンテキストで動き、要約だけを返します。公式ドキュメントは、並列の作業、うるさい出力を会話から外すこと、独立したレビューに向くとし、それぞれ追加のトークンがかかるとしています。
+
+各機能の詳細は [Skills](/claude-code-deep-dive/ja/extensions/skills/)、[Hooks](/claude-code-deep-dive/ja/extensions/hooks/)、[MCP](/claude-code-deep-dive/ja/extensions/mcp/)、[プラグイン](/claude-code-deep-dive/ja/extensions/plugins/)、[サブエージェント](/claude-code-deep-dive/ja/parallel/subagents/) にあります。
+
+<div class="src">
+  出典: [features-overview#build-your-setup-over-time](https://code.claude.com/docs/en/features-overview#build-your-setup-over-time) · [#compare-similar-features](https://code.claude.com/docs/en/features-overview#compare-similar-features) · [best-practices#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing)
+</div>
+
+<span id="gd7-skill-description" />
+
+## Skill の説明文と起動のしかたを決める
+
+公式ドキュメントは、説明文と起動の制御について次のことを勧めています。
+
+- `description` に、Skill が何をするかと、いつ使うかを書きます。Claude はこの説明文を見て、Skill を使うかどうかを決めます。
+- 説明文には、利用者が自然に使う言葉を入れます。Skill が起動しないときの確認項目でも、最初にこの点が挙がっています。
+- 主な用途を先頭に置きます。`description` と `when_to_use` を合わせた文は、Skill 一覧の中で 1,536 文字で切られます。Skill が多いと説明文そのものが一覧から落ちることもあるため、短く書き、依頼に出てくる語から始めます。
+- 起動しすぎるときは、説明文をより具体的にします。手動でだけ使うなら `disable-model-invocation: true` を付けます。
+- 副作用のあるワークフロー（`/deploy`、`/commit` など）には `disable-model-invocation: true` を付けます。Claude が自分では起動できなくなり、説明文もコンテキストに載りません。
+- 利用者がコマンドとして起動する意味のない背景知識には `user-invocable: false` を使います。
+
+Claude 開発者向けドキュメントの Skill 作成ガイドは、次の点も勧めています。
+
+- 説明文は三人称で書きます。説明文はシステムプロンプトに入るため、視点がぶれると Skill が見つかりにくくなるとしています。「I can help you…」や「You can use this…」は避ける例に挙がっています。
+- `helper`・`utils`・`tools` のような曖昧な名前や、「Helps with documents」のような曖昧な説明文は避けます。名前は動名詞形（例: `processing-pdfs`）などで、付け方をそろえます。
+
+Claude 開発者向けドキュメントのプロンプトガイドは、「CRITICAL: You MUST use this tool when...」のような強い言い回しを「Use this tool when...」のような普通の書き方に変えるよう勧めています。システムプロンプトによく反応するモデルでは、強い言い回しが起動しすぎにつながるとしています。公式ドキュメントも、強調を重ねると Claude が規則を過剰に当てはめやすくなるとしています。
+
+詳細は [呼び出し制御: 誰が・どこで・いくつ](/claude-code-deep-dive/ja/extensions/skills/#ch29-invocation) と [説明文の文字数予算と `/skill-doctor`](/claude-code-deep-dive/ja/extensions/skills/#ch29-budget) にあります。
+
+<div class="src">
+  出典: [skills#frontmatter-reference](https://code.claude.com/docs/en/skills#frontmatter-reference) · [#control-who-invokes-a-skill](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill) · [#skill-not-triggering](https://code.claude.com/docs/en/skills#skill-not-triggering) · [#skill-triggers-too-often](https://code.claude.com/docs/en/skills#skill-triggers-too-often) · [#skill-descriptions-are-cut-short](https://code.claude.com/docs/en/skills#skill-descriptions-are-cut-short) · [large-codebases#keep-skills-discoverable](https://code.claude.com/docs/en/large-codebases#keep-skills-discoverable) · [Claude Developer Platform「Skill authoring best practices」](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)（日付の記載なし、2026-11-12 取得） · [Claude Developer Platform「Prompting best practices」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)（日付の記載なし、2026-11-12 取得） · 裏付け: [best-practices#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing)
+</div>
+
+<span id="gd7-skill-body" />
+
+## SKILL.md は短くし、詳細は別ファイルとスクリプトに分ける
+
+公式ドキュメントは、Skill の本文について次のことを勧めています。
+
+- 本文は簡潔に保ちます。起動した Skill はターンをまたいでコンテキストに残るため、1 行ごとに毎回トークンがかかります。どうやって・なぜを語らず、何をするかを書きます。
+- 書く内容は、Claude が自分では見つけられないことに絞ります。CLAUDE.md と同じ基準です。
+- `SKILL.md` は 500 行未満に抑え、詳しい参照資料・API 仕様・例は別ファイルに移します。`SKILL.md` からは、各ファイルの中身といつ読むかを示してリンクします。
+- 毎回守らせる規則は Skill に頼らず、フックに移します。Skill の `hooks` frontmatter に書けば、Skill を起動してからセッション終了まで有効です。
+- 作業全体に効かせたい指示は、1 回きりの手順ではなく、常に有効な指示として書きます（例: 「Run the tests after every edit」）。Claude Code は起動後に Skill ファイルを読み直しません。
+- 大事な指示は `SKILL.md` の先頭に置きます。圧縮のあと、Claude Code は起動済みの Skill の先頭部分しか残さないことがあります。
+
+Claude 開発者向けドキュメントの Skill 作成ガイドは、次の点も勧めています。
+
+- 参照ファイルは `SKILL.md` から直接リンクし、深さを 1 段にとどめます。入れ子の参照では、Claude が `head -100` のような部分読みで済ませ、情報が欠けることがあるとしています。100 行を超える参照ファイルには、先頭に目次を付けます。
+- 複雑な作業は番号付きの手順に分け、Claude が応答にコピーして消し込めるチェックリストを付けます。
+- 決まった処理はスクリプトとして同梱し、実行させるのか、参照として読ませるのかを明記します。実行するスクリプトは、中身をコンテキストに読み込まずに動かせます。
+- スクリプトはエラーを自分で処理し、失敗の対処を Claude に任せないようにします。
+
+同じく Agent Skills の概要ページは、Claude Code の Skill は利用者のマシンで動くため、マシンの環境を乱さないよう、パッケージをグローバルではなくローカルに入れるよう勧めています。
+
+詳細は [Skill 内のフック・supporting files・内容のライフサイクル](/claude-code-deep-dive/ja/extensions/skills/#ch29-hooks-files) にあります。
+
+<div class="src">
+  出典: [skills#types-of-skill-content](https://code.claude.com/docs/en/skills#types-of-skill-content) · [#add-supporting-files](https://code.claude.com/docs/en/skills#add-supporting-files) · [#skill-content-lifecycle](https://code.claude.com/docs/en/skills#skill-content-lifecycle) · [#claude-stops-following-a-skill](https://code.claude.com/docs/en/skills#claude-stops-following-a-skill) · [best-practices#put-team-procedures-in-skills](https://code.claude.com/docs/en/best-practices#put-team-procedures-in-skills) · [Claude Developer Platform「Skill authoring best practices」](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)（日付の記載なし、2026-11-12 取得） · 裏付け: [skills#add-supporting-files](https://code.claude.com/docs/en/skills#add-supporting-files) · [Claude Developer Platform「Agent Skills」](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview)（日付の記載なし、2026-11-12 取得）
+</div>
+
+<span id="gd7-hooks" />
+
+## フックは毎回同じ処理に使い、Claude には事実を返す
+
+規則を強制するためのフックの選び方は [例外のないルールの強制](/claude-code-deep-dive/ja/guide/enforcement/) にまとめています。フックを作るときについて、公式ドキュメントは次のことを勧めています。
+
+- 毎回同じように起き、Claude の判断が要らない処理をフックにします。例は保存時の整形、`rm -rf /` の拒否、セッション終了時の通知です。
+- `additionalContext` で Claude に渡す文は、命令ではなく事実として書きます（例: 「This repo uses `bun test`」）。システムからの命令のような文は Claude のプロンプトインジェクション対策に引っかかり、文脈として扱われずに利用者へ示されることがあるとしています。変わらない指示は CLAUDE.md に置きます。
+- 同じイベントに複数のフックが一致すると、すべてが最後まで実行されます。1 つのフックの `deny` で、別のフックの副作用は止まりません。
+- 1 つのツールの入力を複数のフックが `updatedInput` で書き換える構成は避けます。Claude Code は書き換えをマージせず、どれが使われるかも保証しません。
+- `if` フィールドによる絞り込みはベストエフォートです。必ず許可・拒否したいものは、フックではなく権限ルールで決めます。
+- `agent` フック <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> は実験的な機能です。本番のワークフローには `command` フックを使います。
+
+詳細は [`additionalContext`: Claude の文脈に事実を足す](/claude-code-deep-dive/ja/extensions/hooks/#ch28-context) と [`if` フィールド: ハンドラ単位の権限ルール照合](/claude-code-deep-dive/ja/extensions/hooks/#ch28-if) にあります。
+
+<div class="src">
+  出典: [features-overview#compare-similar-features](https://code.claude.com/docs/en/features-overview#compare-similar-features) · [hooks#add-context-for-claude](https://code.claude.com/docs/en/hooks#add-context-for-claude) · [hooks-guide#combine-results-from-multiple-hooks](https://code.claude.com/docs/en/hooks-guide#combine-results-from-multiple-hooks) · [#filter-by-tool-name-and-arguments-with-the-if-field](https://code.claude.com/docs/en/hooks-guide#filter-by-tool-name-and-arguments-with-the-if-field) · [#agent-based-hooks](https://code.claude.com/docs/en/hooks-guide#agent-based-hooks) · [#limitations](https://code.claude.com/docs/en/hooks-guide#limitations)
+</div>
+
+<span id="gd7-mcp" />
+
+## MCP サーバーを作るときは、説明文を短く、結果を絞る
+
+公式ドキュメントは、MCP サーバーの作者に次のことを勧めています。
+
+- サーバーの instructions に、ツールが扱うタスクの種類、Claude がツールを検索すべき場面、主な機能を書きます。tool search が有効だと、セッション開始時に読まれるのはツール名と instructions だけです。
+- ツールの説明文と instructions は簡潔にし、大事な内容と、Claude が検索に使いそうな語を先頭に置きます。Claude Code は、instructions と最初から読み込むツールの説明文を 4,096 文字、tool search で読み込む説明文を 16,384 文字で切ります。tool search の照合は短いほうの範囲しか見ません。
+- 何も変更しないツールには `readOnlyHint`、同じ引数で 2 回呼んでも安全なツールには `idempotentHint` を付けます。HTTP サーバーや claude.ai コネクタとの接続が切れたとき、保留中だった呼び出しを Claude Code が 1 回やり直せます。`readOnlyHint` のツールは、他の読み取り専用の呼び出しと並列に動きます。
+- HTTP・SSE・WebSocket のサーバーでは、16 MiB の上限に収まるよう、1 回の応答で返すデータを減らします（例: ページ分割）。また、Claude Code は MCP の出力が 10,000 トークンを超えると警告し、既定では 25,000 トークンを超えた結果をファイルに保存して置き換えます。
+- Agent SDK のドキュメントは、生の例外メッセージだけでは Claude が動けない場合、エラーを自分で捕まえ、失敗した処理や次に試すことを `isError: true` の結果に書くよう勧めています。
+
+Claude 開発者向けドキュメントは、ツール設計について次の点を勧めています。
+
+- 操作ごとにツールを分けず（`create_pr`・`review_pr`・`merge_pr`）、`action` パラメータを持つ 1 つのツールにまとめます。ツールが少ないほど選び間違いが減るとしています（「Define tools」）。
+- 応答には、Claude が次の判断に使うフィールドと、意味があり変わらない識別子（slug や UUID）だけを返します（「Define tools」）。
+- エラーには「failed」だけでなく、何が起きたかと次に何を試すかを書きます（「Handle tool calls」）。
+- よく使う 3〜5 個のツールは遅延読み込みにしません（「Tool search tool」）。Claude Code では、ツールの `_meta` に `"anthropic/alwaysLoad": true` を入れると最初から読み込まれます。
+- 外部のコンテンツを返すツールでは、説明文か結果の構造で、それが何でどこから来たのかを明示します（例: 未知の送信者からのメール本文）。Claude はツール結果を信頼できないデータとして扱うため、自分の指示はツール結果に入れません（「Mitigate jailbreaks and prompt injections」）。公式ドキュメントも、フックの `additionalContext` について同じ理由で事実だけを書くよう勧めています。
+
+詳細は [出力の上限と、サーバー作者向けの指定](/claude-code-deep-dive/ja/extensions/mcp/#ch30-output) と [Tool search: 使われない条件・ゲートウェイ・説明文の上限](/claude-code-deep-dive/ja/extensions/mcp/#ch30-toolsearch-limits) にあります。
+
+<div class="src">
+  出典: [mcp#scale-with-mcp-tool-search](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search) · [#tool-search-for-mcp-server-authors](https://code.claude.com/docs/en/mcp#tool-search-for-mcp-server-authors) · [#mark-a-tool-to-load-upfront-or-stay-deferred](https://code.claude.com/docs/en/mcp#mark-a-tool-to-load-upfront-or-stay-deferred) · [#mark-tools-that-are-safe-to-call-twice](https://code.claude.com/docs/en/mcp#mark-tools-that-are-safe-to-call-twice) · [#mcp-output-limits-and-warnings](https://code.claude.com/docs/en/mcp#mcp-output-limits-and-warnings) · [agent-sdk/custom-tools#handle-errors](https://code.claude.com/docs/en/agent-sdk/custom-tools#handle-errors) · [Claude Developer Platform「Define tools」](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools)（日付の記載なし、2026-11-12 取得） · 裏付け: [mcp#mcp-output-limits-and-warnings](https://code.claude.com/docs/en/mcp#mcp-output-limits-and-warnings) · [Claude Developer Platform「Handle tool calls」](https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls)（日付の記載なし、2026-11-12 取得） · 裏付け: [agent-sdk/custom-tools#handle-errors](https://code.claude.com/docs/en/agent-sdk/custom-tools#handle-errors) · [Claude Developer Platform「Tool search tool」](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool)（日付の記載なし、2026-11-12 取得） · 裏付け: [mcp#mark-a-tool-to-load-upfront-or-stay-deferred](https://code.claude.com/docs/en/mcp#mark-a-tool-to-load-upfront-or-stay-deferred) · [Claude Developer Platform「Mitigate jailbreaks and prompt injections」](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks)（日付の記載なし、2026-11-12 取得） · 裏付け: [hooks#add-context-for-claude](https://code.claude.com/docs/en/hooks#add-context-for-claude)
+</div>
+
+<span id="gd7-plugin" />
+
+## 2 つ目のリポジトリで要るものは、プラグインにまとめる
+
+公式ドキュメントは、同じ設定を複数のリポジトリで使うときや、マーケットプレイスで他の人に配るときに、プラグインを使うよう勧めています。
+
+- プラグインは Skill・フック・サブエージェント・MCP サーバーを 1 つのインストール単位にまとめます。
+- プラグインの Skill には `/my-plugin:review` のような名前空間が付くため、複数のプラグインが共存できます。
+- プラグインのディレクトリでは、`.claude-plugin/` に入れるのは `plugin.json` だけです。Skill はプラグインのルート直下に置きます。
+- 社内のマーケットプレイスで配るなら、`marketplace.json` の各エントリに `relevance` を書けます。作業ディレクトリ・読んだファイル・実行したコマンドなどが一致すると、Claude Code がそのプラグインを提案します。ターミナルでは、管理者がそのマーケットプレイスを許可するまで提案は出ません。手順は [社内で配る Skill とプラグインを審査し、版を固定する](/claude-code-deep-dive/ja/guide/team-rollout/#gd9-extensions) にあります。
+
+詳細は [プラグインの構成と、有効にすると常に増えるもの](/claude-code-deep-dive/ja/extensions/plugins/#ch31-structure) と [CLI ヒントと relevance による推奨](/claude-code-deep-dive/ja/extensions/plugins/#ch31-hints) にあります。
+
+<div class="src">
+  出典: [features-overview#match-features-to-your-goal](https://code.claude.com/docs/en/features-overview#match-features-to-your-goal) · [#build-your-setup-over-time](https://code.claude.com/docs/en/features-overview#build-your-setup-over-time) · [plugins/create#create-your-first-plugin](https://code.claude.com/docs/en/plugins/create#create-your-first-plugin) · [plugins/relevance#understand-how-plugin-relevance-works](https://code.claude.com/docs/en/plugins/relevance#understand-how-plugin-relevance-works)
+</div>
+
+<span id="gd7-evals" />
+
+## Skill とプラグインは、使わない場合と比べて評価する
+
+公式ドキュメントは、Skill が起動したことは Claude が見つけたことを示すだけで、意図どおりに働いたことは示さないとしています。そのうえで、評価について次のことを勧めています。
+
+- 起動すべきプロンプトで起動するかと、起動したときの出力が期待どおりかを分けて測ります。
+- 測り方はベースライン比較です。現実的なプロンプトをいくつか集め、Skill を有効にした新しいセッションと、無効にした新しいセッションで実行して比べます。新しいセッションにするのは、Skill を書いたときの文脈が残ると、指示の抜けが隠れるためです。
+- 個人・プロジェクトの Skill は `skillOverrides` で `"off"` にして比べます。会話の中で 1 つの Skill を改善するなら、skill-creator プラグインが比較・採点・説明文の調整を回します。
+- プラグインの Skill は `claude plugin eval` で測ります。同じケースをプラグインなしでも実行して差（`Δ`）を出し、しきい値を下回ると非 0 で終わるので CI で止められます。
+- `claude plugin eval` は既定で各ケースを 3 回実行します。1 回の実行では非決定的なエージェントについてほとんど分からないためです。
+- 安定した採点のために、長い出力は `regex` grader で見て、`llm` grader には短い出力と、具体的な PASS・FAIL 条件で書いたルーブリックを使います。各ケースには、結果を見る grader と、手順（`tool_used` など）を見る grader を 1 つずつ置きます。
+- 評価の実行と judge は実際のモデル呼び出しです。プランの使用量か API の請求に数えられます。
+
+Anthropic Engineering の事後報告（2026-04-23）は、Claude Code のシステムプロンプトに足した長さ制限の 1 行の例を挙げています。その行は社内の評価では退行が見えずに出荷され、より広い評価で 3% の低下が見つかりました。そのうえで、システムプロンプトを変えるたびに評価を回すとしています。公式ドキュメントも、プラグインやモデルを変えたときの退行を評価で見つけることを勧めています。
+
+詳細は [Plugin evals: ケース・grader・ベースライン](/claude-code-deep-dive/ja/extensions/plugins/#ch31-evals) と [Plugin evals: 実行・CI・隔離](/claude-code-deep-dive/ja/extensions/plugins/#ch31-evals-run) にあります。
+
+<div class="src">
+  出典: [skills#evaluate-and-iterate-on-a-skill](https://code.claude.com/docs/en/skills#evaluate-and-iterate-on-a-skill) · [#run-evals-with-skill-creator](https://code.claude.com/docs/en/skills#run-evals-with-skill-creator) · [plugin-evals#how-an-eval-run-works](https://code.claude.com/docs/en/plugin-evals#how-an-eval-run-works) · [#choose-graders-that-give-a-stable-signal](https://code.claude.com/docs/en/plugin-evals#choose-graders-that-give-a-stable-signal) · [#run-evals-in-ci](https://code.claude.com/docs/en/plugin-evals#run-evals-in-ci) · [Anthropic Engineering「An update on recent Claude Code quality reports」](https://www.anthropic.com/research/april-23-postmortem)（2026-04-23） · 裏付け: [plugin-evals](https://code.claude.com/docs/en/plugin-evals) · [#run-evals-in-ci](https://code.claude.com/docs/en/plugin-evals#run-evals-in-ci)
+</div>

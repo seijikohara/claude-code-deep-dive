@@ -1,0 +1,169 @@
+---
+title: "無人実行と並列化"
+description: "人が見ていない実行と、複数の作業を同時に進める方法を扱います。任せる前の確認、スクリプトからの実行、スケジュールとイベントでの起動、worktree での並列セッション、大きな変更の分割、Agent Teams について、出典が勧める進め方を示します。"
+sidebar:
+  order: 6
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+人が見ていない実行と、複数の作業を同時に進める方法を扱います。任せる前の確認、スクリプトからの実行、スケジュールとイベントでの起動、worktree での並列セッション、大きな変更の分割、Agent Teams について、出典が勧める進め方を示します。
+
+<span id="gd6-before" />
+
+## 任せる前に 5 つの問いに答える
+
+公式ドキュメントは、人が見ていない実行では抜けた文脈に誰も気づかないとしています。寝る前に始めた実行が、間違った前提の上に一晩作業を積むこともあります。そのため、無人で動かす前に、その作業について次の 5 つを確かめるよう勧めています。
+
+| 問い | 公式ドキュメントが挙げる手段 |
+| --- | --- |
+| 完了の形を知っているか | goal の条件、仕様ファイル、通すべき失敗中のテスト |
+| 自分の作業を確かめられるか | テストスイート、`Stop` フック、レビューの手順 |
+| 何に触れてよいか | 権限ルール、`dontAsk`、サンドボックス、worktree、push してよい 1 本のブランチ |
+| 何が止めるか | `--max-turns`、`--max-budget-usd`、支出上限 |
+| 結果はどこに行き、誰が承認するか | PR、コメント、要約。マージ・デプロイなど取り消せない操作は人が承認 |
+
+- 公式ドキュメントは、実行を始めること、今回の「完了」を決めること、最後のマージを承認することは、人の役割として残るとしています。
+- `/goal` は完了条件を設定し、毎ターンの後に別のモデルが会話と照らして確かめます。公式ドキュメントは、長いバックグラウンド実行で項目が残ったまま進捗の要約でターンを終えたときに、goal が作業へ戻すとしています。
+- `Stop` フックは Claude Code が強制します。スクリプトが終了コード 2 を返す間は、ターンを終わらせません。ツール呼び出しを挟まずに 8 回続けて止めると、次は打ち切られます。
+- Claude Developer Platform の Opus 5.5 向けプロンプトガイドは、無人の実行ではテキストだけで終わったターンを完了の証拠ではなく報告として扱うよう勧めています。完了条件を別のモデルに確かめさせる方法も挙げています。Claude Code では `/goal` がこの形です。
+- `claude -p` では、実行 1 回あたりの支出上限を `--max-budget-usd` で指定します。上限はクライアント側の見積もりで判定され、超えることもあるので、公式ドキュメントは余裕を残すよう書いています。
+
+確認の手段の選び方は [検証の手段を渡す](/claude-code-deep-dive/ja/guide/verification/)、`/goal` の詳細は [`/goal`・`/loop`・Stop フックの使い分け](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-goal-compare) にあります。
+
+<div class="src">
+  出典: [best-practices#let-claude-run-without-you](https://code.claude.com/docs/en/best-practices#let-claude-run-without-you) · [#give-claude-a-check-to-run](https://code.claude.com/docs/en/best-practices#give-claude-a-check-to-run) · [#enforce-the-check-with-a-stop-hook](https://code.claude.com/docs/en/best-practices#enforce-the-check-with-a-stop-hook) · [cli-reference#cli-flags](https://code.claude.com/docs/en/cli-reference#cli-flags) · [Claude Developer Platform「Prompting Claude Opus 5.5」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5#unattended-agentic-runs)（日付の記載なし、2026-11-12 取得） · 裏付け: [goal](https://code.claude.com/docs/en/goal)
+</div>
+
+<span id="gd6-script" />
+
+## スクリプトでは `claude -p` に必要なものだけを渡す
+
+`claude -p "prompt"` は 1 回実行して終了します。CI のジョブ、git フック、シェルのループで Claude Code を使う形です。公式ドキュメントは、スクリプトではたいてい次のフラグを足すとしています。
+
+- **`--bare`**: フック・Skill・プラグイン・MCP サーバー・`CLAUDE.md`（リポジトリのものもマシンのものも）を読み込まず、どこで動かしても同じ挙動にします。claude.ai のログインは使いません。認証は `ANTHROPIC_API_KEY`、`--settings` で渡すファイルの `apiKeyHelper`、クラウドプロバイダの認証情報から取ります。
+- **`--append-system-prompt`・`--mcp-config`・`--settings`**: 実行に要るものを明示的に渡します。`--settings` で渡したフックは `--bare` では動きません。フックが要る実行では `--bare` を使いません。
+- **`--allowedTools` と `--permission-mode dontAsk`**: 使うツールを事前承認し、それ以外で確認が要る操作を拒否します。
+- **`--output-format json`**: 結果を 1 つのオブジェクトで返します。`stream-json` と `--verbose` を使うと、イベントを逐次受け取れます。
+
+```bash
+for file in $(cat files.txt); do
+  claude --bare -p "Migrate $file to the new logger API and commit. Reply OK or FAIL." \
+    --allowedTools "Read,Edit,Bash(git add *),Bash(git commit *)" \
+    --permission-mode dontAsk \
+    --max-turns 20
+done
+```
+
+- この例では、Claude は `OK` か `FAIL` を返します。ターン上限に達した実行は、エラーで終わります。
+- 公式ドキュメントは、まず 3 ファイルで試し、起きた問題からプロンプトを直してから残りを流すよう勧めています。
+- `claude -p` は、モードを指定しなければ Manual mode で始まります。確認が要る呼び出しは、`PermissionRequest` フックなどが承認しない限り拒否されます。`--permission-mode auto` を付けると、分類器がブロックした操作だけが拒否され、Claude は作業を続けます。ブロックが重なっても、ターミナルのように実行は止まりません。
+- Claude Developer Platform の「How tool use works」は、モデルの文章から判断を正規表現で取り出しているなら、その判断は構造化して受け取るべきだとしています。`claude -p` では `--output-format json` に `--json-schema` を添えると、スキーマに沿った出力が `structured_output` に入ります。
+
+詳細は [`--bare`: 自動検出をすべて省く](/claude-code-deep-dive/ja/automation/headless/#ch44-bare)、[無人実行の権限（実測）](/claude-code-deep-dive/ja/automation/headless/#ch44-permissions)、[`--json-schema` の内部動作（実測）](/claude-code-deep-dive/ja/automation/headless/#ch44-json-schema) にあります。
+
+<div class="src">
+  出典: [best-practices#run-claude-from-a-script](https://code.claude.com/docs/en/best-practices#run-claude-from-a-script) · [headless#start-faster-with-bare-mode](https://code.claude.com/docs/en/headless#start-faster-with-bare-mode) · [#auto-approve-tools](https://code.claude.com/docs/en/headless#auto-approve-tools) · [#get-structured-output](https://code.claude.com/docs/en/headless#get-structured-output) · [permission-modes#repeated-block-thresholds](https://code.claude.com/docs/en/permission-modes#repeated-block-thresholds) · [Claude Developer Platform「How tool use works」](https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works#when-to-use-tools-and-when-not-to)（日付の記載なし、2026-11-12 取得） · 裏付け: [headless#get-structured-output](https://code.claude.com/docs/en/headless#get-structured-output)
+</div>
+
+<span id="gd6-schedule" />
+
+## 起動はタイマーかイベントに任せる
+
+公式ドキュメントは、実行が始まれば Claude は残りを自分でこなせるが、始めることだけは決められないとしています。起動するのは人、タイマー、または失敗した CI チェックや新しい PR のようなイベントです。
+
+| 手段 | 動く場所 | 公式ドキュメントが挙げる向く場面 |
+| --- | --- | --- |
+| `/loop` | 今の CLI セッション | セッションを開いている間の手早いポーリング |
+| クラウドのスケジュールタスク <Badge text="Preview" variant="tip" size="small" class="badge preview" /> | クラウド（既定は Anthropic 管理） | PC を閉じていても動かしたい作業。API 呼び出しや GitHub イベントでも起動できる |
+| Desktop のスケジュールタスク | 手元のマシン（デスクトップアプリ） | ローカルのファイル・ツール・未コミットの変更が要る作業 |
+| GitHub Actions | CI パイプライン | PR が開かれたなどのリポジトリのイベント。ワークフロー設定と並べて置きたい cron |
+
+- `/loop` の各回は、同じセッションの次のターンです。公式ドキュメントは、長い会話で動かしたままにしないよう勧めています。各回が会話全体を送るためです。
+- `/schedule` は、タイマーで動くクラウドのスケジュールタスクを作ります。API キーではなく claude.ai のログインが必要です。GitHub イベントのトリガーは Claude に頼んで足し、API トリガーは claude.ai/code/routines で足します。
+- Anthropic のクラウドで新しいセッションを始める実行は、auto mode が使えれば auto mode で始まります。ask ルールに当たる操作や、連続ブロックのしきい値に達した場合は、確認を出して誰かが答えるまで待ちます。
+- 公式ドキュメントは、クラウドのスケジュールタスクを放置する前に、タスクが迂回できない GitHub のブランチルールで `main` を守るよう勧めています。新しいものは、最初の数回を見てから任せるよう勧めています。
+- 公式ドキュメントは、スケジュール実行のプロンプトに成功の形と結果の扱いを明示するよう勧めています。実行中は確認の質問ができないためです。
+
+詳細は [`/loop`・Desktop・クラウドの比較](/claude-code-deep-dive/ja/parallel/scheduling/#ch43-compare)、[クラウドのスケジュールタスク（旧 routines）](/claude-code-deep-dive/ja/parallel/scheduling/#ch43-cloud)、[CI/CD](/claude-code-deep-dive/ja/automation/cicd/) にあります。
+
+<div class="src">
+  出典: [best-practices#start-runs-on-a-schedule-or-an-event](https://code.claude.com/docs/en/best-practices#start-runs-on-a-schedule-or-an-event) · [common-workflows#run-claude-on-a-schedule](https://code.claude.com/docs/en/common-workflows#run-claude-on-a-schedule) · [routines#repositories-and-branch-permissions](https://code.claude.com/docs/en/routines#repositories-and-branch-permissions) · [#permission-prompts-during-a-run](https://code.claude.com/docs/en/routines#permission-prompts-during-a-run) · [costs#why-usage-climbs-in-a-long-session](https://code.claude.com/docs/en/costs#why-usage-climbs-in-a-long-session)
+</div>
+
+<span id="gd6-worktrees" />
+
+## 同時に進める作業は worktree で分ける
+
+公式ドキュメントは、別々の作業を同時に進めるときは、編集がぶつからないよう作業ごとに別のチェックアウトを持たせるよう勧めています。
+
+- `claude -w feature-auth`（`--worktree`）は、新しい worktree でセッションを始めます。2 つ目の端末から別の名前で実行すると、分離された並列セッションになります。リポジトリには 1 つ以上のコミットが必要です。
+- [Desktop](/claude-code-deep-dive/ja/platforms/desktop/) は複数のセッションを並べて動かし、[クラウドセッション](/claude-code-deep-dive/ja/platforms/cloud/) は手元ではなくクラウドで動かします。
+- worktree は新しいチェックアウトです。`.env` のような gitignore 対象のファイルはなく、依存関係も入っていません。
+  - 必要な gitignore 対象のファイルは、リポジトリのルートの `.worktreeinclude` に並べます（書式は `.gitignore` と同じ）。Claude Code は、作る worktree ごとにコピーします。
+  - リンクではなくコピーなので、小さなファイルに限ります。大きなディレクトリには `worktree.symlinkDirectories` を使うか、インストールのコマンドを `CLAUDE.md` に書いて、新しいチェックアウトで Claude に実行させます。
+
+```text title=".worktreeinclude"
+.env
+.env.local
+config/dev-credentials.json
+```
+
+- 後片付けは、ほぼ自動です。変更のない無名の worktree セッションは、終了時に worktree が削除されます。名前付きのものや変更があるものは、扱いを尋ねます。
+- `claude -p --worktree` の実行は尋ねずに終わるので、自分で `git worktree remove <path>` します。ロックされていて断られたら、先に `git worktree unlock <path>` します。
+
+詳細は [`-w`・PR ブランチ・`--tmux`・`EnterWorktree`](/claude-code-deep-dive/ja/parallel/worktrees/#ch42-start)、[`worktree.*` 設定と `.worktreeinclude`](/claude-code-deep-dive/ja/parallel/worktrees/#ch42-config)、[後片付け・ロック・再開](/claude-code-deep-dive/ja/parallel/worktrees/#ch42-cleanup) にあります。
+
+<div class="src">
+  出典: [best-practices#run-sessions-in-parallel](https://code.claude.com/docs/en/best-practices#run-sessions-in-parallel) · [common-workflows#run-parallel-sessions-with-worktrees](https://code.claude.com/docs/en/common-workflows#run-parallel-sessions-with-worktrees) · [worktrees#copy-gitignored-files-into-worktrees](https://code.claude.com/docs/en/worktrees#copy-gitignored-files-into-worktrees) · [#clean-up-worktrees](https://code.claude.com/docs/en/worktrees#clean-up-worktrees)
+</div>
+
+<span id="gd6-fanout" />
+
+## 大きな機械的変更は `/batch` で分け、別のセッションにレビューさせる
+
+- 公式ドキュメントは、多数のファイルにまたがる 1 つの大きな機械的変更に `/batch` を挙げています（例: `/batch migrate every handler to the v2 response helpers`）。
+  - 作業を 5〜30 の単位に分け、計画を見せます。
+  - 承認すると、単位ごとに worktree を持ち、PR を開くか結果を報告します。
+- シェルから `claude agents` <Badge text="Preview" variant="tip" size="small" class="badge preview" /> を開くと、手元のマシンのバックグラウンドで動くものを 1 画面で見られます。
+- 公式ドキュメントは、2 つ目のセッションを最も手軽な独立したレビュアーとしています。
+  - 1 つのセッションがレート制限の処理を書きます。
+  - 別のセッションが、書かれる過程を見ずに `@src/middleware/rateLimiter.ts` をレビューします。
+  - その指摘を最初のセッションに貼り戻します。`/code-review` と同じ考え方を、人がメッセージを運んで行う形です。
+- クラウドセッションは、同じアカウントの他の Claude・Claude Code の利用と rate limit を共有します。並列で動かすと、その数に比例して rate limit を多く消費します。
+
+詳細は [5 つの並列化手段](/claude-code-deep-dive/ja/parallel/parallel/#ch36-approaches)、[Agent View とバックグラウンド](/claude-code-deep-dive/ja/parallel/agent-view/)、[コードレビュー](/claude-code-deep-dive/ja/automation/code-review/) にあります。
+
+<div class="src">
+  出典: [best-practices#run-sessions-in-parallel](https://code.claude.com/docs/en/best-practices#run-sessions-in-parallel) · [commands](https://code.claude.com/docs/en/commands) · [agent-view](https://code.claude.com/docs/en/agent-view) · [claude-code-on-the-web#limitations](https://code.claude.com/docs/en/claude-code-on-the-web#limitations)
+</div>
+
+<span id="gd6-teams" />
+
+## Agent Teams は調査とレビューから小さく始める <Badge text="Experimental" variant="caution" size="small" class="badge experimental" />
+
+Agent Teams は実験的な機能で、既定で無効です。`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` で有効にします。
+
+- 公式ドキュメントは、チームを作る前に、より軽い手段（サブエージェント、セッション間メッセージング）で足りないか確かめるよう勧めています。
+- 公式ドキュメントは、逐次の作業、同じファイルの編集、依存の多い作業には、単一のセッションかサブエージェントのほうが効果的だとしています。
+
+公式ドキュメントのベストプラクティスは次のとおりです。
+
+- 多くの場合、3〜5 人のチームメイトから始めます。チームメイト 1 人あたり 5〜6 個のタスクがあると全員が動き続け、詰まった人の作業を lead が付け替えられます。
+- タスクは、関数・テストファイル・レビューのように、はっきりした成果物を生む自己完結した単位にします。
+- 慣れないうちは、コードを書かない作業（PR のレビュー、ライブラリの調査、バグの調査）から始めます。並列実装の調整の難しさなしに、並列の調査の価値を確かめられるためです。
+- 各チームメイトが別のファイル群を受け持つよう分けます。2 人が同じファイルを編集すると上書きが起きます。
+- 進み具合を確かめ、うまくいかない方向を直します。公式ドキュメントは、長く放置するほど無駄になる危険が増えるとしています。
+- チームメイトは lead の会話履歴を引き継ぎません。CLAUDE.md・MCP サーバー・Skill は自動で読み込むので、作業に固有の詳細を起動時のプロンプトに入れます。
+  - Anthropic Engineering の記事（2025-06-13）は、委譲先には目的・出力の形式・作業の境界を伝えるよう勧めています。
+
+費用について、公式ドキュメントは次のとおりとしています。
+
+- チームはトークンを大きく使います。チームメイトが plan mode で動く場合、通常のセッションの約 7 倍です。
+- 公式ドキュメントは、チームを小さく保つ、チームメイトに Sonnet を使う、起動時のプロンプトを絞る、終わったチームメイトを止める、を勧めています。チームメイトは止めるかセッションが終わるまでトークンを使い続けます。
+
+詳細は [有効化と注意](/claude-code-deep-dive/ja/parallel/agent-teams/#ch39-enable)、[チーム用フック・制限事項・コスト](/claude-code-deep-dive/ja/parallel/agent-teams/#ch39-limits) にあります。
+
+<div class="src">
+  出典: [agent-teams#when-to-use-agent-teams](https://code.claude.com/docs/en/agent-teams#when-to-use-agent-teams) · [#best-practices](https://code.claude.com/docs/en/agent-teams#best-practices) · [costs#agent-team-token-costs](https://code.claude.com/docs/en/costs#agent-team-token-costs) · [#manage-agent-team-costs](https://code.claude.com/docs/en/costs#manage-agent-team-costs) · [Anthropic Engineering「How we built our multi-agent research system」](https://www.anthropic.com/research/multi-agent-research-system)（2025-06-13） · 裏付け: [agent-teams#give-teammates-enough-context](https://code.claude.com/docs/en/agent-teams#give-teammates-enough-context)
+</div>

@@ -36,7 +36,7 @@ CLAUDE.md に追記する目安（docs）:
 :::danger[食い違い]
 **memory ページ**: この節の表の用途に「project architecture」を、CLAUDE.md に書く事実に「project layout」を挙げています。
 
-**best-practices ページ**: 「アーキテクチャとファイル構成を CLAUDE.md に書く」を不要になった助言としています（[ベストプラクティスと大規模リポジトリ](/claude-code-deep-dive/ja/fundamentals/best-practices/)）。memory ページ自身も、`/doctor` はディレクトリ構成やアーキテクチャ概要を削ると書いています。
+**best-practices ページ**: 「アーキテクチャとファイル構成を CLAUDE.md に書く」を不要になった助言としています（[やめてよい習慣](/claude-code-deep-dive/ja/guide/stop-doing/)）。memory ページ自身も、`/doctor` はディレクトリ構成やアーキテクチャ概要を削ると書いています。
 :::
 
 <div class="src">
@@ -347,7 +347,7 @@ $ CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1 \
 - user・project・local・managed のどの層にも書け、配列は層をまたいでマージされます。自分だけの除外は `.claude/settings.local.json` に書きます。
 - managed の CLAUDE.md は、どの層のパターンでも除外できません。
 - symlink 経由の rule は、`.claude/rules/` 側のパスとリンク先のどちらに一致しても除外されます（2.1.239 より前はリンク先だけ）。
-- 除外リストは静的です。対象を日ごとに変えるなら、そのパッケージで起動します（[ベストプラクティスと大規模リポジトリ](/claude-code-deep-dive/ja/fundamentals/best-practices/#ch11-large-codebases)）。
+- 除外リストは静的です。対象を日ごとに変えるなら、そのパッケージで起動します（[大規模リポジトリ](/claude-code-deep-dive/ja/guide/large-codebases/)）。
 
 <div class="src">
   出典: [memory#load-from-additional-directories](https://code.claude.com/docs/en/memory#load-from-additional-directories) · [#exclude-specific-claude-md-files](https://code.claude.com/docs/en/memory#exclude-specific-claude-md-files) · [large-codebases](https://code.claude.com/docs/en/large-codebases#grant-access-across-packages-or-repositories) · [#exclude-irrelevant-claude-md-files](https://code.claude.com/docs/en/large-codebases#exclude-irrelevant-claude-md-files) · 実機確認 2.1.321

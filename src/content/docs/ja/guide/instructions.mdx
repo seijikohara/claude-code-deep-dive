@@ -1,0 +1,189 @@
+---
+title: "指示と CLAUDE.md"
+description: "Claude がリポジトリから読み取れない情報を、プロンプト・CLAUDE.md・rules・Skill・ツール接続で渡す方法をまとめます。判断に任せる指示と強制する設定の分け方も扱います。"
+sidebar:
+  order: 1
+---
+
+Claude がリポジトリから読み取れない情報を、プロンプト・CLAUDE.md・rules・Skill・ツール接続で渡す方法をまとめます。判断に任せる指示と強制する設定の分け方も扱います。
+
+<span id="gd1-deterministic" />
+
+## 判断に任せる指示と、強制する設定を分ける
+
+公式ドキュメントは、指示を 2 種類に分けています。プロンプト・CLAUDE.md・Skill は Claude（モデル）が読んで判断する指示です。フック・deny ルール・managed settings は Claude Code（ハーネス）が毎回適用する設定です。
+
+| 観点           | 非決定的（Claude が判断）                        | 決定的（Claude Code が強制）                                      |
+| -------------- | ------------------------------------------------ | ----------------------------------------------------------------- |
+| 何をするか     | プロンプト、CLAUDE.md、Claude が自分で使う Skill | フック、ユーザーだけが起動できる Skill                            |
+| 何に触れるか   | auto mode の分類器                               | deny ルール、strict mode の sandbox、managed settings             |
+| いつ完了か     | 根拠の要求、`/goal`、`/code-review`              | テスト、型チェック、`Stop` フック、CI                             |
+| どれだけ使うか | effort、Claude 自身のペース                      | `-p` での `--max-turns`・`--max-budget-usd`、設定した spend limit |
+| 最終判断       | Claude による作業の要約                          | ブランチ保護、マージを承認する人                                  |
+
+公式ドキュメントは、CLAUDE.md にはコードから分からないことだけを書くよう勧めています。判定には 2 つの問いを使います。「コードを読めば分かるか」「Claude は実際に見に行くか」が両方 yes なら書きません。
+
+- 作業の確認方法: テスト・型チェック・lint の正確なコマンド、1 ファイルだけのテスト方法
+- コードが誤解を招く箇所: 新しいコードで真似してはいけない古いパターンなど
+- リポジトリにない決定: 採用したエラーヘルパー、デプロイ手順など
+- すでに 2 回訂正したこと
+
+* 例外が 1 つも許されない規則は、フック・deny ルール・managed settings に置くよう勧めています。CLAUDE.md の規則は、Claude が「当てはまらない」と判断できるガイドラインです（[例外のないルールの強制](/claude-code-deep-dive/ja/guide/enforcement/)）。
+* 強調を足しても守られない行は、フックに移す合図とされています。逆に、好みにすぎないことをフックにしているなら、フックを消して Claude の判断に任せるよう勧めています。
+* IMPORTANT や全大文字の強調は、不要になった助言に挙げられています。重ねると規則を過剰に当てはめやすくなるためです（[指示を IMPORTANT や全大文字で強調する](/claude-code-deep-dive/ja/guide/stop-doing/#gd10-emphasis)）。
+* アーキテクチャやファイル構成の説明も、不要になった助言に挙げられています。memory ページとの食い違いは [2 系統のメモリ: CLAUDE.md と auto memory](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-two-systems) にあります。
+
+<div class="src">
+  出典: [best-practices#deterministic-and-non-deterministic-instructions](https://code.claude.com/docs/en/best-practices#deterministic-and-non-deterministic-instructions) · [#tell-claude-what-it-cant-see](https://code.claude.com/docs/en/best-practices#tell-claude-what-it-cant-see) · [#keep-claude-md-short](https://code.claude.com/docs/en/best-practices#keep-claude-md-short) · [#enforce-the-rules-that-cant-have-exceptions](https://code.claude.com/docs/en/best-practices#enforce-the-rules-that-cant-have-exceptions) · [#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing)
+</div>
+
+<span id="gd1-prompt" />
+
+## 具体的なプロンプトで、見えない情報を渡す
+
+公式ドキュメントは、対象のファイル・症状・「直った」と言える状態を最初に書くよう勧めています。後の訂正がたいてい 1 往復減るためです。
+
+- 妥当なやり方が 2 つあり、どちらかを選んでほしいなら最初に伝えます。好みはコードから読み取れないためです。
+- 手元にあるものは、説明せずにそのまま渡します。ファイルは `@` とパス、デザインやエラーはスクリーンショット、コマンド出力は `cat error.log | claude -p "what's going on here"` のようにパイプで渡します。
+- `think step by step` や `be thorough` はキーワードではなく、通常のテキストです。考える量の主な制御は effort です（[Effort と思考](/claude-code-deep-dive/ja/fundamentals/effort/)）。
+- `be ambitious` は今も効く言い回しとされています。Claude は依頼を控えめに読み、満たせる最小のものを作りがちだからです。この言葉は考える量ではなく、作る範囲を伝えます。
+- 探索中なら、`what would you improve in this file?` のような曖昧なプロンプトでも構わないとしています。訂正が少し増えることとの引き換えです。
+
+prompt library のページは、効くプロンプトに共通する型として次を挙げています。
+
+- 手順ではなく、欲しい結果を書きます。
+- 実行・テスト・比較など、自分で確かめる手段を同じプロンプトで頼みます。
+- 合わせたい既存のファイルやパターンを示します。
+- 性能やカバレッジが目標なら、指標としきい値を書きます。
+- エラー・ログ・スクリーンショットそのものを渡します。
+- 答えの形式・長さ・読み手を指定します。毎回の既定にするなら output style を使います。
+
+* Claude Developer Platform の「Prompting best practices」は、出力の書式を指定するとき、避けてほしいことより、してほしいことを書くよう勧めています。たとえば「Markdown を使わない」より「流れのある段落で書く」です。
+
+<div class="src">
+  出典: [best-practices#write-a-specific-prompt](https://code.claude.com/docs/en/best-practices#write-a-specific-prompt) · [prompt-library#what-makes-these-prompts-work](https://code.claude.com/docs/en/prompt-library#what-makes-these-prompts-work) · [common-workflows#reference-files-and-directories](https://code.claude.com/docs/en/common-workflows#reference-files-and-directories) · [Claude Developer Platform「Prompting best practices」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)（日付の記載なし、2026-11-12 取得）
+</div>
+
+<span id="gd1-brainstorm" />
+
+## 要件が固まる前は、Claude にインタビューさせる
+
+何を作りたいかがまだ決まっていないとき、公式ドキュメントは先に全部を考える代わりに、Claude にインタビューさせる方法を示しています。
+
+```text
+I want to add rate limiting to the public API but haven't thought it through yet. Interview me until you could write the spec, then write it to SPEC.md.
+```
+
+- Claude は、まだ決めていない点を選択式の質問で返します。例はユーザー単位かキー単位か、上限を超えたリクエストの扱い、対象外にするものです。答えが仕様にまとまるまで質問を続けます。
+- `SPEC.md` ができたら、新しいセッションで実装を始めるよう勧めています。実装がきれいなコンテキストと、書かれた完了の定義から始まるためです。
+- 同じファイルは、後で仕様と照らすレビューにも使います（[仕様と照らしてレビューさせる](/claude-code-deep-dive/ja/guide/verification/#gd2-spec)）。
+
+<div class="src">
+  出典: [best-practices#brainstorm-with-claude-first](https://code.claude.com/docs/en/best-practices#brainstorm-with-claude-first)
+</div>
+
+<span id="gd1-claude-md" />
+
+## CLAUDE.md を短く保ち、定期的に見直す
+
+公式ドキュメントによると、CLAUDE.md は毎セッション読み込まれます。関係のないタスクでも、各行が Claude の注意を少しずつ使います。書く内容の基準は [判断に任せる指示と、強制する設定を分ける](#gd1-deterministic) のとおりです。基準を満たすファイルは、たとえば次の程度の長さに収まります。
+
+```markdown title="CLAUDE.md"
+# Commands
+- Install: pnpm install
+- Run one test file: pnpm vitest run path/to/file.test.ts
+- Typecheck: pnpm tsc --noEmit
+
+# Conventions
+- Use the error helpers in src/lib/errors.ts, never throw raw strings
+- src/legacy/ is still live but don't copy its patterns into new code
+
+# Gotchas
+- Integration tests need DATABASE_URL set, see .env.example
+```
+
+- 型チェックの行はコマンドだけです。Claude が自分の作業を確かめるにはコマンドが分かれば足ります。合格を強制したい場合は `Stop` フックの役目です（[Stop フックで合格を強制する](/claude-code-deep-dive/ja/guide/verification/#gd2-stop-hook)）。
+- `/init` で下書きを作り、そこから行を削るよう勧めています。memory ページは 1 ファイル 200 行未満を目安にしています。
+- `/doctor` は、コードから導ける内容の削除を提案します。ディレクトリ構成・依存の一覧・アーキテクチャ概要を削り、落とし穴・理由・ツールの既定と違う規約は残します。
+- `/doctor prompt-audit` は、古いモデル向けの指示、存在しないファイルへの参照、互いに矛盾する指示を報告します。頼むまでファイルは変更しません。
+- 個人の好みは `CLAUDE.local.md` に書き、`.gitignore` に加えます。
+- 読み込まれたかは、セッションで `/context all` を実行し、**Memory files** の一覧で確かめます。
+- 書いてあるのに守られない行に IMPORTANT を足しても、たいてい直らないとしています。ファイルが長くなって埋もれているか、例外のない規則でフックに置くべきかのどちらかです。
+
+* claude.dev のブログ記事（2026-07-24）は、社内での使い方を振り返り、システムプロンプト・CLAUDE.md・Skill で Claude を縛りすぎていたとしています。かつて必要だった制約の多くは消し、周囲の文脈とモデルの判断に任せられたと書いています。memory ページも、矛盾する指示があると Claude がどちらかを任意に選ぶため、古い指示や矛盾する指示を定期的に消すよう勧めています。
+* Claude Developer Platform の「Prompting Claude Fable 5.2」は、Fable 5.2 へ移る前に、理由がなくなった注意書きをメモリ・メモ・指示ファイルから消すよう勧めています。
+
+<div class="src">
+  出典: [best-practices#keep-claude-md-short](https://code.claude.com/docs/en/best-practices#keep-claude-md-short) · [memory#write-effective-instructions](https://code.claude.com/docs/en/memory#write-effective-instructions) · [#audit-your-instruction-files](https://code.claude.com/docs/en/memory#audit-your-instruction-files) · [#my-claude-md-is-too-large](https://code.claude.com/docs/en/memory#my-claude-md-is-too-large) · [claude.dev「The new rules of context engineering for Claude 5 generation models」](https://claude.dev/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models/)（2026-07-24） · 裏付け: [memory#write-effective-instructions](https://code.claude.com/docs/en/memory#write-effective-instructions) · [Claude Developer Platform「Prompting Claude Fable 5.2」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2)（日付の記載なし、2026-11-12 取得）
+</div>
+
+<span id="gd1-rules" />
+
+## 一部のコードにだけ効く規則は `.claude/rules/` に置く
+
+公式ドキュメントは、コードベースの一部でしか意味のない規則を `.claude/rules/` に置き、`paths:` で対象を絞るよう勧めています。Claude がその範囲のファイルを扱うときだけ読み込まれます。次の例は `src/api/` 配下の TypeScript ファイルで読み込まれます。
+
+```markdown title=".claude/rules/api.md"
+---
+paths:
+  - "src/api/**/*.ts"
+---
+- Validate request bodies with the zod schemas in src/api/schemas/, don't hand-roll checks
+- Every new endpoint needs an entry in openapi.yaml, CI fails without it
+```
+
+- memory ページも、CLAUDE.md が長くなったら、一部にしか効かない指示をこの形に移すよう勧めています。
+- `@path` のインポートはファイルの整理には役立ちますが、読み込む量は減りません。インポートしたファイルは、元の CLAUDE.md と一緒に読み込まれるためです。
+- パターンの書き方と読み込みの条件は [`.claude/rules/` と `paths`: 読み込み条件とパターン](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-rules) にあります。
+
+<div class="src">
+  出典: [best-practices#scope-rules-to-one-part-of-the-codebase](https://code.claude.com/docs/en/best-practices#scope-rules-to-one-part-of-the-codebase) · [memory#path-specific-rules](https://code.claude.com/docs/en/memory#path-specific-rules) · [#write-effective-instructions](https://code.claude.com/docs/en/memory#write-effective-instructions)
+</div>
+
+<span id="gd1-skills" />
+
+## チームの手順は Skill に置く
+
+リリースの進め方、障害対応の手順書、API ドキュメントの書き方といったチーム固有の知識について、公式ドキュメントは `.claude/skills/<name>/SKILL.md` の Skill に置くよう勧めています。
+
+- Skill は、この種の内容では CLAUDE.md よりコンテキストを使いません。Claude が自分で起動できる Skill は、毎セッションで名前と説明だけが見え、タスクが必要とするときに全文が読まれます。
+- 書く内容の基準は CLAUDE.md と同じです。Claude が自分で見つけられないことだけを書きます。
+- 実際にリリースを切るような副作用のある手順には `disable-model-invocation: true` を付けます。Claude は自分で起動できなくなり、ユーザーが `/release` と打ったときだけ動きます。
+
+```markdown title=".claude/skills/release/SKILL.md"
+---
+name: release
+description: Cut a new release. Bumps the version, writes the changelog entry, tags it and pushes the tag so CI can publish.
+disable-model-invocation: true
+---
+1. Make sure you're on main with a clean tree. If not, stop and ask.
+2. Run `pnpm changeset version` and commit the result.
+3. Summarize the PRs merged since the last tag into CHANGELOG.md, one line each, user-facing changes only.
+4. Tag `v<new version>` and push the tag. CI publishes from there, never publish from your machine.
+```
+
+* claude.dev のブログ記事（2026-07-24）は、作業の確かめ方が何通りもあるなら検証用の Skill にまとめる例を挙げています。memory ページも、複数手順の作業は CLAUDE.md から Skill へ移すよう勧めています。
+* Claude Developer Platform の「Skill authoring best practices」は、指示の細かさを作業の壊れやすさに合わせるよう勧めています。判断が文脈で変わる作業には方針を書き、決まった順序を守る必要がある壊れやすい作業には正確なコマンドを書きます。
+
+起動の制御は [呼び出し制御: 誰が・どこで・いくつ](/claude-code-deep-dive/ja/extensions/skills/#ch29-invocation)、全文が読まれる時期は [Skill 内のフック・supporting files・内容のライフサイクル](/claude-code-deep-dive/ja/extensions/skills/#ch29-hooks-files) にあります。
+
+<div class="src">
+  出典: [best-practices#put-team-procedures-in-skills](https://code.claude.com/docs/en/best-practices#put-team-procedures-in-skills) · [skills#control-who-invokes-a-skill](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill) · [#skill-content-lifecycle](https://code.claude.com/docs/en/skills#skill-content-lifecycle) · [memory#when-to-add-to-claude-md](https://code.claude.com/docs/en/memory#when-to-add-to-claude-md) · [claude.dev「The new rules of context engineering for Claude 5 generation models」](https://claude.dev/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models/)（2026-07-24） · 裏付け: [best-practices#put-team-procedures-in-skills](https://code.claude.com/docs/en/best-practices#put-team-procedures-in-skills) · [Claude Developer Platform「Skill authoring best practices」](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)（日付の記載なし、2026-11-12 取得）
+</div>
+
+<span id="gd1-tools" />
+
+## Claude が見られない情報源はツールでつなぐ
+
+課題管理やエラーダッシュボードのように、情報が別のシステムにある場合について、公式ドキュメントは次の順を示しています。
+
+- そのシステムに CLI があれば、それがたいてい最も簡単な入口です。`gh` を入れてサインインしておけば、Claude は説明なしで PR を開き、レビューコメントを読みます。初めて見る CLI なら、`--help` を示せば足りるとしています。
+- CLI がなければ MCP を使います。シェルから `claude mcp add --transport http notion https://mcp.notion.com/mcp` のように追加すると、セッションの `/mcp` に表示されます。
+- 接続したサーバーは、使っていなくてもツール名と指示をコンテキストに加えます。そのため、要らないサーバーは `/mcp` でオフにするよう勧めています（[`/mcp` の操作・設定警告・自動再接続](/claude-code-deep-dive/ja/extensions/mcp/#ch30-reconnect)）。
+- 型のある言語では、コードインテリジェンスのプラグインを入れると、Claude は多くのファイルを読まずに定義へ直接移れます（[MCP・MCPB・LSP サーバー](/claude-code-deep-dive/ja/extensions/plugins/#ch31-mcp-lsp)）。
+
+外部のサーバーやプラグインを入れる前の確認は、[信頼できない入力と拡張に備える](/claude-code-deep-dive/ja/guide/enforcement/#gd3-untrusted) にあります。
+
+<div class="src">
+  出典: [best-practices#connect-the-tools-claude-needs](https://code.claude.com/docs/en/best-practices#connect-the-tools-claude-needs) · [mcp#disable-a-server-without-removing-it](https://code.claude.com/docs/en/mcp#disable-a-server-without-removing-it) · [plugins/code-intelligence](https://code.claude.com/docs/en/plugins/code-intelligence)
+</div>

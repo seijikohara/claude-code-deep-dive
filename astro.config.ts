@@ -6,6 +6,7 @@ import { version } from "./src/version.mjs";
 // in its directory, ordered by the `sidebar.order` frontmatter (the chapter number).
 const parts: Array<[dir: string, en: string, ja: string]> = [
   ["intro", "Introduction", "導入"],
+  ["guide", "Practice guide", "実践ガイド"],
   ["fundamentals", "Fundamentals", "基礎の深掘り"],
   ["operation", "Operation", "操作"],
   ["settings", "Settings and safety", "設定と安全"],
@@ -23,6 +24,10 @@ const parts: Array<[dir: string, en: string, ja: string]> = [
 export default defineConfig({
   site: "https://seijikohara.github.io",
   base: "/claude-code-deep-dive",
+  // The best-practices chapter moved into the practice guide; keep its old public URL working.
+  redirects: {
+    "/ja/fundamentals/best-practices": "/claude-code-deep-dive/ja/guide/",
+  },
   markdown: {
     // SmartyPants would turn "--effort" into "–effort" and straight quotes into curly ones.
     // The reference quotes flags and UI strings verbatim, so keep the source characters.
