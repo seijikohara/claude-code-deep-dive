@@ -95,11 +95,11 @@ Do not state totals that a reader does not need, such as the number of settings 
 
 The practice guide collects recommendations, not facts about one feature. It may cite three tiers of sources:
 
-| Tier | Sources                                                                                          | Rule                                                                                                                                         |
-| ---- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | The Claude Code docs (`code.claude.com/docs`), as everywhere else                                | Use as is                                                                                                                                    |
-| 1b   | The Claude developer docs (`platform.claude.com` / `docs.claude.com`)                            | Use when the guidance applies to Claude Code (for example, SKILL.md authoring) and the Claude Code docs do not contradict it                 |
-| 2    | Anthropic's own publications: the Anthropic Engineering blog, the anthropics GitHub repositories | Use only when the Claude Code docs or an observed run for the target release support the recommendation. Drop it otherwise; do not soften it |
+| Tier | Sources                                                                                                                                                   | Rule                                                                                                                                         |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | The Claude Code docs (`code.claude.com/docs`), as everywhere else                                                                                         | Use as is                                                                                                                                    |
+| 1b   | The Claude developer docs (`platform.claude.com` / `docs.claude.com`)                                                                                     | Use when the guidance applies to Claude Code (for example, SKILL.md authoring) and the Claude Code docs do not contradict it                 |
+| 2    | Anthropic's own publications: the Anthropic Engineering blog, the claude.dev blog (written by Anthropic's developers), the anthropics GitHub repositories | Use only when the Claude Code docs or an observed run for the target release support the recommendation. Drop it otherwise; do not soften it |
 
 - Word each recommendation as what its source recommends (「公式ドキュメントは…を勧めています」), never as the site's own advice.
 - Paraphrase tier 1b and tier 2 material in your own words. Quote at most a short phrase.

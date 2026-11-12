@@ -34,7 +34,7 @@ The site is published at <https://seijikohara.github.io/claude-code-deep-dive/>.
 - Every section names its sources: docs pages with anchors, changelog versions, and `実機確認 2.1.321` (verified on 2.1.321) where a fact was observed on the binary.
 - Features that are not generally available carry a status label: Beta, Preview, Experimental, Undocumented, Deprecated, or Removed.
 - Where the docs, the changelog, and the binary disagree, the page shows both readings.
-- The practice guide also cites the Claude developer docs and Anthropic's own publications (the Anthropic Engineering blog and the anthropics GitHub repositories). From those publications it keeps only recommendations that the official docs support.
+- The practice guide also cites the Claude developer docs and Anthropic's own publications (the Anthropic Engineering blog, the claude.dev blog by Anthropic's developers, and the anthropics GitHub repositories). From those publications it keeps only recommendations that the official docs support.
 - An independent reviewer checked every chapter against the sources.
 - `tools/lint.mjs --site dist` checks the built site: identifiers against the research corpus, private data, coverage of the appendix tables, a source line per section, and internal links.
 

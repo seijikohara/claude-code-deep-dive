@@ -33,8 +33,11 @@ Full license text: https://creativecommons.org/licenses/by/4.0/legalcode
 Third-party material
 
 The content summarizes, translates, and quotes parts of Anthropic's public Claude Code
-documentation and changelog (https://code.claude.com/docs). This license covers only
-the contributions of the author of this repository. Anthropic's documentation remains
-subject to Anthropic's own terms, and quoted product names, identifiers, and program
-output belong to their respective owners. This repository is not affiliated with or
+documentation and changelog (https://code.claude.com/docs). The practice guide also
+summarizes parts of the Claude developer documentation (https://platform.claude.com/docs)
+and of Anthropic's publications: the Anthropic Engineering blog, the claude.dev blog, and
+the anthropics GitHub repositories. This license covers only the contributions of the
+author of this repository. Anthropic's documentation and publications remain subject to
+Anthropic's own terms, and to the licenses of the repositories they come from. Quoted
+product names, identifiers, and program output belong to their respective owners. This repository is not affiliated with or
 endorsed by Anthropic.

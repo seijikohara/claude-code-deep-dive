@@ -34,7 +34,7 @@ Claude Code の全機能を解説するリファレンスサイトです。コ�
 - すべての節に出典を記載します。ドキュメントのページとアンカー、changelog のバージョン、実機で確かめた事実には `実機確認 2.1.321` を付けます。
 - 一般提供前の機能には、Beta・Preview・Experimental・Undocumented・Deprecated・Removed のいずれかのステータスを付けます。
 - ドキュメント・changelog・実機の記述が食い違う箇所では、両方の説を並べて示します。
-- 実践ガイドは、Claude の開発者向け公式ドキュメントと Anthropic の発信（Anthropic Engineering の記事、GitHub の anthropics リポジトリ）も参照します。Anthropic の発信からは、公式ドキュメントで裏付けが取れた推奨だけを載せます。
+- 実践ガイドは、Claude の開発者向け公式ドキュメントと Anthropic の発信（Anthropic Engineering の記事、Anthropic の開発者による claude.dev の記事、GitHub の anthropics リポジトリ）も参照します。Anthropic の発信からは、公式ドキュメントで裏付けが取れた推奨だけを載せます。
 - 執筆者とは別の確認者が、全章を出典と照合しました。
 - `tools/lint.mjs --site dist` が、ビルド済みサイトについて、識別子と調査資料の照合、個人情報の混入、付録の網羅、節ごとの出典、内部リンクを検査します。
 

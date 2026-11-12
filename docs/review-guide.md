@@ -22,7 +22,7 @@ Every chapter passes a fact review before the site is published. The reviewer di
 6. **Observed output:** text in a `.lab` block matches a capture under `raw/` or `lab/`, or a run you repeat yourself. Redaction must not change meaning.
 7. **Sources:** the footer links point to the pages the slide actually relies on. Anchors exist in the docs mirror (`grep -n '^#' docs/<page>.md`).
 8. **Japanese:** a sentence must not contradict the source through translation. Do not restyle prose that is correct.
-9. **Practice guide only (`ja/guide/`):** each recommendation is attributed to its source, not stated as the site's advice. A tier-2 recommendation (Anthropic Engineering blog, anthropics GitHub) has a supporting docs link, and that page really supports it. Nothing listed in the best-practices "What you can stop doing" table is recommended. Tier-1b and tier-2 text is paraphrased, not copied. The tier-2 pages are saved under `$CCDD_RESEARCH/external/`.
+9. **Practice guide only (`ja/guide/`):** each recommendation is attributed to its source, not stated as the site's advice. A tier-2 recommendation (Anthropic Engineering blog, claude.dev blog, anthropics GitHub) has a supporting docs link, and that page really supports it. Nothing listed in the best-practices "What you can stop doing" table is recommended. Tier-1b and tier-2 text is paraphrased, not copied. The tier-2 pages are saved under `$CCDD_RESEARCH/external/`.
 
 ## What to do
 
