@@ -1,0 +1,152 @@
+---
+title: "やめてよい習慣"
+description: "公式ドキュメントが「モデルが追いついたので不要になった」とする古い助言を、理由と代わりにすることと合わせてまとめます。Anthropic の過去の記事や Claude Developer Platform のドキュメントのうち、現在の Claude Code と食い違う記述も挙げます。"
+sidebar:
+  order: 10
+---
+
+公式ドキュメントが「モデルが追いついたので不要になった」とする古い助言を、理由と代わりにすることと合わせてまとめます。Anthropic の過去の記事や Claude Developer Platform のドキュメントのうち、現在の Claude Code と食い違う記述も挙げます。
+
+<span id="gd10-context" />
+
+## コンテキストを節約するための管理と委譲
+
+best-practices ページは、次の 3 つを不要になった助言に挙げています。どれも書かれた当時は妥当で、多くはモデルがまだ確実にできなかったことの回避策だったとしています。
+
+| 古い助言                                     | 不要になった理由                                                                                                         |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| コンテキストウィンドウが最大の制約なので、積極的に管理する | 現在の多くのモデルは 1M トークンのウィンドウを持ち、圧縮も自動で起きる。使い切ることはまれ                              |
+| コンテキストを守るためにサブエージェントを使う | コンテキスト切れはもうほとんど問題にならない。サブエージェントは並列作業・騒がしい出力の隔離・独立したレビューに使う。どれも追加のトークンがかかる |
+| サブエージェントに任せれば答えが良くなる     | 同じタスクを渡しても答えは良くならない。新しいレビュー役が役立つのは推論を見ていないからで、委譲とは別の話             |
+
+- タスクの合間の `/clear` は今も勧めています。焦点の合ったコンテキストのほうが答えが良く、コストも下がるためです。
+- サブエージェントのコストと抑え方は [サブエージェントの費用を知って使う](/claude-code-deep-dive/ja/guide/defaults-cost/#gd4-subagents)、`/clear` の使いどころは [2 回直して直らなければ `/clear` して書き直す](/claude-code-deep-dive/ja/guide/steering/#gd5-clear)、独立したレビューは [仕様と照らしてレビューさせる](/claude-code-deep-dive/ja/guide/verification/#gd2-spec) で扱います。
+
+:::danger[食い違い]
+**Anthropic Engineering（2025-09-29）**: コンテキストを貴重で有限な資源として扱うことが、今後も信頼できるエージェントの中心になるとしています。長いタスクでは、まっさらなコンテキストのサブエージェントをコンテキストの制約を回避する方法として挙げています。
+
+**best-practices ページ**: 積極的なコンテキスト管理と、コンテキストを守るためのサブエージェントを、どちらも不要になった助言に挙げています。
+:::
+
+<div class="src">
+  出典: [best-practices#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing) · [Anthropic Engineering「Effective context engineering for AI agents」](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents)（2025-09-29）
+</div>
+
+<span id="gd10-emphasis" />
+
+## 指示を IMPORTANT や全大文字で強調する
+
+best-practices ページによると、古いモデルには強調が必要な場合がありました。現在のモデルは平易に書いた 1 行に従い、強調を重ねると規則を過剰に当てはめやすくなります。
+
+- 曲げられない規則なら、フックか deny ルールにします（[例外のないルールの強制](/claude-code-deep-dive/ja/guide/enforcement/)）。
+- 長いファイルの中で埋もれているなら、ファイルを短くします（[CLAUDE.md を短く保ち、定期的に見直す](/claude-code-deep-dive/ja/guide/instructions/#gd1-claude-md)）。
+
+:::danger[食い違い]
+**Claude Developer Platform「Skill authoring best practices」**: Skill に書いた規則が守られないときの改善案として、「always filter」より「MUST filter」のような強い言葉を使う例を挙げています。
+
+**Anthropic Engineering（2025-11-26）**: テストを消したり書き換えたりさせないために、「It is unacceptable to remove or edit tests」のような強い言葉の指示を使ったとしています。
+
+**best-practices ページ**: 強調を重ねると規則を過剰に当てはめやすいとしています。曲げられない規則はフックか deny ルールに置きます。特定のフォルダへの編集を止める例として、`PreToolUse` フックを挙げています。
+:::
+
+<div class="src">
+  出典: [best-practices#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing) · [#deterministic-and-non-deterministic-instructions](https://code.claude.com/docs/en/best-practices#deterministic-and-non-deterministic-instructions) · [#enforce-steps-with-hooks](https://code.claude.com/docs/en/best-practices#enforce-steps-with-hooks) · [Claude Developer Platform「Skill authoring best practices」](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)（日付の記載なし、2026-11-12 取得） · [Anthropic Engineering「Effective harnesses for long-running agents」](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents)（2025-11-26）
+</div>
+
+<span id="gd10-think" />
+
+## `think hard` などの言い回しで考えさせる
+
+best-practices ページは、`think hard`・`think harder`・`be thorough` をプロンプトに書く習慣を、不要になった助言に挙げています。
+
+- 考える量を決めるのは effort です。これらの言い回しはキーワードではなく通常のテキストで、effort の範囲内で Claude を少し後押しするだけです。
+- `ultrathink` は今も使えます。effort の設定を変えずに、その 1 ターンだけ深い推論を求めます（[`ultrathink` キーワード](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-ultrathink)）。
+- effort の上げ下げの目安は [effort は作業の性質に合わせて上げ下げする](/claude-code-deep-dive/ja/guide/defaults-cost/#gd4-effort) で扱います。
+
+:::danger[食い違い]
+**Claude Developer Platform「Steering thinking」**: 1 つのメッセージだけ考えさせたいとき、そのメッセージに「Please think hard before responding.」を付け足す方法を示しています。
+
+**Anthropic Engineering（2025-01-06）**: Claude 3.5 Sonnet でのプロンプトに「Your thinking should be thorough」と書き、長く考えることを促していました。
+
+**best-practices ページ**: こうした言い回しは effort を上げないとしています。1 ターンだけ深く考えさせるなら `ultrathink` を使います。
+:::
+
+<div class="src">
+  出典: [best-practices#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing) · [#write-a-specific-prompt](https://code.claude.com/docs/en/best-practices#write-a-specific-prompt) · [model-config#use-ultrathink-for-one-off-deep-reasoning](https://code.claude.com/docs/en/model-config#use-ultrathink-for-one-off-deep-reasoning) · [Claude Developer Platform「Steering thinking」](https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost)（日付の記載なし、2026-11-12 取得） · [Anthropic Engineering「Raising the bar on SWE-bench Verified with Claude 3.5 Sonnet」](https://www.anthropic.com/research/swe-bench-sonnet)（2025-01-06）
+</div>
+
+<span id="gd10-keep-going" />
+
+## 「続けて」「手を抜くな」と書き添える
+
+best-practices ページは、「続けて」「終わるまでループして」「手を抜くな」と指示する習慣を、不要になった助言に挙げています。現在のモデルは、合意したタスクを言われなくてもたいてい最後まで進めます。こうした行は、止まりすぎを直すより、やりすぎを招くほうが多いとしています。
+
+- 合格すべきチェックを渡すことは別の話で、今も勧めています（[チェックをどこまで強制するかを選ぶ](/claude-code-deep-dive/ja/guide/verification/#gd2-levels)）。
+- 実行が途中で止まったら `continue` と言います。誰も見ていない実行では、`/goal` か `Stop` フックで続行を強制します。
+
+:::danger[食い違い]
+**claude.dev のブログ記事（2026-09-22）**: Opus 5.5 向けに、入力が要らない手順なら続け、止まるのは自分が必要なときか破壊的な操作の前だけにする、という短い規則を CLAUDE.md に入れるよう勧めています。
+
+**Claude Developer Platform「Prompting Claude Opus 5.5」**: 完全に無人で動くエージェントでは、避けたい早すぎる停止の種類を名指しする文をシステムプロンプトに足す方法を示しています。
+
+**Anthropic Engineering（2026-02-05）**: エージェントのプロンプトで、完璧になるまで続けるよう伝えたとしています。
+
+**best-practices ページ**: 続行を促す行はやりすぎを招きやすいとして、不要になった助言に挙げています。
+:::
+
+<div class="src">
+  出典: [best-practices#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing) · [claude.dev「Getting the most out of Opus 5.5 in Claude and Claude Code」](https://claude.dev/blog/getting-the-most-out-of-opus-5-5/)（2026-09-22） · [Claude Developer Platform「Prompting Claude Opus 5.5」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5)（日付の記載なし、2026-11-12 取得） · [Anthropic Engineering「Building a C compiler with a team of parallel Claudes」](https://www.anthropic.com/research/building-c-compiler)（2026-02-05）
+</div>
+
+<span id="gd10-architecture" />
+
+## CLAUDE.md にアーキテクチャとファイル構成を書く
+
+best-practices ページは、アーキテクチャとファイル構成を CLAUDE.md で説明する習慣を、不要になった助言に挙げています。Claude はリポジトリを自分で読むためです。書くのは、リポジトリにないことだけです。
+
+- `/doctor` も、CLAUDE.md からディレクトリ構成・依存の一覧・アーキテクチャ概要を削る提案をします。
+- 何を書くかの基準は [判断に任せる指示と、強制する設定を分ける](/claude-code-deep-dive/ja/guide/instructions/#gd1-deterministic) にあります。
+- memory ページは CLAUDE.md の用途に「project architecture」を挙げており、best-practices ページと食い違います。両方の記述は [2 系統のメモリ: CLAUDE.md と auto memory](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-two-systems) にあります。
+
+<div class="src">
+  出典: [best-practices#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing) · [memory#claude-md-vs-auto-memory](https://code.claude.com/docs/en/memory#claude-md-vs-auto-memory) · [#my-claude-md-is-too-large](https://code.claude.com/docs/en/memory#my-claude-md-is-too-large)
+</div>
+
+<span id="gd10-defaults" />
+
+## 既定値と挙動についての古い記述
+
+次の記述は、書かれた時点や対象の製品では正しくても、現在の Claude Code の既定値や挙動とは違います。
+
+| 項目                       | 他の発信の記述                                                                                                       | 現在の Claude Code                                                                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 起動時の権限モード         | コマンドの実行やファイルの変更の前に承認を求める（Anthropic Engineering、2026-03-25）                                | 権限モードを設定していなければ、対話型のターミナルと VS Code のセッションは auto mode で始まる                                           |
+| 既定の effort              | Opus 4.7 は `xhigh`、他のモデルは `high`（Anthropic Engineering、2026-04-23）。Fable 5.2 は API の既定の `high` から始める（Claude Developer Platform） | Fable 5.2・Opus 5.5・Sonnet 5.5・Haiku 5.5 は `medium`、Opus 4.7 は `xhigh`。API の既定は、Claude Code が effort を送らないときだけ効く |
+| サンドボックスの守備範囲   | プロンプトインジェクションが成功しても完全に隔離し、SSH 鍵は盗まれない（Anthropic Engineering、2025-10-20）          | 対象はシェルコマンドだけ。ファイルツール・MCP サーバー・フックは外で動く。既定ではサンドボックス内のコマンドも `~/.ssh` を読める          |
+| `-p` での auto mode の連続ブロック | しきい値に達するとプロセスを終了する（Anthropic Engineering、2026-03-25）                                    | `--permission-prompt-tool` がなければ、その操作を実行せずに作業を続け、実行は止めない                                                     |
+| 全サブエージェントのモデル | `CLAUDE_CODE_SUBAGENT_MODEL` を設定する（claude.dev、2026-09-25）                                                    | この変数だけでは組み込みの Explore と Plan のモデルは変わらない。全部そろえるには `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` も設定する |
+| 検証を促す念押し           | 終える前に自己チェックを頼む。例外は Opus 5（Claude Developer Platform「Prompting best practices」）                  | Fable では通常不要。少ない指示で自分の作業を確かめる                                                                                    |
+
+<div class="src">
+  出典: [permission-modes#which-mode-a-session-starts-in](https://code.claude.com/docs/en/permission-modes#which-mode-a-session-starts-in) · [changelog](https://code.claude.com/docs/en/changelog) 2.1.284 · [model-config#adjust-effort-level](https://code.claude.com/docs/en/model-config#adjust-effort-level) · [#send-no-effort-level](https://code.claude.com/docs/en/model-config#send-no-effort-level) · [#work-with-fable](https://code.claude.com/docs/en/model-config#work-with-fable) · [sandboxing#what-the-sandbox-restricts](https://code.claude.com/docs/en/sandboxing#what-the-sandbox-restricts) · [permission-modes#repeated-block-thresholds](https://code.claude.com/docs/en/permission-modes#repeated-block-thresholds) · [sub-agents#choose-a-model](https://code.claude.com/docs/en/sub-agents#choose-a-model) · [#run-every-subagent-on-one-model](https://code.claude.com/docs/en/sub-agents#run-every-subagent-on-one-model) · [Anthropic Engineering「How we built Claude Code auto mode: a safer way to skip permissions」](https://www.anthropic.com/research/claude-code-auto-mode)（2026-03-25） · [Anthropic Engineering「An update on recent Claude Code quality reports」](https://www.anthropic.com/research/april-23-postmortem)（2026-04-23） · [Anthropic Engineering「Beyond permission prompts: making Claude Code more secure and autonomous」](https://www.anthropic.com/research/claude-code-sandboxing)（2025-10-20） · [claude.dev「What a task costs on Opus 5.5」](https://claude.dev/blog/what-a-task-costs-on-opus-5-5/)（2026-09-25） · [Claude Developer Platform「Prompting Claude Fable 5.2」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2) · [「Effort」](https://platform.claude.com/docs/en/build-with-claude/effort) · [「Prompting best practices」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)（いずれも日付の記載なし、2026-11-12 取得）
+</div>
+
+<span id="gd10-commands" />
+
+## コマンドと拡張についての古い記述
+
+次の記述は、コマンドの名前や Skill・MCP の扱いが現在の Claude Code と違います。
+
+| 項目                               | 他の発信の記述                                                                                                                     | 現在の Claude Code                                                                                                                                    |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 指示ファイルの簡素化               | `claude doctor` で自動的に簡素化する（claude.dev、2026-07-24）                                                                     | `claude doctor` はセッションを開かずに出す読み取り専用の診断。CLAUDE.md の削減はセッション内の `/doctor` と `/doctor prompt-audit`                   |
+| CLAUDE.md の監査                   | `/claude-api prompt-audit` で Skill と CLAUDE.md を調べる（claude.dev、2026-09-25）                                                | CLAUDE.md などの指示ファイルの監査は `/doctor prompt-audit`。`/claude-api prompt-audit` の対象はプロンプト・Skill・ツールの説明                       |
+| `SKILL.md` の `name` と `description` | 2 つとも必須（anthropics/skills の README）。`name` は 64 文字まで、`description` は 1,024 文字まで（Claude Developer Platform「Skill authoring best practices」） | どちらも必須ではない。`name` の既定はディレクトリ名、`description` を省くと本文の空でない最初の行を使う。`description` と `when_to_use` は一覧で合わせて 1,536 文字で切る |
+| Skill の同期                       | Claude Code の Skill はファイルシステム上にあり、claude.ai や API とは別に管理する（Claude Developer Platform「Agent Skills」）     | claude.ai アカウントでサインインしたターミナルのセッションは、アカウントで有効な Skill を `~/.claude/skills/synced/` にダウンロードする               |
+| Skill から MCP ツールを指す名前    | `ServerName:tool_name` の形の完全修飾名（Claude Developer Platform「Skill authoring best practices」）                             | Claude Code での完全な名前は `mcp__<server>__<tool>`                                                                                                  |
+
+Claude Code の外（claude.ai へのアップロードや Skills API など）では、frontmatter に Agent Skills 仕様のフィールドだけを使えます。Skill の書き方は [拡張の作り方](/claude-code-deep-dive/ja/guide/extending/) で扱います。
+
+<div class="src">
+  出典: [cli-reference](https://code.claude.com/docs/en/cli-reference) · [debug-your-config](https://code.claude.com/docs/en/debug-your-config) · [memory#audit-your-instruction-files](https://code.claude.com/docs/en/memory#audit-your-instruction-files) · [skills#work-on-claude-api-projects](https://code.claude.com/docs/en/skills#work-on-claude-api-projects) · [#frontmatter-reference](https://code.claude.com/docs/en/skills#frontmatter-reference) · [#where-synced-skills-load](https://code.claude.com/docs/en/skills#where-synced-skills-load) · [changelog](https://code.claude.com/docs/en/changelog) 2.1.275 · [permissions#mcp](https://code.claude.com/docs/en/permissions#mcp) · [claude.dev「The new rules of context engineering for Claude 5 generation models」](https://claude.dev/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models/)（2026-07-24） · [claude.dev「What a task costs on Opus 5.5」](https://claude.dev/blog/what-a-task-costs-on-opus-5-5/)（2026-09-25） · [anthropics/skills「README」](https://github.com/anthropics/skills/blob/2c5958ecac7cee2b583967a2c4981d0f4a75c579/README.md)（日付の記載なし、コミット 2026-11-06） · [Claude Developer Platform「Skill authoring best practices」](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) · [「Agent Skills」](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview)（いずれも日付の記載なし、2026-11-12 取得）
+</div>

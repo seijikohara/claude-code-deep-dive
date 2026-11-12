@@ -1,0 +1,126 @@
+---
+title: "検証の手段を渡す"
+description: "Claude が自分の作業を確かめられるよう、合否が返るチェックを渡す方法をまとめます。プロンプト・/goal・Stop フック・レビューの使い分けと、完了の根拠の求め方を扱います。"
+sidebar:
+  order: 2
+---
+
+Claude が自分の作業を確かめられるよう、合否が返るチェックを渡す方法をまとめます。プロンプト・`/goal`・`Stop` フック・レビューの使い分けと、完了の根拠の求め方を扱います。
+
+<span id="gd2-check" />
+
+## 合否が返るチェックを渡す
+
+公式ドキュメントによると、Claude は作業が終わったように見えた時点で止まります。終わったかを確かめる手段がなければ、見た目だけが判断材料です。その場合はユーザー自身がテストの代わりになり、誤りは誰かが気付くまで残ります。
+
+合否が返るものを渡すと、Claude は自分でループを閉じられます。変更し、チェックを実行し、壊れていれば出力を読んで直し、もう一度実行します。
+
+- チェックは、Claude が結果を読めるものなら何でも構いません。テストファイル、ビルドの終了コード、linter、出力をフィクスチャと比べるスクリプト、モックアップと並べたブラウザのスクリーンショットなどです。
+- リポジトリにすでにチェックがあるなら、それを実行するコマンドが CLAUDE.md で最も役に立つ 1 行だとしています（[CLAUDE.md を短く保ち、定期的に見直す](/claude-code-deep-dive/ja/guide/instructions/#gd1-claude-md)）。
+
+* Anthropic Engineering の記事（2025-11-26）は、Web アプリの機能を確かめさせる場面で、ブラウザ操作のツールを使い人間の利用者と同じようにテストするよう明示すると、Claude がエンドツーエンドの確認をうまくこなしたとしています。公式ドキュメントも、ブラウザのスクリーンショットをチェックの例に挙げています。
+* Claude Developer Platform の「Prompting best practices」は、Claude がテストを通すことに偏り、一般的な解決にならない場合があるとしています。そこで、テストの入力だけに合わせた実装を避け、テストが誤っていれば回避せずに報告するよう指示する例を示しています。テストは正しさを確かめるためのもので、解き方を決めるものではないという立場です。
+
+<div class="src">
+  出典: [best-practices#give-claude-a-check-to-run](https://code.claude.com/docs/en/best-practices#give-claude-a-check-to-run) · [Anthropic Engineering「Effective harnesses for long-running agents」](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents)（2025-11-26） · 裏付け: [best-practices#give-claude-a-check-to-run](https://code.claude.com/docs/en/best-practices#give-claude-a-check-to-run) · [chrome](https://code.claude.com/docs/en/chrome) · [Claude Developer Platform「Prompting best practices」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)（日付の記載なし、2026-11-12 取得）
+</div>
+
+<span id="gd2-levels" />
+
+## チェックをどこまで強制するかを選ぶ
+
+公式ドキュメントは、チェックの方法を 4 つ示しています。Claude が自分で判断するものから、Claude Code が強制するもの、書いた本人以外が見るものまであります。
+
+| 方法                                                       | 完了を判断するもの                                         | 向いている場面                                                     |
+| ---------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| プロンプト（`run the auth tests after, and keep going until they pass`） | Claude 自身                                                | どのタスクでも、準備なしですぐ使える                               |
+| `/goal all tests in tests/auth pass and lint is clean`     | 毎ターン後に会話を読む別のモデル                           | 長いバックグラウンド実行。項目が残ったまま進捗の要約で止まるのを防ぐ |
+| `Stop` フック                                              | 自分のスクリプト（Claude Code が実行する）                 | 合格するか上限に達するまで、Claude Code がターンを終わらせない     |
+| `/code-review`                                             | 会話を見ていない新しいサブエージェント                     | 書いたときの推論に引きずられないレビュー                           |
+
+- `/goal` の評価役は、コマンドを実行せず、ファイルも読みません。会話に出た内容だけで判断します。そのため goal のページは、Claude 自身の出力で示せる条件を書くよう勧めています。
+- 条件には、測れる 1 つの終了状態、確かめ方（「`npm test` が 0 で終わる」など）、途中で変えてはいけないものを含めるよう勧めています。長さを区切るなら `or stop after 20 turns` のような句を足します。
+- `/goal` は権限モードを変えません。goal のターンを無人で進めるなら、auto mode で使います。
+- Fable について、model configuration のページは、検証を促す念押しは通常不要だとしています。Fable は少ない指示で自分の作業を確かめるためです。
+
+使い方は [`/goal` の使い方](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-goal)、`/loop` や `Stop` フックとの違いは [`/goal`・`/loop`・Stop フックの使い分け](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-goal-compare) にあります。
+
+<div class="src">
+  出典: [best-practices#give-claude-a-check-to-run](https://code.claude.com/docs/en/best-practices#give-claude-a-check-to-run) · [goal#write-an-effective-condition](https://code.claude.com/docs/en/goal#write-an-effective-condition) · [#set-a-goal](https://code.claude.com/docs/en/goal#set-a-goal) · [model-config#work-with-fable](https://code.claude.com/docs/en/model-config#work-with-fable)
+</div>
+
+<span id="gd2-evidence" />
+
+## 完了の根拠を出させる
+
+どの方法を使う場合でも、公式ドキュメントは Claude に根拠を求めるよう勧めています。根拠とは、実行したコマンドとその出力、またはスクリーンショットです。
+
+- 「All tests pass」とだけ言われても、分かることはわずかです。出力を読むほうが、自分でチェックをやり直すより速く済みます。
+- 見ていなかったセッションでは、根拠が唯一の判断材料になります。
+- Claude が完了と言ったら、`/verify` を実行する方法もあります。Claude がアプリをビルドして動かし、結果を見ます。テストや型チェックでは見落とす種類の問題を拾えます。
+- 起動に DB や env ファイルが要るプロジェクトでは、`/run-skill-generator` で起動手順を `.claude/skills/run-<name>/` に記録できます。`/verify` も、記録がなく自力で動かせたときは、手順を `.claude/skills/verify/SKILL.md` に書き残します。
+- セッション開始時に `verify` という名前の Skill（同梱版・プラグインの Skill・claude.ai アカウントの Skill を除く）があり、Claude がそれを起動できる場合、Claude Code のコミット指示は各コミットの直前にその Skill を実行するよう Claude に伝えます。`/verify` がリポジトリのルートに記録した Skill も数えます。ドキュメントとテストだけの変更は対象外です。
+
+* claude.dev のブログ記事（2026-06-03）は、社内では検証用の Skill が Claude の出力品質に最も測定可能な効果を上げたとしています。公式ドキュメントの `/verify` も、確かめ方を Skill として記録します。
+* Claude Developer Platform の「Prompting Claude Sonnet 5.5」は、`low` effort の Sonnet 5.5 が、変更を実際に確かめずに完了と報告することがあるとしています。トランスクリプトにテストやビルドの出力がないときは、システムプロンプトに段落を足すよう勧めています。その段落は、構文だけのチェックや起動に失敗したチェックは確認に数えないこと、実行できないチェックはその旨と理由を書くことを求めます。Claude Code でシステムプロンプトの水準に指示を足すには `--append-system-prompt` を使います。
+
+<div class="src">
+  出典: [best-practices#give-claude-a-check-to-run](https://code.claude.com/docs/en/best-practices#give-claude-a-check-to-run) · [skills#run-and-verify-your-app](https://code.claude.com/docs/en/skills#run-and-verify-your-app) · [#run-your-checks-before-each-commit](https://code.claude.com/docs/en/skills#run-your-checks-before-each-commit) · [memory#claude-isn’t-following-my-claude-md](https://code.claude.com/docs/en/memory#claude-isn’t-following-my-claude-md) · [claude.dev「Lessons from building Claude Code: How we use skills」](https://claude.dev/blog/lessons-from-building-claude-code-how-we-use-skills/)（2026-06-03） · 裏付け: [skills#run-and-verify-your-app](https://code.claude.com/docs/en/skills#run-and-verify-your-app) · [Claude Developer Platform「Prompting Claude Sonnet 5.5」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5-5)（日付の記載なし、2026-11-12 取得）
+</div>
+
+<span id="gd2-spec" />
+
+## 仕様と照らしてレビューさせる
+
+一般的なバグ探しではなく、計画どおりにできたかを確かめたいとき、公式ドキュメントはレビューのプロンプトを自分で書くよう勧めています。
+
+```text
+use a subagent to review the rate limiter diff against SPEC.md, check every requirement is implemented and the listed edge cases have tests, report gaps that affect correctness and skip style
+```
+
+- `skip style` は外さないよう勧めています。問題を探せと言われたレビュー役は、必ず何かを見つけます。指摘をすべて直すと、余計な抽象化の層や、起こりえないケースのテストが増えます。
+- `SPEC.md` の作り方は [要件が固まる前は、Claude にインタビューさせる](/claude-code-deep-dive/ja/guide/instructions/#gd1-brainstorm) にあります。
+- 編集できないレビュー用サブエージェントの作り方とコストは [サブエージェントの費用を知って使う](/claude-code-deep-dive/ja/guide/defaults-cost/#gd4-subagents) で扱います。
+
+* Anthropic Engineering の記事（2026-10-13）は、敵対的なレビューが挙げる仮定上の懸念に応えて Claude が作り込みすぎるのを、エンジニアが止める必要があったとしています。
+* claude.dev のブログ記事（2026-10-15）は、PR を出す前に `/code-review` と `/security-review` をローカルで実行するか、まっさらなコンテキストのサブエージェントにレビューさせるよう勧めています。commands のページも、出荷前のコマンドとして同じ 2 つを挙げています。
+
+`/code-review` の対象の指定と `--fix` は [`/code-review`: セッション内のレビュー](/claude-code-deep-dive/ja/automation/code-review/#ch47-local)、`/security-review` は [Claude Security プラグインと `/security-review`](/claude-code-deep-dive/ja/automation/code-review/#ch47-security) にあります。
+
+<div class="src">
+  出典: [best-practices#review-against-your-spec](https://code.claude.com/docs/en/best-practices#review-against-your-spec) · [Anthropic Engineering「Redesigning source control at Anthropic」](https://www.anthropic.com/research/redesigning-source-control)（2026-10-13） · 裏付け: [best-practices#review-against-your-spec](https://code.claude.com/docs/en/best-practices#review-against-your-spec) · [claude.dev「How the Claude Code team does code review」](https://claude.dev/blog/solving-code-review-at-anthropic/)（2026-10-15） · 裏付け: [commands](https://code.claude.com/docs/en/commands) · [code-review-local](https://code.claude.com/docs/en/code-review-local)
+</div>
+
+<span id="gd2-stop-hook" />
+
+## Stop フックで合格を強制する
+
+型チェックの合格を毎回の条件にするなら、公式ドキュメントは `Stop` フックを示しています。設定は `.claude/settings.json` の数行です。
+
+```json title=".claude/settings.json"
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "pnpm tsc --noEmit 1>&2 || exit 2" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+- 終了コード 2 が停止を止めます。stderr に出した内容は、まだ終われない理由として Claude に戻ります。そのため、コンパイラの出力を stderr に回しています。
+- 動作は、型を壊す変更を頼んで確かめられます。Claude は終わる代わりにコンパイラのエラーを受け取り、`tsc` が通るまで続けます。
+- フックが途中でツール呼び出しを挟まずに 8 回続けて止めると、Claude Code は次のブロックを無視してターンを終えます。この回数は Claude がツールを呼ぶたびにリセットされます。上限は `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` で変えられます。
+- 上限に何度も当たる場合、hooks ガイドは入力の `stop_hook_active` を見て、すでに続行させた後なら早めに終了するよう勧めています。
+- `Stop` フックは、タスクの完了時だけでなく、Claude が応答を終えるたびに発火します。ユーザーの中断では発火しません。
+
+* Claude Developer Platform の「Skill authoring best practices」は、検証スクリプトには何を直せばよいかが分かる具体的なエラーメッセージを出させるよう勧めています。Claude Code でも、終了コード 2 のときの stderr は Claude にフィードバックとして届きます。
+
+イベントの入力と決定のフィールドは [Stop・SubagentStop: 停止を止めて作業を続けさせる](/claude-code-deep-dive/ja/extensions/hooks/#ch28-stop) にあります。
+
+<div class="src">
+  出典: [best-practices#enforce-the-check-with-a-stop-hook](https://code.claude.com/docs/en/best-practices#enforce-the-check-with-a-stop-hook) · [hooks#stop-input](https://code.claude.com/docs/en/hooks#stop-input) · [hooks-guide#stop-hook-hits-the-block-cap](https://code.claude.com/docs/en/hooks-guide#stop-hook-hits-the-block-cap) · [#limitations](https://code.claude.com/docs/en/hooks-guide#limitations) · [env-vars](https://code.claude.com/docs/en/env-vars) · [Claude Developer Platform「Skill authoring best practices」](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)（日付の記載なし、2026-11-12 取得） · 裏付け: [hooks-guide#hook-output](https://code.claude.com/docs/en/hooks-guide#hook-output)
+</div>

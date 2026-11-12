@@ -91,11 +91,27 @@ Do not state totals that a reader does not need, such as the number of settings 
 3. Re-check the facts on the new release, and update each verification stamp after its fact is checked again. `grep -rn "実測\|実機確認" src/content/docs` lists the stamps.
 4. Update the snapshot pages listed above.
 
+## Practice guide (`ja/guide/`)
+
+The practice guide collects recommendations, not facts about one feature. It may cite three tiers of sources:
+
+| Tier | Sources                                                                                          | Rule                                                                                                                                         |
+| ---- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | The Claude Code docs (`code.claude.com/docs`), as everywhere else                                | Use as is                                                                                                                                    |
+| 1b   | The Claude developer docs (`platform.claude.com` / `docs.claude.com`)                            | Use when the guidance applies to Claude Code (for example, SKILL.md authoring) and the Claude Code docs do not contradict it                 |
+| 2    | Anthropic's own publications: the Anthropic Engineering blog, the anthropics GitHub repositories | Use only when the Claude Code docs or an observed run for the target release support the recommendation. Drop it otherwise; do not soften it |
+
+- Word each recommendation as what its source recommends (「公式ドキュメントは…を勧めています」), never as the site's own advice.
+- Paraphrase tier 1b and tier 2 material in your own words. Quote at most a short phrase.
+- The source line names the publisher, title, and date for tier 2, then the supporting docs link: `出典: [Anthropic Engineering「<title>」](<url>)（2025-09-11） · 裏付け: [<page>#<anchor>](<docs url>)`. GitHub sources use a commit permalink.
+- The "What you can stop doing" table on the best-practices page is a deny-list: never recommend anything it lists.
+- Keep the reference out of the guide: state the practice, the reason the source gives, and the setting or command, then link to the reference section for details.
+
 ## Writing rules
 
 - Plain engineering Japanese, one idea per sentence. Bullets in です・ます; table cells in short plain form.
 - Identifiers, flags, settings keys, env vars, commands, paths, and messages stay verbatim in backticks.
-- Every fact comes from the docs mirror, the changelog, or an observed run. Never write from memory.
+- Every fact comes from the docs mirror, the changelog, or an observed run. Never write from memory. The practice guide adds two more tiers; see below.
 - Write paths as `~/.claude/...`. Never a real home path, user name, or account detail.
 - No marketing tone, no opinions, no emoji.
 

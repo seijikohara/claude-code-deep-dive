@@ -1,0 +1,46 @@
+---
+title: "実践ガイド"
+description: "公式ドキュメントと Anthropic の発信が勧める使い方を、目的別にまとめます。各推奨には出典を付け、Anthropic の発信は公式ドキュメントで裏付けが取れたものだけを載せます。"
+sidebar:
+  label: 概要
+  order: 0
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+import { version } from "../../../../version.mjs";
+
+公式ドキュメントと Anthropic の発信が勧める使い方を、目的別にまとめます。各推奨には出典を付け、Anthropic の発信は {version} の公式ドキュメントで裏付けが取れたものだけを載せます。
+
+<span id="gd0-symptoms" />
+
+## うまくいかないときの 4 つの型
+
+公式ドキュメントの best-practices ページは、多くの場合は新しいセッションで最初に書いた素直なプロンプトだけで正しく動くとしています。そのうえで、うまくいかないセッションはほぼ次のどれかに当たるとしています。
+
+| 症状 | 対応するページ |
+| --- | --- |
+| 思っていたものと違うものを作る。毎回同じ事実を調べ直す。リポジトリを読んでも得られない情報が足りない | [指示と CLAUDE.md](/claude-code-deep-dive/ja/guide/instructions/) |
+| 完了と言ったのに終わっていない。多くは、自分の作業を確かめる手段がない | [検証の手段を渡す](/claude-code-deep-dive/ja/guide/verification/) |
+| してはいけないことをした。必ず踏む手順を飛ばした。プロンプトだけではどちらも保証できない | [例外のないルールの強制](/claude-code-deep-dive/ja/guide/enforcement/) |
+| 結果は正しいが、作業に見合わない時間・トークン・確認の回数がかかった | [既定の変更とコスト](/claude-code-deep-dive/ja/guide/defaults-cost/) |
+
+人が見ていない実行にも同じ考え方が当てはまります（[無人実行と並列化](/claude-code-deep-dive/ja/guide/unattended/)）。
+
+<div class="src">
+  出典: [best-practices](https://code.claude.com/docs/en/best-practices)
+</div>
+
+## このパートのページ
+
+<CardGrid>
+  <LinkCard title="指示と CLAUDE.md" href="/claude-code-deep-dive/ja/guide/instructions/" />
+  <LinkCard title="検証の手段を渡す" href="/claude-code-deep-dive/ja/guide/verification/" />
+  <LinkCard title="例外のないルールの強制" href="/claude-code-deep-dive/ja/guide/enforcement/" />
+  <LinkCard title="既定の変更とコスト" href="/claude-code-deep-dive/ja/guide/defaults-cost/" />
+  <LinkCard title="セッションの進め方" href="/claude-code-deep-dive/ja/guide/steering/" />
+  <LinkCard title="無人実行と並列化" href="/claude-code-deep-dive/ja/guide/unattended/" />
+  <LinkCard title="拡張の作り方" href="/claude-code-deep-dive/ja/guide/extending/" />
+  <LinkCard title="大規模リポジトリ" href="/claude-code-deep-dive/ja/guide/large-codebases/" />
+  <LinkCard title="チームへの導入" href="/claude-code-deep-dive/ja/guide/team-rollout/" />
+  <LinkCard title="やめてよい習慣" href="/claude-code-deep-dive/ja/guide/stop-doing/" />
+</CardGrid>

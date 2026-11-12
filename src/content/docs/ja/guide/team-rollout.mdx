@@ -1,0 +1,162 @@
+---
+title: "チームへの導入"
+description: "Claude Code を組織やチームに展開するときに、公式ドキュメントと Anthropic の発信が勧める進め方をまとめます。API プロバイダと設定の配布経路、強制する範囲、利用状況の把握、LLM ゲートウェイ、社内で配る拡張の審査、告知と社内チャンピオンを扱います。"
+sidebar:
+  order: 9
+---
+
+Claude Code を組織やチームに展開するときに、公式ドキュメントと Anthropic の発信が勧める進め方をまとめます。API プロバイダと設定の配布経路、強制する範囲、利用状況の把握、LLM ゲートウェイ、社内で配る拡張の審査、告知と社内チャンピオンを扱います。
+
+<span id="gd9-provider" />
+
+## API プロバイダと、設定を端末に届ける経路を先に決める
+
+公式ドキュメントの管理者向けページは、展開の判断を順に並べています。最初に決めるのはプロバイダと、managed settings の届け方です。
+
+| プロバイダ                                                      | 選ぶ場面                                                          |
+| --------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Claude for Teams / Enterprise                                   | claude.ai と同じ席単位の契約で使う。運用するインフラを持たない    |
+| Claude Console                                                  | API 中心、または従量課金で使う                                    |
+| Amazon Bedrock・Google Cloud's Agent Platform・Microsoft Foundry | 既存のクラウドの統制と請求を引き継ぐ                              |
+
+- 公式ドキュメントは、Claude for Teams / Enterprise を既定の推奨としています。
+- クラウド セッションなど一部の機能は claude.ai アカウントが必要です。クラウドプロバイダで展開する場合は、Teams / Enterprise の席も要るかを計画します。
+- managed settings の届け方は、server-managed（claude.ai の管理コンソール、または Claude apps gateway）、plist・レジストリのポリシー、`managed-settings.json` のファイル、Windows のユーザーレジストリ（HKCU）です。
+- server-managed settings は起動時に取得され、セッション中も 1 時間ごとに更新されます。端末側の仕組みは要りません。管理コンソールからの配信には Teams / Enterprise プランが必要です。
+- プロバイダが混在する組織には、claude.ai の利用者向けの server-managed settings に加えて、ファイルか plist・レジストリの配信を併用するよう勧めています。そうすると他の利用者にも managed のポリシーが届きます。
+- 公式ドキュメントは、HKCU は管理者権限なしで書けるため、強制の経路ではなく便宜上の既定値として扱うよう勧めています。
+- managed の値は、セキュリティに関わる一部の例外を除き、ユーザーとプロジェクトの設定より優先されます。`permissions.allow`・`permissions.deny` のような配列は全ソースの分が合わさるため、開発者は managed の一覧に足せても、消せません。
+
+詳細は [認証](/claude-code-deep-dive/ja/enterprise/auth/)、[配布方式ごとの保存場所と、managed 専用キー](/claude-code-deep-dive/ja/enterprise/managed-settings/#ch58-delivery)、[server-managed settings: 対象・取得・キャッシュ](/claude-code-deep-dive/ja/enterprise/managed-settings/#ch58-server-managed) にあります。
+
+<div class="src">
+  出典: [admin-setup#choose-your-api-provider](https://code.claude.com/docs/en/admin-setup#choose-your-api-provider) · [#decide-how-settings-reach-devices](https://code.claude.com/docs/en/admin-setup#decide-how-settings-reach-devices)
+</div>
+
+<span id="gd9-enforce" />
+
+## 強制する範囲を決め、1 台で確かめてから全体に配る
+
+公式ドキュメントは、managed settings で決められる面として次のものを挙げています（抜粋）。
+
+| 決めること                                                 | 主なキー                                                                               |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| ツールとコマンドの許可・拒否                               | `permissions.allow`、`permissions.deny`                                                |
+| managed 以外の権限ルールを無効にする、バイパスを禁止する   | `allowManagedPermissionRulesOnly`、`permissions.disableBypassPermissionsMode`          |
+| OS レベルのファイル・ネットワークの隔離                    | `sandbox.enabled`、`sandbox.network.allowedDomains`                                    |
+| 使える MCP サーバー                                        | `allowedMcpServers`、`deniedMcpServers`、`allowManagedMcpServersOnly`、`managedMcpServers` |
+| プラグインのマーケットプレイス                             | `strictKnownMarketplaces`、`blockedMarketplaces`、`disableSideloadFlags`               |
+| Skill・エージェント・フック・MCP をプラグインと managed に限る | `strictPluginOnlyCustomization`                                                     |
+| 実行できるフック                                           | `allowManagedHooksOnly`、`allowedHttpHookUrls`                                         |
+| 使えるモデルと effort の上限                               | `availableModels`、`enforceAvailableModels`、`maxEffortLevel`                          |
+| バージョンの下限と範囲                                     | `minimumVersion`、`requiredMinimumVersion`、`requiredMaximumVersion`                   |
+
+- 権限ルールとサンドボックスは別の層を守ります。WebFetch を拒否しても、Bash が許可されていれば `curl` や `wget` はどの URL にも届きます。公式ドキュメントは、この穴をサンドボックスのドメイン許可リストで OS レベルで閉じるとしています。
+- 公式ドキュメントは、managed settings を配ったら、まず 1 台で `/status` を実行するよう勧めています。**Status** タブの `Setting sources` に `Enterprise managed settings` と、選ばれたソースが括弧付きで出ることを確かめてから、残りの端末に配ります。
+- 開発者への案内として、公式ドキュメントは Quickstart、Common workflows、Claude Academy の講座を挙げています。ログインの問題には `/logout` のあと `/login`、enterprise の認証方法が出ないときは `claude update` を案内します。
+
+規則ごとにフック・権限ルール・サンドボックスのどれに置くかは [例外のないルールの強制](/claude-code-deep-dive/ja/guide/enforcement/) に、各キーの詳細は [管理設定](/claude-code-deep-dive/ja/enterprise/managed-settings/) と [権限ルール](/claude-code-deep-dive/ja/settings/permission-rules/) にあります。
+
+<div class="src">
+  出典: [admin-setup#decide-what-to-enforce](https://code.claude.com/docs/en/admin-setup#decide-what-to-enforce) · [#verify-and-onboard](https://code.claude.com/docs/en/admin-setup#verify-and-onboard) · [managed-settings#deploy-a-managed-settings-file](https://code.claude.com/docs/en/managed-settings#deploy-a-managed-settings-file)
+</div>
+
+<span id="gd9-visibility" />
+
+## 小さなパイロットで基準を取り、利用状況とコストを見える化する
+
+- 公式ドキュメントは、自チームの支出を見積もるには小さなパイロットグループから始め、追跡の仕組みで基準を取ってから広く展開するよう勧めています。
+- 見える化の手段は、契約の形で変わります。
+
+| 目的               | 手段                                                                       | 使える環境                                     |
+| ------------------ | -------------------------------------------------------------------------- | ---------------------------------------------- |
+| 利用状況の監視     | OpenTelemetry でセッション・ツール・トークンをエクスポートする             | すべてのプロバイダ                             |
+| 導入状況の把握     | analytics ダッシュボード                                                   | Teams / Enterprise は claude.ai、Console は platform.claude.com |
+| 利用者ごとのデータ | Enterprise Analytics API、Claude Code Analytics API                        | Enterprise、Console                            |
+| 支出の上限         | 組織設定の spend limits、Console の workspace limits、クラウドの予算管理か Claude apps gateway | 環境ごとに異なる                               |
+
+- OpenTelemetry は、どの環境でも使え、利用者ごとのトークンとコストを自前の監視基盤にほぼリアルタイムで流せる唯一の手段です。
+- 複数のチームや部署がある組織は、`OTEL_RESOURCE_ATTRIBUTES` に `department=engineering,team.id=platform,cost_center=eng-123` のような属性を足して区別できます。
+- Claude Code が表示する金額は、既定では定価で計算されます。契約単価で払っている場合は、managed settings の `modelPricing` に単価を入れると、`/usage`・ステータスライン・OpenTelemetry の金額が請求と合います。
+
+詳細は [監視・コスト・分析](/claude-code-deep-dive/ja/enterprise/monitoring-costs/) と [コスト: `/usage`・`modelPricing`・組織の支出管理](/claude-code-deep-dive/ja/enterprise/monitoring-costs/#ch61-costs) に、個々のセッションでコストを抑える方法は [既定の変更とコスト](/claude-code-deep-dive/ja/guide/defaults-cost/) にあります。
+
+<div class="src">
+  出典: [costs](https://code.claude.com/docs/en/costs) · [#manage-costs-for-your-organization](https://code.claude.com/docs/en/costs#manage-costs-for-your-organization) · [#report-spend-at-your-contracted-rates](https://code.claude.com/docs/en/costs#report-spend-at-your-contracted-rates) · [admin-setup#set-up-usage-visibility](https://code.claude.com/docs/en/admin-setup#set-up-usage-visibility) · [monitoring-usage#multi-team-organization-support](https://code.claude.com/docs/en/monitoring-usage#multi-team-organization-support)
+</div>
+
+<span id="gd9-gateway" />
+
+## LLM ゲートウェイは、確認点を 1 つずつ通しながら展開する
+
+公式ドキュメントは、LLM ゲートウェイの展開を、モデルのルーティング確認、開発者ごとの資格情報の発行、Claude Code での試験、設定の配布、開発者の端末での確認という段階に分け、それぞれに確認点を置いています。主な推奨は次のとおりです。
+
+- ゲートウェイがルーティングするモデル名は、展開前にすべて最小のリクエストで試します。ルーティングされていない名前を選んだ開発者には `404` が返ります。
+- 開発者ごとに別のキーを発行します。共有キーにしないことで、利用者ごとの使用量の把握と、個別のオフボーディングができます。
+- 配る前に、配布するのと同じ設定で自分の端末から `claude -p` を実行します。ゲートウェイのログに `/v1/messages` への `POST` が `200` で残ることを確かめます。
+- 配布は managed settings の `env` に `ANTHROPIC_BASE_URL` を入れ、資格情報は `apiKeyHelper` で各端末が自分のキーを取得するようにします。managed の `ANTHROPIC_BASE_URL` は、開発者がシェルで export しても上書きできません。
+- ゲートウェイの資格情報と一緒に、`forceLoginMethod`・`forceLoginOrgUUID`・`forceLoginGatewayUrl` を managed settings に入れてはいけません。API キーや `apiKeyHelper` が起動時に止められ、開発者が先に進めなくなります。
+- server-managed settings は `api.anthropic.com` への直接接続が要るため、ゲートウェイ経由のセッションには届きません。ゲートウェイの展開では、ファイルの managed settings を使います。
+- 新しいリリースは `anthropic-beta` の値やリクエストの項目を増やします。公式ドキュメントは、許可リストで絞らず `anthropic-*` ヘッダーと本文をそのまま転送し、新しいリリースを開発者に届く前にゲートウェイで試すよう勧めています。
+- 切り替えの時期を管理するには、`requiredMaximumVersion` などで試験済みのバージョンに固定し、changelog を読んで試してから固定を上げます。
+
+ゲートウェイ自体の要件は [ゲートウェイのプロトコル要件](/claude-code-deep-dive/ja/enterprise/network-gateways/#ch60-protocol) に、接続の設定は [ゲートウェイの選び方と、LLM ゲートウェイへの接続](/claude-code-deep-dive/ja/enterprise/network-gateways/#ch60-gateways) にあります。
+
+<div class="src">
+  出典: [llm-gateway-rollout#rollout-steps](https://code.claude.com/docs/en/llm-gateway-rollout#rollout-steps) · [#confirm-the-gateway-routes-your-models](https://code.claude.com/docs/en/llm-gateway-rollout#confirm-the-gateway-routes-your-models) · [#issue-developer-credentials](https://code.claude.com/docs/en/llm-gateway-rollout#issue-developer-credentials) · [#test-claude-code-against-the-gateway](https://code.claude.com/docs/en/llm-gateway-rollout#test-claude-code-against-the-gateway) · [#distribute-through-managed-settings](https://code.claude.com/docs/en/llm-gateway-rollout#distribute-through-managed-settings) · [#maintain-the-gateway](https://code.claude.com/docs/en/llm-gateway-rollout#maintain-the-gateway) · [#plan-claude-code-version-upgrades](https://code.claude.com/docs/en/llm-gateway-rollout#plan-claude-code-version-upgrades)
+</div>
+
+<span id="gd9-extensions" />
+
+## 社内で配る Skill とプラグインを審査し、版を固定する
+
+Anthropic の claude.dev ブログ（2026-06-03）は、リポジトリの少ない小さなチームなら Skill をリポジトリにコミットすれば十分だとしています。一方で、コミットした Skill はそれぞれモデルのコンテキストを少しずつ増やすため、規模が大きくなったら社内のプラグインマーケットプレイスで配り、各自が必要なものを入れられるようにすることを勧めています。公式ドキュメントも、一覧にある Skill は使われなくても毎ターンのコンテキストを増やすとし、版管理や複数リポジトリでの利用が要る Skill はプラグインにするよう勧めています。
+
+配り方と確認について、公式ドキュメントは次のように説明しています。
+
+- Skill を配る範囲は、プロジェクト（`.claude/skills/` をコミット）、プラグイン、managed settings による組織全体です。
+- 1 つのリポジトリの参加者にプラグインを入れさせるには、そのリポジトリの `.claude/settings.json` に `extraKnownMarketplaces` と `enabledPlugins` を書きます。組織全体なら、同じ 2 つのキーを managed settings に書きます。
+- 社内マーケットプレイスの `marketplace.json` で各プラグインに `relevance` を書くと、作業ディレクトリ・読んだファイル・実行したコマンドなどが一致したときに、Claude Code がそのプラグインを提案します。ターミナルでは、管理者が managed settings の `pluginSuggestionMarketplaces` でそのマーケットプレイスを許可するまで提案は出ません。インストールは必ず利用者が確定します。
+- プラグインは、利用者の権限で動くフックや MCP サーバーを持ち込みます。入れる前に、マーケットプレイスの出どころとプラグインのソースを確かめます。自動更新が有効だと、確かめたファイルが後で変わることがあります。
+- マーケットプレイスのエントリで、プラグインの取得元に `sha` でコミットを指定すると、Claude Code はそのコミットを取り出します。
+
+Claude 開発者向けドキュメントの「Skills for enterprise」は、Skill を組織に展開するときに次のことを勧めています。
+
+- 第三者や社内の作者の Skill を展開する前に、全ファイルを読み、スクリプトをサンドボックスで動かし、敵対的な指示・外部への通信・データの持ち出し・ハードコードされた資格情報がないかを確かめます。
+- Skill の作者が自分の Skill をレビューしないよう、役割を分けます。
+- Skill のディレクトリを Git で管理し、PR でレビューし、戻せるようにします。
+- 本番では Skill の版を固定し、更新のたびに新しい展開として審査します。
+- 作者には、起動すべき場合・起動すべきでない場合・あいまいな場合を含む 3〜5 個の代表的なクエリの評価を出してもらいます。既存の Skill と並べた共存テストで、広すぎる説明文が他の Skill の起動を奪っていないかも確かめます。
+
+評価の回し方は [Skill とプラグインは、使わない場合と比べて評価する](/claude-code-deep-dive/ja/guide/extending/#gd7-evals) に、マーケットプレイスの管理は [組織管理: 登録と強制有効化](/claude-code-deep-dive/ja/extensions/marketplaces/#ch32-org) と [プラグインソース: エントリの `source`](/claude-code-deep-dive/ja/extensions/marketplaces/#ch32-plugin-sources) にあります。
+
+<div class="src">
+  出典: [skills#share-skills](https://code.claude.com/docs/en/skills#share-skills) · [#find-unused-skills](https://code.claude.com/docs/en/skills#find-unused-skills) · [large-codebases#keep-skills-discoverable](https://code.claude.com/docs/en/large-codebases#keep-skills-discoverable) · [plugins/org#pre-install-and-require-plugins](https://code.claude.com/docs/en/plugins/org#pre-install-and-require-plugins) · [#require-plugins-per-repository](https://code.claude.com/docs/en/plugins/org#require-plugins-per-repository) · [plugins/relevance#understand-how-plugin-relevance-works](https://code.claude.com/docs/en/plugins/relevance#understand-how-plugin-relevance-works) · [#enable-suggestions-in-managed-settings](https://code.claude.com/docs/en/plugins/relevance#enable-suggestions-in-managed-settings) · [plugins/security#understand-what-a-plugin-can-do](https://code.claude.com/docs/en/plugins/security#understand-what-a-plugin-can-do) · [#review-a-plugin-before-you-install](https://code.claude.com/docs/en/plugins/security#review-a-plugin-before-you-install) · [plugins/marketplace-reference#plugin-sources](https://code.claude.com/docs/en/plugins/marketplace-reference#plugin-sources) · [claude.dev「Lessons from building Claude Code: How we use skills」](https://claude.dev/blog/lessons-from-building-claude-code-how-we-use-skills/)（2026-06-03） · 裏付け: [skills#find-unused-skills](https://code.claude.com/docs/en/skills#find-unused-skills) · [large-codebases#keep-skills-discoverable](https://code.claude.com/docs/en/large-codebases#keep-skills-discoverable) · [Claude Developer Platform「Skills for enterprise」](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/enterprise)（日付の記載なし、2026-11-12 取得） · 裏付け: [plugins/security#review-a-plugin-before-you-install](https://code.claude.com/docs/en/plugins/security#review-a-plugin-before-you-install) · [skills#share-skills](https://code.claude.com/docs/en/skills#share-skills) · [skills#evaluate-and-iterate-on-a-skill](https://code.claude.com/docs/en/skills#evaluate-and-iterate-on-a-skill)
+</div>
+
+<span id="gd9-launch" />
+
+## 告知を準備し、社内チャンピオンで定着させる
+
+公式ドキュメントの communications kit は、告知を送る前に次のものを用意するよう勧めています。
+
+- `#claude-code` チャンネルを作り、告知にリンクします。
+- 自社の環境で、少なくとも 1 台でインストールコマンドを試します。プロキシやファイアウォールの問題を、全員が一斉に当たる前に見つけるためです。
+- セキュリティとデータの扱いのリンクを用意します。「コードはどこに送られるのか」が最初の質問になるためです。
+- 自社コードの具体的な最初のタスク（実際のバグやファイル）を選びます。
+- 最初の 48 時間のチャンネル担当者を決めます。
+- 告知を送るか連名する経営層のスポンサーを立てます。
+
+段階的に展開する場合は、パイロットグループ向けの告知も用意されています。実際のタスクに少なくとも 1 回使い、良かった点・困った点・意外だった点を専用チャンネルに書いてもらい、その声で全体への展開を決める形です。文面はどれも下書きとして扱い、自社の言葉に書き直し、例を自社のバグやモジュールに差し替えるよう勧めています。
+
+champion kit は、すでに使っているエンジニアがチームに広める役割を、次の 3 つの行動にまとめています。
+
+- **見つけたことを共有する**: 結果の報告ではなく、同僚が翌日使える技法を共有します。チームがすでに読む場所に、スクリーンショットと 1〜2 文で出します。
+- **質問される人になる**: 質問には説明ではなく、実際に使ったプロンプトで答えます。セキュリティとデータの扱いの質問は管理者に回し、即興で答えません。
+- **輪を広げる**: 専用チャンネルや週 1 回の共有スレッドのような軽い習慣を作り、自分が手を離しても続くようにします。最も質問してくる同僚に次のチャンピオンを任せます。
+
+champion kit は 30 日の進め方の例も挙げています。1 週目にチャンネルを作って自分の例を出し、2 週目に週 1 回のスレッドを始め、3 週目に短いペア作業とよくある質問のまとめを行い、4 週目に 2 人目のチャンピオンへ引き継ぎます。自分の使い方から新しいメンバー向けのガイドを `/team-onboarding` で作り、チャンネルに固定する方法も挙げています。
+
+<div class="src">
+  出典: [communications-kit#before-you-send](https://code.claude.com/docs/en/communications-kit#before-you-send) · [#pilot-group-variant](https://code.claude.com/docs/en/communications-kit#pilot-group-variant) · [champion-kit#the-champion-role](https://code.claude.com/docs/en/champion-kit#the-champion-role) · [#share-what-you-discover](https://code.claude.com/docs/en/champion-kit#share-what-you-discover) · [#be-the-person-people-ask](https://code.claude.com/docs/en/champion-kit#be-the-person-people-ask) · [#grow-the-circle](https://code.claude.com/docs/en/champion-kit#grow-the-circle) · [#thirty-day-playbook](https://code.claude.com/docs/en/champion-kit#thirty-day-playbook)
+</div>

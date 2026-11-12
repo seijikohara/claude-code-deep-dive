@@ -1,0 +1,216 @@
+---
+title: "既定の変更とコスト"
+description: "時間・トークン・確認の回数が作業に見合わないときに見直す既定を扱います。パーミッションモード、effort とモデル、サブエージェントの費用、コンテキストとキャッシュの費用について、出典が勧める変え方を示します。"
+sidebar:
+  order: 4
+---
+
+時間・トークン・確認の回数が作業に見合わないときに見直す既定を扱います。パーミッションモード、effort とモデル、サブエージェントの費用、コンテキストとキャッシュの費用について、出典が勧める変え方を示します。
+
+<span id="gd4-defaults" />
+
+## 既定のまま始め、かさんだら `/usage` で原因を探す
+
+公式ドキュメントは、作業が時間・トークン・中断の点で見合わなくなるまでは既定のままでよいとしています。見合わなくなったら、セッションで `/usage` を実行して使い道を確かめるよう勧めています。
+
+新しいセッションは、すでに次の判断をしています。公式ドキュメントは、費用がかさむ原因はたいていこのどれかだとしています。
+
+| 既定 | 見直す節 |
+| --- | --- |
+| 対話のターミナルと VS Code のセッションは auto mode で始まる | [確認の回数は auto mode と allow 設定で減らす](#gd4-permission-mode) |
+| 多くのプランとプロバイダで Opus 5.5 を `medium` effort で動かす | [effort は作業の性質に合わせて上げ下げする](#gd4-effort)、[モデルは既定の Opus 5.5 を基準に選ぶ](#gd4-model) |
+| 理由があればサブエージェントに委譲する | [サブエージェントの費用を知って使う](#gd4-subagents) |
+| 会話が大きくなると圧縮する | [使わない文脈に払い続けない](#gd4-context) |
+
+- Pro・Max・Ultra・Team・Enterprise では、`/usage` が使用量を Skill・サブエージェント・プラグイン・MCP サーバーごとに分けて表示します。
+- 直近の使用量の 10% 以上を占める挙動（長いコンテキスト、キャッシュミスなど）には、変更の提案が付きます。
+- 詳細は [コスト: `/usage`・`modelPricing`・組織の支出管理](/claude-code-deep-dive/ja/enterprise/monitoring-costs/#ch61-costs) にあります。
+
+<div class="src">
+  出典: [best-practices#change-a-default](https://code.claude.com/docs/en/best-practices#change-a-default) · [#keep-cost-and-context-down](https://code.claude.com/docs/en/best-practices#keep-cost-and-context-down) · [costs#plan-usage-breakdown](https://code.claude.com/docs/en/costs#plan-usage-breakdown)
+</div>
+
+<span id="gd4-permission-mode" />
+
+## 確認の回数は auto mode と allow 設定で減らす
+
+公式ドキュメントは、権限の範囲の両端にそれぞれ費用があるとしています。
+
+- **Manual mode**: 読み取り専用でない編集とコマンドを、すべて自分で承認します。安全ですが、確認が重なると読まずに承認しがちになります。席を外すと作業も止まります。
+- **`bypassPermissions`**: deny・ask ルールにかからない操作をすべて承認します。公式ドキュメントは、使い捨てのコンテナでのみ意味があるとしています。
+
+auto mode はその中間です。対話のターミナルと VS Code のセッションは、このモードで始まります。`claude -p` の実行は、モードを指定しなければ Manual mode で始まります。
+
+- 別の分類器モデルが、決まった順序で操作を実行前に確認します。`curl | bash`、本番へのデプロイや移行、他人の作業への force push のように、人なら止めたい操作を重点的に見ます。
+- 分類器は deny・ask ルールと `PreToolUse` フックの後で動きます。deny ルールは auto mode でも他のモードと同じように止めます。
+- 対話のセッションでは、連続 3 回または合計 20 回ブロックすると、auto mode は止まって確認に戻ります。
+- 会話で伝えた境界（例: 「レビューするまで push しない」）も、分類器は止める合図として扱います。ただし圧縮で消えることがあるので、公式ドキュメントは重要なものを deny ルールに置くよう勧めています。
+
+普段の操作が何度も止められるなら、公式ドキュメントは毎回手で承認する代わりに、`autoMode.allow` に足すか、信頼するインフラを `environment` に書くよう勧めています。
+
+- 書き方はパターンではなく平文です。`/auto-mode-setup` が、プロジェクトと最近のセッションから `environment` の下書きを作ります。
+- `autoMode` は `~/.claude/settings.json` に置きます。分類器はプロジェクトの設定にある `autoMode` を無視します。
+- 設定するリストには `"$defaults"` を必ず残します。外すと、組み込みのルールに足すのではなく置き換えます。
+
+```json title="~/.claude/settings.json"
+{
+  "autoMode": {
+    "environment": [
+      "$defaults",
+      "Source control: github.com/example-org and every repo under it",
+      "Trusted internal domains: *.internal.example.com"
+    ],
+    "allow": [
+      "$defaults",
+      "Deploying to the staging namespace is fine, it's isolated from production and resets nightly"
+    ]
+  }
+}
+```
+
+- 毎回の操作を見たいときは、<kbd>Shift</kbd>+<kbd>Tab</kbd> で Manual に切り替えるか、`claude --permission-mode manual` で始めます。
+- Manual で確認が多すぎるときは、`/fewer-permission-prompts` が最近のトランスクリプトからよく使う読み取り専用の Bash・MCP 呼び出しを拾い、`.claude/settings.json` の許可リストに足します。
+- モードの一覧は [パーミッションモード](/claude-code-deep-dive/ja/settings/permission-modes/)、設定の詳細は [`autoMode` の設定: スコープ・4 段階・`"$defaults"`](/claude-code-deep-dive/ja/settings/auto-mode/#ch24-config) と [ブロック後の扱い・しきい値・サブエージェント](/claude-code-deep-dive/ja/settings/auto-mode/#ch24-fallback) にあります。
+
+<div class="src">
+  出典: [best-practices#change-the-permission-mode](https://code.claude.com/docs/en/best-practices#change-the-permission-mode) · [permission-modes#boundaries-you-state-in-conversation](https://code.claude.com/docs/en/permission-modes#boundaries-you-state-in-conversation) · [#when-auto-mode-falls-back](https://code.claude.com/docs/en/permission-modes#when-auto-mode-falls-back) · [auto-mode-config#define-trusted-infrastructure](https://code.claude.com/docs/en/auto-mode-config#define-trusted-infrastructure) · [headless#auto-approve-tools](https://code.claude.com/docs/en/headless#auto-approve-tools)
+</div>
+
+<span id="gd4-effort" />
+
+## effort は作業の性質に合わせて上げ下げする
+
+公式ドキュメントは、effort を Claude が考える長さの主な調整手段としています。以前プロンプトの言い回しで工夫していたことの大半を、effort が置き換えるとしています。
+
+- Fable 5.2・Opus 5.5・Sonnet 5.5・Haiku 5.5 の既定は `medium` です。公式ドキュメントは、範囲がはっきりした日常の機能開発には `medium` で十分だとしています。
+- セッションの中では `/effort` で変えます。公式ドキュメントが挙げる場面は次のとおりです。
+
+| 変え方 | 公式ドキュメントが挙げる場面と理由 |
+| --- | --- |
+| `/effort high`・`/effort xhigh` に上げる | 見落としやすいケースが成否を分ける作業。自分が書いていないコードのバグ、不安定なテスト、古い形の読み手をすべて探すスキーマ変更。エッジケースの確認と検証が増える |
+| `/effort low` に下げる | 結果を毎回見ながら素早くやり取りする作業。ブレインストーミング、最初のたたき台、数ファイルの名前変更。たたき台が早く返る |
+| `max` | 人の手を借りずに解かせたい難しい問題（セキュリティ脆弱性の調査など）。普通の作業では考えすぎ、`high` と変わらない答えに多く払いがち |
+| 次のメッセージだけ | 設定は変えず、そのプロンプトに `ultrathink` を入れる |
+
+- `/effort` で選んだ `low`〜`xhigh` は、既定として保存されます。今のセッションだけにするには、スライダーで <kbd>s</kbd> を押します。`max` は今のセッションだけに効きます。
+- 公式ドキュメントは、Opus 5 から Opus 5.5 に移るときは Opus 5 のレベルを持ち越さず、`medium` から始めるよう勧めています。effort の尺度はモデルごとに調整されていて、同じレベル名でもモデルが違えば同じ値を表さないとも書いています。
+- `think hard` などの語句は、Claude Code ではキーワードではなく普通のプロンプトのテキストとして渡ります。
+- Claude Developer Platform の Opus 5.5 向けプロンプトガイドは、考える量を減らしたいときはまず effort を下げるよう勧めています。プロンプトの指示より確実に、思考と費用と待ち時間が減るとしています。
+- Claude Developer Platform の Fable 5.2 向けガイドは、計画と試行錯誤を `medium` で行い、長い無人の部分で effort を上げる組み合わせを例に挙げています。Fable 5.2 は `/model fable` で選ぶモデルです。
+- 途中で effort を変えても、API キーかサブスクリプションなら Fable 5.1 以降・Opus 5.5・Sonnet 5.5・Haiku 5.5 ではキャッシュが残ります。Amazon Bedrock・Google Cloud の Agent Platform・Claude apps gateway などでは、変更後の最初のリクエストが会話全体をキャッシュなしで読み直します。
+
+:::note[補足]
+Fable 5.2 向けガイドは、Claude API の既定である `high` から始めるよう書いています。Claude Code は、レベルを設定していなければ Fable 5.2 を `medium` で動かします。
+:::
+
+詳細は [レベルの選び方](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-choose)、[`/effort` サブコマンドと `--effort`](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-command)、[`ultrathink` キーワード](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-ultrathink) にあります。
+
+<div class="src">
+  出典: [best-practices#change-the-model-and-effort](https://code.claude.com/docs/en/best-practices#change-the-model-and-effort) · [model-config#adjust-effort-level](https://code.claude.com/docs/en/model-config#adjust-effort-level) · [#choose-an-effort-level](https://code.claude.com/docs/en/model-config#choose-an-effort-level) · [#use-ultrathink-for-one-off-deep-reasoning](https://code.claude.com/docs/en/model-config#use-ultrathink-for-one-off-deep-reasoning) · [prompt-caching#changing-effort-level](https://code.claude.com/docs/en/prompt-caching#changing-effort-level) · [Claude Developer Platform「Prompting Claude Opus 5.5」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5#calibrate-effort)（日付の記載なし、2026-11-12 取得） · [Claude Developer Platform「Prompting Claude Fable 5.2」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2#calibrate-effort)（日付の記載なし、2026-11-12 取得） · 裏付け: [model-config#set-the-effort-level](https://code.claude.com/docs/en/model-config#set-the-effort-level)
+</div>
+
+<span id="gd4-model" />
+
+## モデルは既定の Opus 5.5 を基準に選ぶ
+
+- 公式ドキュメントは、既定の Opus 5.5 でほとんどのコーディングをこなせるとしています。定型の作業では Sonnet のほうが安いとしています。
+- 公式ドキュメントは、Haiku が単純な仕事をするサブエージェントに向くとしています（[サブエージェントの費用を知って使う](#gd4-subagents)）。
+- Fable 5.2 は `/model fable` で選びます。Fable はどのプランでも既定になりません。
+- 公式ドキュメントは Fable を、1 回の作業に収まらない大きなタスク向けとしています。使い方として次を挙げています。
+  - 手順ではなく、求める結果を伝えます。結果に向けて動かし続けるには `/goal` を使います。
+  - 根本原因の調査、障害のデバッグ、設計判断のような曖昧な問題を任せます。
+  - テストや確認を促す念押しは省きます。Fable は少ない促しで自分の作業を確かめるためです。
+  - ふだん分割する大きさの作業を、まとめて渡します。
+- claude.dev ブログの記事（2026-11-09）は、長い無人実行のときに Fable 5.2 へ上げるよう勧めています。
+
+モデルを途中で変えると、キャッシュを使えません。
+
+- モデルごとにキャッシュが別なので、切り替え直後のリクエストは会話全体をキャッシュなしで読みます。
+- 公式ドキュメントは、モデルと effort をセッションの最初に決め、作業の途中で変える回数を減らすよう勧めています。
+- `/model` で選んだモデルは、新しいセッションの既定としても保存されます。今のセッションだけ切り替えるには、ピッカーで <kbd>s</kbd> を押します。
+
+詳細は [モデル選択](/claude-code-deep-dive/ja/fundamentals/models/)、[Fable を使うときの注意](/claude-code-deep-dive/ja/fundamentals/models/#ch02-fable)、[キャッシュを壊す操作・壊さない操作](/claude-code-deep-dive/ja/fundamentals/context/#ch06-cache-breakers) にあります。
+
+<div class="src">
+  出典: [best-practices#change-the-model-and-effort](https://code.claude.com/docs/en/best-practices#change-the-model-and-effort) · [model-config#work-with-fable](https://code.claude.com/docs/en/model-config#work-with-fable) · [prompt-caching#how-the-cache-is-organized](https://code.claude.com/docs/en/prompt-caching#how-the-cache-is-organized) · [#switching-models](https://code.claude.com/docs/en/prompt-caching#switching-models) · [commands](https://code.claude.com/docs/en/commands) · [claude.dev「Which Claude model should you build with? Fable, Opus, Sonnet, or Haiku」](https://claude.dev/blog/which-claude-model-should-you-build-with/)（2026-11-09） · 裏付け: [model-config#model-aliases](https://code.claude.com/docs/en/model-config#model-aliases) · [#work-with-fable](https://code.claude.com/docs/en/model-config#work-with-fable)
+</div>
+
+<span id="gd4-subagents" />
+
+## サブエージェントの費用を知って使う
+
+Claude は、頼まなくても自分でサブエージェントに委譲します。
+
+- 広いコードベース検索は、組み込みの Explore に渡します。
+- 脇の作業は、fork mode（既定で有効）の間は fork に渡します。
+- 起動したサブエージェントは、既定でバックグラウンドで動きます。
+
+公式ドキュメントは、サブエージェントの元が取れる場面として次を挙げています。
+
+- 独立した作業を同時に進め、全体を早く終える
+- テスト全体の実行や広い検索のような長い出力を、メイン会話に残さない
+- コードが書かれる過程を見ていないレビュアーを得る
+- 読めるが編集できないレビュアーのように、メインより少ないツールで動かす
+
+費用は主にトークンです。
+
+- 各サブエージェントは自分のリクエストを送り、メイン会話と同じ使用量に数えられます。
+- 新しいサブエージェントは、会話がすでに持つ文脈を集め直します。そのため、その場で作業するより遅くなることがあります。
+- 既定では、同じモデル（またはより小さいモデル）が同じ作業をします。公式ドキュメントは、並列性や新しい視点は得られても、賢い答えは得られないとしています。
+
+費用を抑える方法として、公式ドキュメントは次を挙げています。
+
+- 単純な作業（あるモジュールを import するファイルの収集、ドキュメントのリンク確認など）のサブエージェントには `model: haiku` を設定します。
+- 結果は短い要約で返させます。
+- `/usage` で、サブエージェントの種類ごとの割合を確かめます。
+- `.claude/agents/` のカスタムサブエージェントを `tools: Read, Grep, Glob` に絞ると、編集できないレビュアーになります。この制限はプロンプトの依頼ではなく、Claude Code が強制します。
+
+```markdown title=".claude/agents/reviewer.md"
+---
+name: reviewer
+description: Reviews changed files against the spec they were built from. Use after implementing a feature, before opening the PR.
+tools: Read, Grep, Glob
+---
+You're reviewing code you didn't write. Compare the changed files against the spec you're given,
+check that every requirement is implemented and the listed edge cases have tests,
+and report only the gaps that affect correctness. Skip style.
+```
+
+- 組み込みの Explore は、メイン会話のモデルで動きます（メインが Fable のときは接続方法で変わります）。`Explore` という名前のユーザーまたはプロジェクトのサブエージェントを `model: haiku` で定義すると、組み込みを上書きして探索を安いモデルで動かせます。
+- Claude Developer Platform の Fable 5.2 向けガイドは、サブエージェントが多すぎるときは、まずシステムプロンプト・Skill・エージェント定義にある委譲を促す行を見直すよう勧めています。Claude Code では、サブエージェントの `description` が委譲の判断材料になります。
+
+詳細は [組み込みエージェント](/claude-code-deep-dive/ja/parallel/subagents/#ch37-builtin)、[モデル・effort・thinking の決まり方](/claude-code-deep-dive/ja/parallel/subagents/#ch37-model)、[ツールフィルタ: 2 段の除外と `tools`・`disallowedTools`](/claude-code-deep-dive/ja/parallel/subagents/#ch37-tools) にあります。
+
+<div class="src">
+  出典: [best-practices#know-what-subagents-cost](https://code.claude.com/docs/en/best-practices#know-what-subagents-cost) · [sub-agents#built-in-subagents](https://code.claude.com/docs/en/sub-agents#built-in-subagents) · [#choose-a-model](https://code.claude.com/docs/en/sub-agents#choose-a-model) · [Claude Developer Platform「Prompting Claude Fable 5.2」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2#set-expectations-for-subagents)（日付の記載なし、2026-11-12 取得） · 裏付け: [sub-agents#understand-automatic-delegation](https://code.claude.com/docs/en/sub-agents#understand-automatic-delegation)
+</div>
+
+<span id="gd4-context" />
+
+## 使わない文脈に払い続けない
+
+公式ドキュメントは、多くの現行モデルが 1M トークンの window を持ち、上限近くで自動圧縮が走るので、コンテキストが尽きることはまれだとしています。それでも、要らない文脈の費用は払い続けます。
+
+- 毎回のリクエストは会話全体を送ります。関係のない 3 つの作業を抱えたセッションは、4 つ目の作業の毎ターンで 3 つ分を読み直します。
+- 読み直しは、キャッシュが温かい間は割引され、切れると定価になります。
+
+公式ドキュメントが挙げる対処は次のとおりです。
+
+- 関係のない作業の間で `/clear` します。費用はかからず、次の作業が前の作業の履歴分を払わずに済みます。`/clear oauth-migration` は離れるセッションに名前を付けるので、後で戻れます。
+- `/compact` には残す内容を添えます（例: `/compact keep the API changes and the test commands`）。長いセッションでは `/compact` 自体が大きなリクエストです。キャッシュが切れた後はさらに大きくなります。
+- 圧縮の負担がかかる時点を選ぶには、作業の区切りで `/compact` します。捨てたい方向に進んだときは、圧縮ではなく `/rewind` で戻ります。戻った先はキャッシュ済みの部分を再利用できます。
+- バックグラウンドの作業に気を配ります。`/loop`、ターンごとの goal の判定、Claude 自身のサブエージェントは、入力していない間もリクエストを送ります。
+- `gh`・`aws` のような CLI ツールがあれば、MCP サーバーより優先します。使わない MCP サーバーは `/mcp` で無効にします。
+
+キャッシュの寿命は、サブスクリプションで約 1 時間、API キー・クラウドプロバイダ・usage credits で 5 分です。サブエージェントは、変更しない限り 5 分です。
+
+- 1 時間キャッシュでは、約 200K トークンを超えて放置されたセッションは、キャッシュが切れる直前に圧縮されます。
+- 公式ドキュメントは、履歴が要らなければ新しいセッションのほうが安いとしています。
+- Claude Developer Platform の「Prompt caching」は、5 分より間隔が空くが 1 時間以内に繰り返すリクエスト（5 分を超える脇のエージェント作業など）に、1 時間キャッシュが向くとしています。Claude Code では、`promptCacheTtl`（メイン会話）と `subagentPromptCacheTtl`（サブエージェントなど）に `1h` を設定すると 1 時間キャッシュになります。公式ドキュメントによれば、1 時間キャッシュは書き込みが割高なので、5 分以上空かない短い作業では得になりません。
+- 同じく「Context windows」は、トークンが増えるほど正確さと想起が落ちるとし、何を入れるかの選別が大切だとしています。公式ドキュメントも、`/clear` で文脈を絞るほうが答えがよく、費用も下がるとしています。
+
+詳細は [`/clear`・`/compact`・rewind 要約・自動圧縮の比較](/claude-code-deep-dive/ja/fundamentals/context/#ch06-compare)、[アイドル圧縮](/claude-code-deep-dive/ja/fundamentals/context/#ch06-idle)、[キャッシュの TTL と優先順位](/claude-code-deep-dive/ja/fundamentals/context/#ch06-cache-ttl) にあります。
+
+<div class="src">
+  出典: [best-practices#keep-cost-and-context-down](https://code.claude.com/docs/en/best-practices#keep-cost-and-context-down) · [#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing) · [costs#reduce-mcp-server-overhead](https://code.claude.com/docs/en/costs#reduce-mcp-server-overhead) · [#why-usage-climbs-in-a-long-session](https://code.claude.com/docs/en/costs#why-usage-climbs-in-a-long-session) · [prompt-caching#compacting-the-conversation](https://code.claude.com/docs/en/prompt-caching#compacting-the-conversation) · [#cache-lifetime](https://code.claude.com/docs/en/prompt-caching#cache-lifetime) · [#choose-the-ttl-yourself](https://code.claude.com/docs/en/prompt-caching#choose-the-ttl-yourself) · [Claude Developer Platform「Prompt caching」](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#when-to-use-the-1-hour-cache)（日付の記載なし、2026-11-12 取得） · [Claude Developer Platform「Context windows」](https://platform.claude.com/docs/en/build-with-claude/context-windows#how-the-context-window-works)（日付の記載なし、2026-11-12 取得） · 裏付け: [prompt-caching#choose-the-ttl-yourself](https://code.claude.com/docs/en/prompt-caching#choose-the-ttl-yourself) · [best-practices#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing)
+</div>

@@ -1,0 +1,167 @@
+---
+title: "例外のないルールの強制"
+description: "Claude の判断に左右されずに守らせたい規則を、フック・権限ルール・サンドボックス・managed settings で強制する方法をまとめます。規則の置き場所の選び方と、信頼できない入力への備えも扱います。"
+sidebar:
+  order: 3
+---
+
+import { Badge } from "@astrojs/starlight/components";
+
+Claude の判断に左右されずに守らせたい規則を、フック・権限ルール・サンドボックス・managed settings で強制する方法をまとめます。規則の置き場所の選び方と、信頼できない入力への備えも扱います。
+
+<span id="gd3-move" />
+
+## 例外のない規則は CLAUDE.md から設定へ移す
+
+公式ドキュメントは、毎回必ず起きるべきことはフック・deny ルール・managed setting にするよう勧めています。CLAUDE.md はガイドラインの置き場所で、Claude はガイドラインが当てはまらないと判断してよいからです（[判断に任せる指示と、強制する設定を分ける](/claude-code-deep-dive/ja/guide/instructions/#gd1-deterministic)）。
+
+- `Never read .env`、`Always run the formatter after editing`、`Don't touch the migrations folder` のような CLAUDE.md の規則は、ほぼ毎回守られます。
+- 「ほぼ」では足りない規則だけを、Claude Code（ハーネス）が自分で適用する設定に移します。移した後は、モデルが覚えているか、どう判断するかに結果が左右されません。
+- やりすぎないよう勧めています。フックは例外がゼロの規則のためのものです。`Prefer named exports` のように例外の多い規則は CLAUDE.md に残します。
+
+:::caution[注意]
+公式ドキュメントは、auto mode を確実な規則として扱わないよう注意しています。auto mode は分類器のモデルが行動ごとに判断する仕組みで、判断を誤ることがあります。何を危険とみなすかは調整でき、組織が auto mode を無効にすることもあります。「絶対にしない」規則は deny ルールかフックに置きます。
+:::
+
+* Anthropic Engineering の記事（2026-05-25）は、auto mode の分類器を、サンドボックスの内側にある多層防御の 1 層と位置付けています。サンドボックスの代わりにはならないという立場です。公式ドキュメントも、deny・ask ルールと `PreToolUse` フックは分類器より前に適用されるため、auto mode がこれらの決定的な制御を置き換えることはないとしています。
+
+<div class="src">
+  出典: [best-practices#enforce-the-rules-that-cant-have-exceptions](https://code.claude.com/docs/en/best-practices#enforce-the-rules-that-cant-have-exceptions) · [#enforce-steps-with-hooks](https://code.claude.com/docs/en/best-practices#enforce-steps-with-hooks) · [#limit-access-with-permission-rules-and-the-sandbox](https://code.claude.com/docs/en/best-practices#limit-access-with-permission-rules-and-the-sandbox) · [Anthropic Engineering「How we contain Claude across products」](https://www.anthropic.com/research/how-we-contain-claude)（2026-05-25） · 裏付け: [best-practices#change-the-permission-mode](https://code.claude.com/docs/en/best-practices#change-the-permission-mode) · [permission-modes#common-setups](https://code.claude.com/docs/en/permission-modes#common-setups)
+</div>
+
+<span id="gd3-hooks" />
+
+## 必ず踏む手順はフックで実行する
+
+フックは、ツール呼び出しの前後、Claude が止まろうとしたとき、セッション開始時などの決まった時点で、自分の処理を実行します。処理はシェルコマンド（通常の使い方）、HTTP エンドポイントへの POST、MCP サーバーのツール呼び出し、`prompt` フック、`agent` フック <Badge text="Experimental" variant="caution" size="small" class="badge experimental" /> のいずれかです。
+
+- `prompt` フックと `agent` フックは別のモデルに判断させるため、これも決定的ではありません。公式ドキュメントは、確実に強制するなら `command` か `http` のフックを使うよう勧めています。
+- フック自体が落ちたりタイムアウトしたりしたときも操作を止めたいなら、`onFailure: "block"` を足します。例は、コミットから秘密情報を探すフックです。スキャナーが止まっているあいだは、確かめずに通すよりコミットを止めるほうを選びます。
+- 公式ドキュメントの例では、formatter の規則を `PostToolUse` フックにしています。`Edit` か `Write` の後に毎回動くため、Claude が規則を覚えているかは関係なくなります。
+
+```json title=".claude/settings.json"
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "npx prettier --write --ignore-unknown \"$(jq -r '.tool_input.file_path')\"" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+- 動作は、Prettier が整形するファイルにインデントの崩れた行を足すよう頼んで確かめます。保存されたファイルは整形された状態に戻ります。
+- 同じ例で、migrations フォルダの規則は、`migrations/` 配下のパスなら終了コード 2 で止める `PreToolUse` フックにしています。`write a hook that blocks edits to the migrations folder` と頼めば Claude が書き、`/hooks` で結果を確認できます。
+- `@` で参照したファイルを Claude Code が取り込むときは、ツール呼び出しが起きないため `PreToolUse` フックは動きません。読ませたくないパスは `Read` の deny ルールで止めるか、`CLAUDE_CODE_DISABLE_FILE_MENTIONS=1` で取り込み自体を止めるよう勧めています。
+- フックが返す deny は、`bypassPermissions` を含むすべての権限モードで効きます。ただし mod が承認を出せる構成もあります（[PreToolUse フック・mod との関係](/claude-code-deep-dive/ja/settings/permission-rules/#ch22-hooks-mods)）。
+
+* claude.dev のブログ記事（2026-10-15）も、確認用のコマンドを短い CLAUDE.md に書き、formatter と linter はフックで実行するよう勧めています。公式ドキュメントの例と同じ分け方です。
+
+`onFailure` は [async・onFailure・並列実行](/claude-code-deep-dive/ja/extensions/hooks/#ch28-async)、止め方の詳細は [PreToolUse: 入力と決定フィールド](/claude-code-deep-dive/ja/extensions/hooks/#ch28-pretooluse) にあります。
+
+<div class="src">
+  出典: [best-practices#enforce-steps-with-hooks](https://code.claude.com/docs/en/best-practices#enforce-steps-with-hooks) · [hooks#block-the-action-when-a-hook-fails](https://code.claude.com/docs/en/hooks#block-the-action-when-a-hook-fails) · [hooks-guide#block-edits-to-protected-files](https://code.claude.com/docs/en/hooks-guide#block-edits-to-protected-files) · [#hooks-and-permission-modes](https://code.claude.com/docs/en/hooks-guide#hooks-and-permission-modes) · [common-workflows#reference-files-and-directories](https://code.claude.com/docs/en/common-workflows#reference-files-and-directories) · [claude.dev「How the Claude Code team does code review」](https://claude.dev/blog/solving-code-review-at-anthropic/)（2026-10-15） · 裏付け: [best-practices#enforce-steps-with-hooks](https://code.claude.com/docs/en/best-practices#enforce-steps-with-hooks)
+</div>
+
+<span id="gd3-deny" />
+
+## 読ませない・実行させないものは deny ルールにする
+
+権限ルールは、Claude が何を実行し、読み、取得してよいかを決めます。公式ドキュメントによると、`deny` ルールは auto と `bypassPermissions` を含むすべての権限モードで効きます。`.env` を読ませない規則を deny ルールに置くのはそのためです。
+
+```json title=".claude/settings.json"
+{
+  "permissions": {
+    "allow": ["Bash(pnpm tsc --noEmit)"],
+    "ask": ["Bash(git push *)"],
+    "deny": ["Read(./.env)", "Read(./.env.local)", "Read(./secrets/**)"]
+  }
+}
+```
+
+この設定を保存すると、`.env` の中身を尋ねても、`Read` ツールでも `cat .env` でも失敗します。ルールは意図ではなくツール呼び出しに一致するため、公式ドキュメントは効く範囲の境目を挙げています。
+
+- `Read` のルールは `cat .env` も止めます。Claude Code がよく使われるファイル読み取りコマンドを認識するためです。
+- ファイルを開くスクリプトは止めません。
+- ドメインを指定した `WebFetch` の deny ルールは、同じドメインへの `curl` を止めません。サンドボックスが有効なら別です。
+- Bash のルールは Claude が書いたコマンドの文字列に一致します。同じプログラムを別の形で呼ぶと一致しないため、プログラムを囲むセキュリティ境界にはなりません。文字列に依存しない制限にはサンドボックスを、コマンド全体を独自の論理で調べるには `PreToolUse` フックを使います。
+
+パスの書き方は [Read・Edit ルールのパスアンカー](/claude-code-deep-dive/ja/settings/permission-rules/#ch22-read-edit)、Bash ルールの限界は [Bash ルールが一致しないものと読み取り専用コマンド](/claude-code-deep-dive/ja/settings/permission-rules/#ch22-bash-limits) にあります。
+
+<div class="src">
+  出典: [best-practices#limit-access-with-permission-rules-and-the-sandbox](https://code.claude.com/docs/en/best-practices#limit-access-with-permission-rules-and-the-sandbox) · [permissions#read-and-edit](https://code.claude.com/docs/en/permissions#read-and-edit) · [#what-a-bash-rule-doesnt-match](https://code.claude.com/docs/en/permissions#what-a-bash-rule-doesnt-match)
+</div>
+
+<span id="gd3-sandbox" />
+
+## OS のレベルで閉じ込めるにはサンドボックスを使う
+
+ファイルシステムやネットワークへのアクセスを OS のレベルで制限するには、セッションで `/sandbox` を実行してサンドボックスを有効にします。公式ドキュメントは、セキュリティに関わるものには権限ルールとサンドボックスの両方を使うよう勧めています。
+
+- サンドボックスは macOS・Linux・WSL2 で Claude のシェルコマンドを閉じ込めます。`Read` の deny ルールと `WebFetch(domain:...)` のルールも取り込みます。
+- 対象はシェルコマンドだけです。Claude のファイルツール、MCP サーバー、フックはサンドボックスの外で動きます。サンドボックス側の `denyRead` は `Read` ツールを止めず、`allowedDomains` は `WebFetch` を制限しません。
+- 既定では、サンドボックス内のコマンドは `~/.ssh` や `~/.aws/credentials` を含むマシンの大半を読めます。組み込みの認証情報の deny リストはないため、守るファイルと環境変数は `sandbox.credentials` に列挙します。
+- 既定では、ブロックされたコマンドについて、Claude はサンドボックスの外での再試行を求めることができます。この要求は通常の権限確認を通ります。`/sandbox` の **Overrides** タブにある strict sandbox mode は、この再試行を止めます。
+
+* Anthropic Engineering の記事（2025-10-20）は、有効なサンドボックスにはファイルシステムとネットワークの両方の隔離が要るとしています。片方だけでは、SSH 鍵の持ち出しやサンドボックスからの脱出の道が残るためです。公式ドキュメントも同じ警告を載せています。
+* Anthropic Engineering の記事（2026-05-25）は、ネットワークの許可リストを、行き先の許可より、能力の付与として捉えたほうがよいとしています。許可したドメインから届く機能は、すべて攻撃面になるためです。公式ドキュメントも、`github.com` のような広いドメインの許可はデータ持ち出しの経路になりうると警告しています。
+* Claude Developer Platform の「Mitigate jailbreaks and prompt injections」は、注入が成功しても被害が小さく済むよう、不要な秘密情報を渡さず、ツールをサンドボックスで動かし、権限をできるだけ絞るよう勧めています。
+
+有効化と対象外のものは [OS の仕組み・有効化・対象外のもの](/claude-code-deep-dive/ja/settings/sandbox/#ch25-os)、再試行と strict モードは [`excludedCommands`・サンドボックス外での再試行・strict モード](/claude-code-deep-dive/ja/settings/sandbox/#ch25-excluded-retry)、認証情報は [認証情報の保護と組織での強制](/claude-code-deep-dive/ja/settings/sandbox/#ch25-credentials-org) にあります。
+
+<div class="src">
+  出典: [best-practices#limit-access-with-permission-rules-and-the-sandbox](https://code.claude.com/docs/en/best-practices#limit-access-with-permission-rules-and-the-sandbox) · [sandboxing#what-the-sandbox-restricts](https://code.claude.com/docs/en/sandboxing#what-the-sandbox-restricts) · [#what-runs-outside-the-sandbox](https://code.claude.com/docs/en/sandboxing#what-runs-outside-the-sandbox) · [#protect-credentials](https://code.claude.com/docs/en/sandboxing#protect-credentials) · [#turn-off-the-retry-with-strict-sandbox-mode](https://code.claude.com/docs/en/sandboxing#turn-off-the-retry-with-strict-sandbox-mode) · [Anthropic Engineering「Beyond permission prompts: making Claude Code more secure and autonomous」](https://www.anthropic.com/research/claude-code-sandboxing)（2025-10-20） · [Anthropic Engineering「How we contain Claude across products」](https://www.anthropic.com/research/how-we-contain-claude)（2026-05-25） · 裏付け: [sandboxing#limitations](https://code.claude.com/docs/en/sandboxing#limitations) · [Claude Developer Platform「Mitigate jailbreaks and prompt injections」](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks)（日付の記載なし、2026-11-12 取得）
+</div>
+
+<span id="gd3-scope" />
+
+## 誰に効かせるかで置き場所を選ぶ
+
+公式ドキュメントによると、規則を置く場所が、その規則が誰に効くかを決めます。
+
+| 置き場所                                                     | 効く範囲                                                                                                         |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `.claude/settings.local.json`、`~/.claude/settings.json`     | 自分だけ。確認で **Yes, and don't ask again** を選ぶと、ルールはローカルのファイルに保存される                   |
+| `.claude/settings.json` とその中のフック                     | コミットすればリポジトリで作業する全員。deny ルールはすぐ効く。allow ルールは各自が信頼ダイアログを承認してから効く |
+| managed settings                                             | 組織。管理コンソール・MDM・`managed-settings.json` から届き、個人の設定ファイルでは上書きできない                |
+
+- セキュリティチームのポリシーを置ける場所は managed settings だけだとしています。
+- どのスコープでも、強制する規則は少なく保つよう勧めています。フックや deny ルールはどれも、ときどき誤って発動し、誰かが保守し続ける必要があるためです。40 個にもなっていたら、その多くは Claude が自分で判断できた好みだろうとしています。
+- security のページは、チームの運用として、managed settings で組織の基準を強制すること、承認済みの権限設定をバージョン管理で共有すること、`ConfigChange` フックでセッション中の設定変更を監査またはブロックすることを挙げています。
+
+スコープ間の優先は [スコープ間の優先と managed 専用のロック](/claude-code-deep-dive/ja/settings/permission-rules/#ch22-scopes)、信頼ダイアログは [ワークスペース信頼とリポジトリが持ち込む設定](/claude-code-deep-dive/ja/settings/permission-rules/#ch22-trust)、配布方法は [配布方式ごとの保存場所と、managed 専用キー](/claude-code-deep-dive/ja/enterprise/managed-settings/#ch58-delivery) にあります。
+
+<div class="src">
+  出典: [best-practices#choose-who-a-rule-applies-to](https://code.claude.com/docs/en/best-practices#choose-who-a-rule-applies-to) · [security#team-security](https://code.claude.com/docs/en/security#team-security)
+</div>
+
+<span id="gd3-untrusted" />
+
+## 信頼できない入力と拡張に備える
+
+security のページは、信頼できない内容を扱うときの習慣として次を挙げています。
+
+- 提案されたコマンドは、承認する前に確かめます。
+- 信頼できない内容を Claude に直接パイプで渡しません。
+- 重要なファイルへの変更は確かめます。
+- 外部の Web サービスとやり取りするときは特に、スクリプトやツール呼び出しを仮想マシンで動かします。
+- 不審な動きは `/feedback` で報告します。
+
+拡張と、他人のリポジトリについては次のとおりです。
+
+- MCP サーバーは、自分で書いたものか信頼できる提供元のものを使うよう勧めています。Anthropic はどの MCP サーバーもセキュリティ監査していません。`.mcp.json` を見ても、他のスコープ・claude.ai コネクタ・プラグインから来るサーバーは分かりません。
+- プラグインは自分の権限でコードを動かし、指示として Claude のコンテキストに入る内容も持ち込みます。そのため、入れる前に中身を確かめるよう勧めています。
+- リポジトリの Skill の `allowed-tools` は、一度も信頼していないフォルダでの `-p` 実行でも適用されます。そのリポジトリで Claude Code を動かす前に確かめるよう勧めています。
+- 自分が書いていないリポジトリで `claude -p` を動かす前に、何を実行させるかを決めるよう勧めています。手段は `--setting-sources user`、`--bare`、`--settings '{"disableAllHooks": true}'`、`disabledMcpjsonServers` です。
+
+* Anthropic Engineering の記事（2025-10-16）は、Skill は信頼できる提供元からだけ入れ、そうでないものは同梱のファイル・スクリプト・外部への接続の指示を読んでから使うよう勧めています。公式ドキュメントも、プラグインは入れる前に中身を確かめるよう勧めています。
+
+security-guidance プラグインは、Claude が書いたコードを編集ごと・ターンの終わり・コミットやプッシュのときに見直させます。ただし、どの層も書き込みやコミットを止めません。公式ドキュメントは、多層防御の 1 層として扱い、完全な対策とみなさないよう注意しています。詳細は [security-guidance プラグイン: 書いたコードを自分で見直させる](/claude-code-deep-dive/ja/settings/security/#ch26-security-guidance)、全体像は [セキュリティモデルとプロンプトインジェクション対策](/claude-code-deep-dive/ja/settings/security/#ch26-model) にあります。
+
+<div class="src">
+  出典: [security#protect-against-prompt-injection](https://code.claude.com/docs/en/security#protect-against-prompt-injection) · [#mcp-security](https://code.claude.com/docs/en/security#mcp-security) · [plugins/security#understand-what-a-plugin-can-do](https://code.claude.com/docs/en/plugins/security#understand-what-a-plugin-can-do) · [skills#pre-approve-tools-for-a-skill](https://code.claude.com/docs/en/skills#pre-approve-tools-for-a-skill) · [permissions#what-runs-before-you-trust-a-folder](https://code.claude.com/docs/en/permissions#what-runs-before-you-trust-a-folder) · [security-guidance#review-independence-and-limits](https://code.claude.com/docs/en/security-guidance#review-independence-and-limits) · [Anthropic Engineering「Equipping agents for the real world with Agent Skills」](https://www.anthropic.com/research/equipping-agents-for-the-real-world-with-agent-skills)（2025-10-16） · 裏付け: [plugins/security#review-a-plugin-before-you-install](https://code.claude.com/docs/en/plugins/security#review-a-plugin-before-you-install)
+</div>

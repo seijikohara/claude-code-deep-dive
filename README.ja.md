@@ -16,23 +16,25 @@ Claude Code の全機能を解説するリファレンスサイトです。コ�
 
 ## 扱う内容
 
-- Part 0: 導入
-- Part I: 基礎の深掘り（エージェントループ、モデルと Effort、Fast mode、Advisor、コンテキスト管理、セッション、チェックポイント、メモリ）
-- Part II: 操作（スラッシュコマンド全件、キーボードと入力、キーバインド、ステータスライン、出力スタイル、表示）
-- Part III: 設定と安全（設定ファイル、設定キー、環境変数、組み込みツール、権限、パーミッションモード、Auto mode、サンドボックス、診断）
-- Part IV: 拡張（Hooks、Skills、MCP、プラグインとマーケットプレイス、Mods、Channels、Artifacts）
-- Part V: 並列化（サブエージェント、Agent View、Agent Teams、セッション間メッセージング、Dynamic Workflows、worktree、スケジュール実行）
-- Part VI: 自動化（ヘッドレス実行、Agent SDK、CI/CD、コードレビュー）
-- Part VII: プラットフォーム（Desktop、Web とクラウドセッション、Remote Control、IDE、Chrome、Slack、Claude Tag、Projects）
-- Part VIII: エンタープライズ（インストール、認証、管理設定、クラウドプロバイダ、ゲートウェイ、監視とコスト）
-- Part IX: まとめ（ステータス一覧、タイムライン、直近のリリース、改名と削除、ドキュメントと実機の食い違い）
-- Part X: 全件付録（設定キー、環境変数、CLI フラグとサブコマンド、Hook イベント、組み込みツール）
+- 導入
+- 実践ガイド（公式ドキュメントと Anthropic の発信が勧める使い方）
+- 基礎の深掘り（エージェントループ、モデルと Effort、Fast mode、Advisor、コンテキスト管理、セッション、チェックポイント、メモリ）
+- 操作（スラッシュコマンド全件、キーボードと入力、キーバインド、ステータスライン、出力スタイル、表示）
+- 設定と安全（設定ファイル、設定キー、環境変数、組み込みツール、権限、パーミッションモード、Auto mode、サンドボックス、診断）
+- 拡張（Hooks、Skills、MCP、プラグインとマーケットプレイス、Mods、Channels、Artifacts）
+- 並列化（サブエージェント、Agent View、Agent Teams、セッション間メッセージング、Dynamic Workflows、worktree、スケジュール実行）
+- 自動化（ヘッドレス実行、Agent SDK、CI/CD、コードレビュー）
+- プラットフォーム（Desktop、Web とクラウドセッション、Remote Control、IDE、Chrome、Slack、Claude Tag、Projects）
+- エンタープライズ（インストール、認証、管理設定、クラウドプロバイダ、ゲートウェイ、監視とコスト）
+- まとめ（ステータス一覧、タイムライン、直近のリリース、改名と削除、ドキュメントと実機の食い違い）
+- 全件付録（設定キー、環境変数、CLI フラグとサブコマンド、Hook イベント、組み込みツール）
 
 ## 確認の方法
 
 - すべての節に出典を記載します。ドキュメントのページとアンカー、changelog のバージョン、実機で確かめた事実には `実機確認 2.1.321` を付けます。
 - 一般提供前の機能には、Beta・Preview・Experimental・Undocumented・Deprecated・Removed のいずれかのステータスを付けます。
 - ドキュメント・changelog・実機の記述が食い違う箇所では、両方の説を並べて示します。
+- 実践ガイドは、Claude の開発者向け公式ドキュメントと Anthropic の発信（Anthropic Engineering の記事、GitHub の anthropics リポジトリ）も参照します。Anthropic の発信からは、公式ドキュメントで裏付けが取れた推奨だけを載せます。
 - 執筆者とは別の確認者が、全章を出典と照合しました。
 - `tools/lint.mjs --site dist` が、ビルド済みサイトについて、識別子と調査資料の照合、個人情報の混入、付録の網羅、節ごとの出典、内部リンクを検査します。
 

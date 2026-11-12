@@ -1,0 +1,153 @@
+---
+title: "大規模リポジトリ"
+description: "モノレポや大きな単一ツリーのリポジトリで、Claude が作業中のコードに集中できるように、公式ドキュメントが勧める設定と進め方をまとめます。読み込む範囲の絞り方、ディレクトリごとの CLAUDE.md と Skill、規約の一元化、複数パッケージにまたがる変更を扱います。"
+sidebar:
+  order: 8
+---
+
+モノレポや大きな単一ツリーのリポジトリで、Claude が作業中のコードに集中できるように、公式ドキュメントが勧める設定と進め方をまとめます。読み込む範囲の絞り方、ディレクトリごとの CLAUDE.md と Skill、規約の一元化、複数パッケージにまたがる変更を扱います。
+
+<span id="gd8-scope" />
+
+## 大規模リポジトリとモノレポで読み込む範囲を絞る
+
+公式ドキュメントの large-codebases ページは、コードベースが大きくなると、小さなプロジェクト向けの既定のままではタスクと関係のない指示やファイル読み取りでコンテキストが埋まることがあるとしています。そのうえで、起動場所の違いと、目的ごとの設定を次のように整理しています。
+
+| 起動場所         | ファイルアクセス                     | 起動時に読む CLAUDE.md                   |
+| ---------------- | ------------------------------------ | ---------------------------------------- |
+| ルート           | 全ファイル                           | ルートのみ。サブディレクトリの分は必要時 |
+| サブディレクトリ | そのサブツリーのみ（許可を足すまで） | そのディレクトリと全祖先の分             |
+
+| 目的                                  | 手段                                                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 触るコードの規約だけを読ませる        | ディレクトリごとの CLAUDE.md                                                                                                          |
+| 触らないパッケージの CLAUDE.md を外す | `claudeMdExcludes`（[`--add-dir` と `claudeMdExcludes`](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-add-dir-excludes)） |
+| 生成コード・vendor を開かせない       | `permissions.deny` の `Read`                                                                                                          |
+| 定義と参照を走査なしで引く            | code intelligence プラグイン                                                                                                          |
+| worktree に必要な分だけ置く           | `worktree.sparsePaths`                                                                                                                |
+| 隣のパッケージも編集する              | `--add-dir`、`additionalDirectories`                                                                                                  |
+| その領域だけで使う手順                | ディレクトリごとの Skill                                                                                                              |
+| 規約を一元管理する                    | 社内マーケットプレイスのプラグイン                                                                                                    |
+
+`packages/api/.claude/settings.json`（docs の「Put it together」）
+
+```json title="packages/api/.claude/settings.json"
+{
+  "worktree": {
+    "sparsePaths": [".claude", "packages/api", "packages/shared"],
+    "symlinkDirectories": ["node_modules"]
+  },
+  "permissions": {
+    "additionalDirectories": ["../shared"],
+    "deny": ["Read(./**/dist/**/*)", "Read(./**/build/**/*)"]
+  }
+}
+```
+
+- `.claude/settings.json` は CLAUDE.md と違い、親から継承されません。ディレクトリごとに単独で完結させます。
+- worktree 内の作業ディレクトリは worktree のルートです。このファイルは読まれないため、deny ルールはルートの `.claude/settings.json` にも置きます。
+- deny を `/**` でなく `/**/*` で終えると、`ls dist` や `cd build` はできます。
+
+<div class="src">
+  出典: [large-codebases#settings-on-this-page](https://code.claude.com/docs/en/large-codebases#settings-on-this-page) · [#choose-where-to-start-claude](https://code.claude.com/docs/en/large-codebases#choose-where-to-start-claude) · [#block-reads-of-generated-and-vendored-code](https://code.claude.com/docs/en/large-codebases#block-reads-of-generated-and-vendored-code) · [#put-it-together](https://code.claude.com/docs/en/large-codebases#put-it-together)
+</div>
+
+<span id="gd8-claude-md" />
+
+## CLAUDE.md をディレクトリごとに分け、各ディレクトリの持ち主が保守する
+
+公式ドキュメントは、大きなコードベースでルートの CLAUDE.md 1 つに頼ると、全サブシステムの規約で膨らむか、汎用的すぎて役に立たないかのどちらかになりやすいとしています。そのうえで、次の分け方と保守のしかたを勧めています。
+
+- よくある分け方は 2 段です。ルートの `CLAUDE.md` には、どこでも当てはまる指示（コーディング標準やコミットの規約など）を書きます。サブディレクトリの `CLAUDE.md` には、その領域のスタックに固有の規約を書きます。モノレポならパッケージごと、単一ツリーなら `src/db/` のようなサブシステムごとです。
+- これらのファイルはリポジトリにコミットし、チームが引き継げるようにします。各ディレクトリの持ち主が自分のファイルを保守するのが一般的です。
+- `packages/api/` から起動すると、`packages/api/CLAUDE.md` とルートの `CLAUDE.md` が読まれ、`packages/web/` の指示は入りません。読み込まれたファイルは `/context all` の **Memory files** で確かめます。
+- コミット済みのファイルを削るときは、`/doctor` で削減案を出します。
+- 内容を新しく保つ方法として、公式ドキュメントは次の 3 つを挙げています。
+  - CLAUDE.md の変更を、他のドキュメントの変更と同じく PR でレビューします。
+  - 大きなモデルリリースのあとで見直します。古いモデルの弱点を補うための指示は、新しいモデルでは余計な負担になることがあります。
+  - 更新案を出す `Stop` フックを足します。フックはセッションの transcript のパスを受け取るので、スクリプトがセッションを見直して CLAUDE.md の更新を提案できます。
+
+ディレクトリごとの CLAUDE.md と、`.claude/rules/` のパス指定ルールの使い分けは、公式ドキュメントでは次のとおりです。
+
+| 方式                              | 置き場所                         | 読み込まれるとき                           | 向く場面                                                     |
+| --------------------------------- | -------------------------------- | ------------------------------------------ | ------------------------------------------------------------ |
+| ディレクトリごとの `CLAUDE.md`    | そのディレクトリ。コードの隣     | そこから起動したとき、またはオンデマンド   | 持ち主が自分の規約を保守する。指示をコードと一緒に版管理する |
+| `.claude/rules/` のパス指定ルール | リポジトリルートの `.claude/`    | `paths:` の glob に一致するファイルを扱うとき | 規約を 1 か所にまとめる。同じ規則が散らばったパスに当てはまる |
+
+詳細は [サブディレクトリのオンデマンド読み込みとサイズ上限](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-on-demand) と [`.claude/rules/` と `paths`: 読み込み条件とパターン](/claude-code-deep-dive/ja/fundamentals/memory/#ch09-rules) にあります。
+
+<div class="src">
+  出典: [large-codebases#layer-claude-md-files-by-directory](https://code.claude.com/docs/en/large-codebases#layer-claude-md-files-by-directory) · [#choose-between-per-directory-claude-md-and-path-scoped-rules](https://code.claude.com/docs/en/large-codebases#choose-between-per-directory-claude-md-and-path-scoped-rules)
+</div>
+
+<span id="gd8-skills" />
+
+## 領域ごとの手順はディレクトリごとの Skill にし、一覧を小さく保つ
+
+公式ドキュメントは、ディレクトリごとの Skill について次のことを勧めています。
+
+- 各サブディレクトリは、自分のスタック向けの Skill を `.claude/skills/` に持ち、その領域のコードと一緒にコミットします。Skill は Claude が関係すると判断したときだけ読み込まれます。
+- 例として、公式ドキュメントは API パッケージのテストの型を教える Skill を挙げています（抜粋）。
+
+```markdown title="packages/api/.claude/skills/api-testing/SKILL.md"
+---
+name: api-testing
+description: Testing patterns for the API package. Use when writing or modifying tests in packages/api/.
+---
+
+## Test structure
+
+Tests are in `src/__tests__/` mirroring the `src/` directory structure.
+Each route file has a corresponding `.test.ts` file.
+
+## Running tests
+
+- All tests: `npm test`
+- Single file: `npm test -- src/__tests__/routes/users.test.ts`
+```
+
+- 置き場所ではなくファイルパターンで絞るなら、`paths` frontmatter を使います。例はルートの `.claude/skills/` に置き、`**/migrations/**` に限るマイグレーションの Skill です。
+- 読み込まれる Skill は起動場所で変わります。サブディレクトリから起動すると、そのディレクトリから上の Skill とユーザー・enterprise の Skill が対象です。ルートから起動すると、セッション中に触れたサブディレクトリの Skill が加わり、数百に達することもあります。`additionalDirectories` はファイルアクセスを与えるだけで、Skill は読み込みません。
+- Skill が多いと、一部の Skill の説明文が一覧から落ち、Claude が判断に使う語が消えることがあります。説明文は短くし、依頼に含まれそうな語（例: 「writing or modifying tests in `packages/api/`」）から書き始めます。
+- 多くのディレクトリで共有する Skill（PR の規約やデプロイのチェックリストなど）は、ルートの `.claude/skills/` に置きます。独自の版履歴が要る場合や、複数のリポジトリで使う場合はプラグインにします。プラグインの Skill は `plugin-name:skill-name` の名前空間を持つため、ディレクトリごとの Skill とぶつかりません。
+- 使われない Skill を見つけるには、OpenTelemetry のログエクスポーターを有効にし、`OTEL_LOG_TOOL_DETAILS=1` を設定します。`skill_activated` イベントの `skill.name` と `invocation_trigger` から、統合や廃止の候補が分かります。
+
+Skill の説明文と本文の書き方は [拡張の作り方](/claude-code-deep-dive/ja/guide/extending/) に、読み込みの規則は [配置場所と読み込みの規則](/claude-code-deep-dive/ja/extensions/skills/#ch29-locations) にあります。
+
+<div class="src">
+  出典: [large-codebases#add-per-directory-skills](https://code.claude.com/docs/en/large-codebases#add-per-directory-skills) · [#keep-skills-discoverable](https://code.claude.com/docs/en/large-codebases#keep-skills-discoverable)
+</div>
+
+<span id="gd8-centralize" />
+
+## ディレクトリごとの管理で回らなくなったら、規約をプラグインにまとめる
+
+- 公式ドキュメントは、コードベースが大きくなると、ディレクトリごとの CLAUDE.md は統制しにくくなるとしています。規約がずれ、ファイルが古くなり、ルートの持ち主がいなくなります。この問題の対処は、各開発者ではなく、リポジトリの Claude Code 設定を保守するチームが担うことが多いとしています。
+- 公式ドキュメントは、常に読み込まれる CLAUDE.md から、必要なときに読み込まれる仕組みへ規約と参照資料を移すよう勧めています。
+  - **Skill**: タスクに関係するときだけ読み込まれる参照資料に使います。
+  - **プラグイン**: Skill・フック・コマンドを版管理してまとめます。プラットフォームチームが一元管理し、managed settings で全員に入れられます。
+  - **MCP サーバー**: 組織にコード検索や RAG のインデックスがすでにあれば、MCP ツールとして公開します。Claude はファイルを直接読む代わりに、そのツールに問い合わせます。
+- 規約をプラグインに移すと、見慣れない領域で起動した人には、その領域の持ち主がどのプラグインを保守しているか分かりません。公式ドキュメントは、`SessionStart` フックでこれを補う方法を挙げています。フックが標準出力に出した文は、最初のプロンプトの前に Claude の文脈に入ります。例は、起動ディレクトリをフックの入力から読み、リポジトリにコミットしたパスとプラグインの対応表を引いて、推奨を出すスクリプトです。
+
+社内マーケットプレイスでの配り方は [社内で配る Skill とプラグインを審査し、版を固定する](/claude-code-deep-dive/ja/guide/team-rollout/#gd9-extensions) に、組織での強制有効化は [組織管理: 登録と強制有効化](/claude-code-deep-dive/ja/extensions/marketplaces/#ch32-org) にあります。
+
+<div class="src">
+  出典: [large-codebases#centralize-conventions-when-layering-stops-scaling](https://code.claude.com/docs/en/large-codebases#centralize-conventions-when-layering-stops-scaling) · [#recommend-the-right-plugin-at-session-start](https://code.claude.com/docs/en/large-codebases#recommend-the-right-plugin-at-session-start)
+</div>
+
+<span id="gd8-cross-package" />
+
+## 複数パッケージにまたがる変更は、1 つのセッションで計画してから進める
+
+公式ドキュメントは、共有の型とその呼び出し箇所をすべて直すような変更では、設定だけでなくタスクの区切り方と順序も結果に効くとしています。勧めている方法は次の 2 つです。
+
+- **変更全体を 1 つのセッションで渡す**: 共有部分の編集と呼び出し箇所をまとめて渡すと、各編集の判断がそろいます。パッケージごとに判断をやり直さずに済みます。
+- **編集の前に計画する**: plan mode で計画すると、Claude は計画をファイルに書きます。長いセッションは途中でコンテキストを圧縮しますが、Claude Code は圧縮のたびに計画ファイルを入れ直します。会話履歴が失われても、計画は残ります。
+
+公式ドキュメントは、設定が整ったあとの次の段階として、フックで編集後にディレクトリごとのリンターや型チェッカーを動かすことと、広く展開する前にコードベースの大きさがトークン使用量にどう効くかを把握し、支出の上限を決めることを挙げています。
+
+詳細は [`acceptEdits` と `plan`](/claude-code-deep-dive/ja/settings/permission-modes/#ch23-acceptedits-plan) と [圧縮で残るもの・消えるもの](/claude-code-deep-dive/ja/fundamentals/context/#ch06-survives) に、計画の使い方は [セッションの進め方](/claude-code-deep-dive/ja/guide/steering/) にあります。
+
+<div class="src">
+  出典: [large-codebases#scope-and-plan-changes-that-span-packages](https://code.claude.com/docs/en/large-codebases#scope-and-plan-changes-that-span-packages) · [#next-steps](https://code.claude.com/docs/en/large-codebases#next-steps)
+</div>

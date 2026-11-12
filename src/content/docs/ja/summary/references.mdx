@@ -31,6 +31,46 @@ import { Badge } from "@astrojs/starlight/components";
   出典: [Claude Code docs index](https://code.claude.com/docs/llms.txt) · [changelog](https://code.claude.com/docs/en/changelog) · [whats-new](https://code.claude.com/docs/en/whats-new) · 実機確認 2.1.321
 </div>
 
+<span id="ch69-guide-sources" />
+
+## 実践ガイドで追加した情報源
+
+[実践ガイド](/claude-code-deep-dive/ja/guide/) だけは、Claude Code のドキュメントに加えて次の資料も参照しました。取得日はいずれも 2026-11-12 です。
+
+- Anthropic の発信からは、Claude Code のドキュメントで裏付けが取れた推奨だけを載せました。
+- 古くなった助言は推奨には使わず、[やめてよい習慣](/claude-code-deep-dive/ja/guide/stop-doing/) で注意として示しました。
+
+**Claude の開発者向け公式ドキュメント**（platform.claude.com。日付の記載なし）: [Agent Skills](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview)、[Context windows](https://platform.claude.com/docs/en/build-with-claude/context-windows)、[Define tools](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools)、[Handle tool calls](https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls)、[How tool use works](https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works)、[Mitigate jailbreaks and prompt injections](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks)、[Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)、[Prompting Claude Fable 5.2](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2)、[Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5)、[Prompting Claude Sonnet 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5-5)、[Prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)、[Reduce hallucinations](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations)、[Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)、[Skills for enterprise](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/enterprise)、[Steering thinking](https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost)、[Tool search tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool)
+
+**Anthropic Engineering**（公開日）:
+
+- [Raising the bar on SWE-bench Verified with Claude 3.5 Sonnet](https://www.anthropic.com/research/swe-bench-sonnet)（2025-01-06）
+- [How we built our multi-agent research system](https://www.anthropic.com/research/multi-agent-research-system)（2025-06-13）
+- [Effective context engineering for AI agents](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents)（2025-09-29）
+- [Equipping agents for the real world with Agent Skills](https://www.anthropic.com/research/equipping-agents-for-the-real-world-with-agent-skills)（2025-10-16）
+- [Beyond permission prompts: making Claude Code more secure and autonomous](https://www.anthropic.com/research/claude-code-sandboxing)（2025-10-20）
+- [Effective harnesses for long-running agents](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents)（2025-11-26）
+- [Building a C compiler with a team of parallel Claudes](https://www.anthropic.com/research/building-c-compiler)（2026-02-05）
+- [How we built Claude Code auto mode: a safer way to skip permissions](https://www.anthropic.com/research/claude-code-auto-mode)（2026-03-25）
+- [An update on recent Claude Code quality reports](https://www.anthropic.com/research/april-23-postmortem)（2026-04-23）
+- [How we contain Claude across products](https://www.anthropic.com/research/how-we-contain-claude)（2026-05-25）
+- [Redesigning source control at Anthropic](https://www.anthropic.com/research/redesigning-source-control)（2026-10-13）
+
+**claude.dev**（公開日）:
+
+- [Lessons from building Claude Code: How we use skills](https://claude.dev/blog/lessons-from-building-claude-code-how-we-use-skills/)（2026-06-03）
+- [The new rules of context engineering for Claude 5 generation models](https://claude.dev/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models/)（2026-07-24）
+- [Getting the most out of Opus 5.5 in Claude and Claude Code](https://claude.dev/blog/getting-the-most-out-of-opus-5-5/)（2026-09-22）
+- [What a task costs on Opus 5.5](https://claude.dev/blog/what-a-task-costs-on-opus-5-5/)（2026-09-25）
+- [How the Claude Code team does code review](https://claude.dev/blog/solving-code-review-at-anthropic/)（2026-10-15）
+- [Which Claude model should you build with? Fable, Opus, Sonnet, or Haiku](https://claude.dev/blog/which-claude-model-should-you-build-with/)（2026-11-09）
+
+**GitHub の anthropics リポジトリ**（コミットに固定したリンク）: [anthropics/skills「README」](https://github.com/anthropics/skills/blob/2c5958ecac7cee2b583967a2c4981d0f4a75c579/README.md)（日付の記載なし、コミット 2026-11-06）
+
+<div class="src">
+  出典: 上記の各資料（2026-11-12 取得） · [best-practices](https://code.claude.com/docs/en/best-practices)
+</div>
+
 <span id="ch69-evidence" />
 
 ## 証拠の段階と出典表記の読み方
@@ -38,6 +78,8 @@ import { Badge } from "@astrojs/starlight/components";
 | 根拠                            | 本文での扱い                                                                                                                                                                                         |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ドキュメント                    | 事実。出典欄にページへのリンク。バッジはページの現在の表記に従う（[実験的・プレビュー機能一覧](/claude-code-deep-dive/ja/summary/status-board/)）                                                                          |
+| Claude の開発者向けドキュメント（実践ガイドのみ） | 推奨。Claude Code に当てはまり、Claude Code のドキュメントと食い違わないものだけ。出典欄に資料名と取得日 |
+| Anthropic の発信（実践ガイドのみ） | 推奨。Claude Code のドキュメントで裏付けが取れたものだけ。出典欄に資料名・公開日と「裏付け」のリンク |
 | changelog だけ                  | 事実。出典欄は「changelog 2.1.x（リファレンス未掲載）」。Undocumented バッジは付けない                                                                                                               |
 | 保存した実行出力                | 事実。出典欄に「実機確認 2.1.321」。伏せ字を入れたうえで原文のまま引用                                                                                                                               |
 | 実行したが出力は未保存          | 出典欄に「実機確認 2.1.321」。調査メモに残る範囲を超えて出力を引用しない                                                                                                                             |

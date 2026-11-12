@@ -1,0 +1,125 @@
+---
+title: "セッションの進め方"
+description: "セッションの途中で方向を直す操作を扱います。最初の見守りと中断、チェックポイントでの巻き戻し、やり直しの判断、plan mode、脇の質問と調査、複数日にわたる作業の再開について、出典が勧める使い方を示します。"
+sidebar:
+  order: 5
+---
+
+セッションの途中で方向を直す操作を扱います。最初の見守りと中断、チェックポイントでの巻き戻し、やり直しの判断、plan mode、脇の質問と調査、複数日にわたる作業の再開について、出典が勧める使い方を示します。
+
+<span id="gd5-watch" />
+
+## 最初の 1 分を見て、ずれたら `Esc` で止める
+
+公式ドキュメントは、最初の 1 分を見て、Claude が意図と違う方向に進んだ瞬間に <kbd>Esc</kbd> を押すよう勧めています。どんな設定も、この見守りと介入の代わりにはならないとしています。
+
+- <kbd>Esc</kbd> は実行中の操作を止め、そこまでの作業を残します。作業を失わずに方向を変えられます。
+- 公式ドキュメントは、早めに止めると、間違った方向に進んで無駄になるトークンを防げるとしています。
+- 止めずに指示を足したいときは、Claude の作業中にメッセージを入力して <kbd>Enter</kbd> を押します。Claude Code はターンを中断せず、メッセージをキューに入れます。
+- Claude Developer Platform の「Reduce hallucinations」は、答えがおかしいときに要約された思考を読み、誤った前提を探すよう勧めています。Claude Code は思考を既定で折りたたみます。<kbd>Ctrl</kbd>+<kbd>O</kbd> で展開します。Anthropic API の対話セッションで要約の全文を見るには、`showThinkingSummaries: true` を設定します。
+
+詳細は [制御キー: 中断・終了・モード切り替え](/claude-code-deep-dive/ja/operation/keyboard/#ch13-control)、[キューイング: 作業中に送ったメッセージの扱い](/claude-code-deep-dive/ja/operation/keyboard/#ch13-queue)、[adaptive reasoning・固定の思考予算と思考の制御](/claude-code-deep-dive/ja/fundamentals/effort/#ch03-thinking) にあります。
+
+<div class="src">
+  出典: [best-practices#steer-the-session](https://code.claude.com/docs/en/best-practices#steer-the-session) · [costs#work-efficiently-on-complex-tasks](https://code.claude.com/docs/en/costs#work-efficiently-on-complex-tasks) · [interactive-mode#queue-messages-while-claude-works](https://code.claude.com/docs/en/interactive-mode#queue-messages-while-claude-works) · [Claude Developer Platform「Reduce hallucinations」](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations#advanced-techniques)（日付の記載なし、2026-11-12 取得） · 裏付け: [model-config#extended-thinking](https://code.claude.com/docs/en/model-config#extended-thinking)
+</div>
+
+<span id="gd5-rewind" />
+
+## 大胆な案を先に試し、だめなら `/rewind` で戻す
+
+- `/rewind`、または入力欄が空のときに <kbd>Esc</kbd> を 2 回押すと、巻き戻しメニューが開きます。
+- 以前のプロンプトの時点まで、コード・会話・その両方を戻せます。
+- 公式ドキュメントは、戻せるので大胆な方法を先に試しやすくなるとしています。
+- 同じメニューで、古くなった会話の一部を要約できます（**Summarize from here**・**Summarize up to here**）。
+
+:::caution[注意]
+チェックポイントが対象にするのは、メイン会話で Claude が自分のファイル編集ツールで変えたファイルです。
+
+- Bash コマンドだけが変えたファイルは戻りません。
+- サブエージェントの編集は、多くの場合戻りません。
+- 公式ドキュメントは、チェックポイントを git の代わりではなく、git と併用するものとしています。
+:::
+
+詳細は [`/rewind` メニュー](/claude-code-deep-dive/ja/fundamentals/checkpoints/#ch08-rewind)、[追跡されない変更と SDK からの利用](/claude-code-deep-dive/ja/fundamentals/checkpoints/#ch08-limits) にあります。
+
+<div class="src">
+  出典: [best-practices#steer-the-session](https://code.claude.com/docs/en/best-practices#steer-the-session) · [checkpointing#rewind-and-summarize](https://code.claude.com/docs/en/checkpointing#rewind-and-summarize) · [#bash-command-changes-not-tracked](https://code.claude.com/docs/en/checkpointing#bash-command-changes-not-tracked) · [#subagent-edits-not-restored](https://code.claude.com/docs/en/checkpointing#subagent-edits-not-restored) · [#not-a-replacement-for-version-control](https://code.claude.com/docs/en/checkpointing#not-a-replacement-for-version-control)
+</div>
+
+<span id="gd5-clear" />
+
+## 2 回直して直らなければ `/clear` して書き直す
+
+公式ドキュメントは、同じことを 2 回訂正してもまだ違うなら、3 回目の訂正をせずに `/clear` するよう勧めています。そのうえで、分かったことを織り込んだ新しいプロンプトを 1 つ書きます。
+
+- 理由: 3 回目の訂正は、失敗した 2 回の試みを含む会話に足されるだけです。Claude はその試みを読み直し続けます。
+- 公式ドキュメントは、`/clear` と書き直した 1 つのプロンプトのほうが、ほぼ毎回うまくいくとしています。
+- `/clear` しても前のセッションは保存されます。`/clear oauth-migration` のように名前を付けると、後で `/resume` から戻りやすくなります。
+- 公式ドキュメントは、実行が途中で止まったときは `continue` と送ればよいとしています。「続けて」「手を抜かないで」と前もって書く行は、不要になった助言に挙げられています（[やめてよい習慣](/claude-code-deep-dive/ja/guide/stop-doing/)）。
+
+詳細は [`/clear`・`/compact`・rewind 要約・自動圧縮の比較](/claude-code-deep-dive/ja/fundamentals/context/#ch06-compare)、[再開の入口](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-resume-entry) にあります。
+
+<div class="src">
+  出典: [best-practices#steer-the-session](https://code.claude.com/docs/en/best-practices#steer-the-session) · [#keep-cost-and-context-down](https://code.claude.com/docs/en/best-practices#keep-cost-and-context-down) · [#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing) · [sessions#resume-a-session](https://code.claude.com/docs/en/sessions#resume-a-session) · [costs#manage-context-proactively](https://code.claude.com/docs/en/costs#manage-context-proactively)
+</div>
+
+<span id="gd5-plan" />
+
+## 編集の前に確かめたい変更は plan mode で計画から始める
+
+公式ドキュメントは、ディスクに触る前に確認したい変更には plan mode を使うよう勧めています。Claude はファイルを読んで計画を出し、承認するまでソースを編集しません。
+
+- `claude --permission-mode plan` で始めるか、セッション中に <kbd>Shift</kbd>+<kbd>Tab</kbd> を `⏸ plan mode on` が出るまで押します。1 つのプロンプトだけなら、先頭に `/plan` を付けます。
+- 公式ドキュメントは、複雑な作業では実装前に plan mode で方向を承認するよう勧めています。最初の方向が違っていたときの高くつく手戻りを防げるためです。
+- 提示された計画は、<kbd>Ctrl</kbd>+<kbd>G</kbd> でエディタを開いて直してから承認できます。
+- plan mode で書いた計画は、圧縮の後もディスクから読み込み直されます。
+- Claude Developer Platform の「Prompting best practices」は、「変更を提案して」のような頼み方では、実装せず提案だけを返すことがあるとしています。そのため、変更してほしいのか提案だけ欲しいのかをはっきり書くよう勧めています。Claude Code では、編集せず提案だけを受け取るモードが plan mode です。
+
+詳細は [`acceptEdits` と `plan`](/claude-code-deep-dive/ja/settings/permission-modes/#ch23-acceptedits-plan) にあります。
+
+<div class="src">
+  出典: [common-workflows#plan-before-editing](https://code.claude.com/docs/en/common-workflows#plan-before-editing) · [permission-modes#analyze-before-you-edit-with-plan-mode](https://code.claude.com/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode) · [#review-and-approve-a-plan](https://code.claude.com/docs/en/permission-modes#review-and-approve-a-plan) · [costs#work-efficiently-on-complex-tasks](https://code.claude.com/docs/en/costs#work-efficiently-on-complex-tasks) · [context-window#what-survives-compaction](https://code.claude.com/docs/en/context-window#what-survives-compaction) · [Claude Developer Platform「Prompting best practices」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices#tool-usage)（日付の記載なし、2026-11-12 取得） · 裏付け: [permission-modes#analyze-before-you-edit-with-plan-mode](https://code.claude.com/docs/en/permission-modes#analyze-before-you-edit-with-plan-mode)
+</div>
+
+<span id="gd5-side" />
+
+## 脇の質問は `/btw`、広い調査はサブエージェントに渡す
+
+- `/btw` は、今の作業についての短い質問に、会話履歴へ何も足さずに答えます。
+  - 答えは会話にすでにある内容だけから作られ、ファイルの読み取りやコマンドは使いません。
+  - Claude の作業中にも使えます。キャッシュが温かい間は、答え以外の費用はわずかです。
+  - 公式ドキュメントは、会話の中身についての質問にはサブエージェントではなく `/btw` を使うよう勧めています。
+- 広い調査は、サブエージェントに任せて結論だけを受け取れます。サブエージェントは自分のコンテキストでファイルを読み、要約を返します。
+
+```text
+use a subagent to investigate how our auth system handles token refresh
+```
+
+- 公式ドキュメントは、サブエージェントが役立つ場面の 1 つに、長い出力をメイン会話に残さないことを挙げています。
+- 一方で、各サブエージェントはトークンを追加で使います（[サブエージェントの費用を知って使う](/claude-code-deep-dive/ja/guide/defaults-cost/#gd4-subagents)）。
+- コンテキスト切れを防ぐための委譲や、よい答えを得るための委譲は、不要になった助言に挙げられています（[やめてよい習慣](/claude-code-deep-dive/ja/guide/stop-doing/)）。
+
+詳細は [サイドクエスチョン: `/btw`](/claude-code-deep-dive/ja/operation/keyboard/#ch13-btw)、[コンテキスト分離モデル](/claude-code-deep-dive/ja/parallel/subagents/#ch37-isolation) にあります。
+
+<div class="src">
+  出典: [best-practices#steer-the-session](https://code.claude.com/docs/en/best-practices#steer-the-session) · [#know-what-subagents-cost](https://code.claude.com/docs/en/best-practices#know-what-subagents-cost) · [#what-you-can-stop-doing](https://code.claude.com/docs/en/best-practices#what-you-can-stop-doing) · [interactive-mode#side-questions-with-%2Fbtw](https://code.claude.com/docs/en/interactive-mode#side-questions-with-%2Fbtw) · [common-workflows#delegate-research-to-subagents](https://code.claude.com/docs/en/common-workflows#delegate-research-to-subagents) · [sub-agents#choose-between-subagents-and-main-conversation](https://code.claude.com/docs/en/sub-agents#choose-between-subagents-and-main-conversation)
+</div>
+
+<span id="gd5-resume" />
+
+## 数日にわたる作業は名前を付けて再開する
+
+公式ドキュメントは、数日にわたる作業にはセッション中に `/rename oauth-migration` で名前を付けるよう勧めています。後でシェルから `claude --resume oauth-migration` を実行すると、チェックポイントも含めて再開できます。
+
+- `claude --continue` は、今のディレクトリで最も新しいセッションを再開します。
+- `claude --resume` は一覧から選びます。セッションの中からは `/resume` を使います。
+- 名前での再開は、今のリポジトリとその worktree をまたいで探します。
+- 起動時に名前を付けるには `claude -n auth-refactor` を使います。名前のないセッションで計画を承認すると、計画に基づくタイトルが付きます。
+- Claude Developer Platform の「Prompting best practices」は、複数のコンテキストにまたがる作業では状態をファイルと git に残すよう勧めています。テスト結果のような構造化された状態は JSON などに、全体の進み具合は自由形式のメモに書き、git を作業の記録と戻り先に使うとしています。公式ドキュメントも、チェックポイントは git の代わりではないとしています。
+
+詳細は [再開の入口](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-resume-entry)、[ピッカー・名前・`/rename`](/claude-code-deep-dive/ja/fundamentals/sessions/#ch07-picker) にあります。
+
+<div class="src">
+  出典: [best-practices#steer-the-session](https://code.claude.com/docs/en/best-practices#steer-the-session) · [common-workflows#resume-previous-conversations](https://code.claude.com/docs/en/common-workflows#resume-previous-conversations) · [sessions#resume-a-session](https://code.claude.com/docs/en/sessions#resume-a-session) · [#resume-by-session-id-or-name](https://code.claude.com/docs/en/sessions#resume-by-session-id-or-name) · [#name-your-sessions](https://code.claude.com/docs/en/sessions#name-your-sessions) · [Claude Developer Platform「Prompting best practices」](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices#state-management-best-practices)（日付の記載なし、2026-11-12 取得） · [checkpointing#not-a-replacement-for-version-control](https://code.claude.com/docs/en/checkpointing#not-a-replacement-for-version-control)
+</div>
