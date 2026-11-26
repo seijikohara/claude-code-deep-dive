@@ -43,5 +43,5 @@
     "unified": "^11.0.5",
     "unist-util-visit": "^5.2.0"
   },
-  "packageManager": "pnpm@12.18.0"
+  "packageManager": "pnpm@12.23.0"
 }
